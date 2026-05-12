@@ -1,0 +1,29 @@
+site_name: Vinyl Projection Mapping Player
+site_description: Custom vinyl shelf with NFC reader for playing records and projecting metadata
+repo_url: https://github.com/Mutazz-Z/Vinyl-Projection-Mapping-Player
+repo_name: Vinyl-Projection-Mapping-Player
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Installation: installation.md
+  - Features: features.md
+  - Contributing: contributing.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.emoji
+  - pymdownx.tasklist
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
