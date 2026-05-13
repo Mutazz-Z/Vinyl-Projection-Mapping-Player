@@ -1,0 +1,34 @@
+name: Orchestrator Build
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+concurrency:
+  group: orchestrator-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Orchestrator
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: orchestrator/go.mod
+          cache-dependency-path: orchestrator/go.sum
+
+      - name: Ensure builds directory exists
+        run: mkdir -p builds
+
+      - name: Build orchestrator
+        run: make -C orchestrator build
