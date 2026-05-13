@@ -1,16 +1,24 @@
-BINARY = ../builds/vinyl-orchestrator
+BINARY_MACOS = ../builds/vinyl-orchestrator-macos-arm64
 BINARY_RPI64 = ../builds/vinyl-orchestrator-linux-arm64
-BINARY_RPI32 = ../builds/vinyl-orchestrator-linux-armv7
+DATABASE = ../builds/vinyl.database
 
-.PHONY: build_all clean build-rpi64 build-rpi32
+.PHONY: \
+    build_all \
+    build-rpi64 \
+    build-macos-arm64 \
+    clean-binaries \
+	clean-database
 
-build_all: build-rpi64 build-rpi32
+build_all: build-rpi64 build-macos-arm64
 
 build-rpi64:
 	GOOS=linux GOARCH=arm64 go build -o $(BINARY_RPI64) .
 
-build-rpi32:
-	GOOS=linux GOARCH=arm GOARM=7 go build -o $(BINARY_RPI32) .
+build-macos-arm64:
+	GOOS=darwin GOARCH=arm64 go build -o $(BINARY_MACOS) .
 
-clean:
-	rm -f $(BINARY) $(BINARY_RPI64) $(BINARY_RPI32)
+clean-binaries:
+	rm -f $(BINARY_MACOS) $(BINARY_RPI64)
+
+clean-database:
+	rm -f $(DATABASE)

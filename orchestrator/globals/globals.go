@@ -1,4 +1,4 @@
-package main
+package globals
 
 import (
 	"database/sql"
@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	Database          *sql.DB
-	MQTTClient        mqtt.Client
-	StopTimer         *time.Timer
-	CurrentPlayingUID string
+	Database           *sql.DB
+	MQTTClient         mqtt.Client
+	RecordRemovedTimer *time.Timer
+	CurrentPlayingUID  string
 )
 
 const (

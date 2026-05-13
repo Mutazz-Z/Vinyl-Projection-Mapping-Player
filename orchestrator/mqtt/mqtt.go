@@ -1,4 +1,4 @@
-package main
+package mqtt
 
 import (
 	"database/sql"
@@ -8,40 +8,43 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"vinyl-orchestrator/globals"
+	"vinyl-orchestrator/models"
+	"vinyl-orchestrator/player"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
-func tagHandler(_ mqtt.Client, message mqtt.Message) {
-	var tagPayload TagPayload
+func tagHandler(_ paho.Client, message paho.Message) {
+	var tagPayload models.TagPayload
 	if unmarshalError := json.Unmarshal(message.Payload(), &tagPayload); unmarshalError != nil {
 		return
 	}
 
-	if StopTimer != nil {
-		StopTimer.Stop()
+	if globals.RecordRemovedTimer != nil {
+		globals.RecordRemovedTimer.Stop()
 		fmt.Println("Removal timer cancelled.")
 	}
 
 	fmt.Printf("\nScanning Shelf: %s\n", tagPayload.UID)
 
 	var artistName, albumTitle, mediaURI, trackList string
-	queryError := Database.QueryRow("SELECT artist, album, media_uri, tracks FROM albums WHERE uid = ?", tagPayload.UID).
+	queryError := globals.Database.QueryRow("SELECT artist, album, media_uri, tracks FROM albums WHERE uid = ?", tagPayload.UID).
 		Scan(&artistName, &albumTitle, &mediaURI, &trackList)
 
 	if queryError == sql.ErrNoRows {
-		HandleNewTag(tagPayload.UID)
+		player.HandleNewTag(tagPayload.UID)
 	} else if queryError != nil {
 		log.Printf("Database error: %v", queryError)
-	} else if tagPayload.UID == CurrentPlayingUID && StopTimer != nil {
-		HandleReplacedTag()
+	} else if tagPayload.UID == globals.CurrentPlayingUID && globals.RecordRemovedTimer != nil {
+		player.HandleReplacedTag()
 	} else {
-		HandleKnownTag(tagPayload.UID, artistName, albumTitle, mediaURI, trackList)
+		player.HandleKnownTag(tagPayload.UID, artistName, albumTitle, mediaURI, trackList)
 	}
 }
 
-func registrationHandler(_ mqtt.Client, message mqtt.Message) {
-	var registrationPayload RegistrationPayload
+func registrationHandler(_ paho.Client, message paho.Message) {
+	var registrationPayload models.RegistrationPayload
 	if unmarshalError := json.Unmarshal(message.Payload(), &registrationPayload); unmarshalError != nil {
 		log.Printf("Failed to parse registration JSON: %v", unmarshalError)
 		return
@@ -56,7 +59,7 @@ func registrationHandler(_ mqtt.Client, message mqtt.Message) {
         tracks=excluded.tracks,
         media_uri=excluded.media_uri;`
 
-	_, databaseExecError := Database.Exec(
+	_, databaseExecError := globals.Database.Exec(
 		upsertQuery,
 		registrationPayload.UID,
 		registrationPayload.Artist,
@@ -71,7 +74,7 @@ func registrationHandler(_ mqtt.Client, message mqtt.Message) {
 	}
 
 	fmt.Printf("Database updated: %s by %s\n", registrationPayload.Album, registrationPayload.Artist)
-	HandleKnownTag(
+	player.HandleKnownTag(
 		registrationPayload.UID,
 		registrationPayload.Artist,
 		registrationPayload.Album,
@@ -80,36 +83,36 @@ func registrationHandler(_ mqtt.Client, message mqtt.Message) {
 	)
 }
 
-func statusHandler(_ mqtt.Client, message mqtt.Message) {
+func statusHandler(_ paho.Client, message paho.Message) {
 	shelfStatus := string(message.Payload())
 	if shelfStatus == "removed" {
-		fmt.Printf("Record removed: Stopping in %v...\n", RecordRemovedTimeout)
+		fmt.Printf("Record removed: Stopping in %v...\n", globals.RecordRemovedTimeout)
 
-		StopTimer = time.AfterFunc(RecordRemovedTimeout, func() {
+		globals.RecordRemovedTimer = time.AfterFunc(globals.RecordRemovedTimeout, func() {
 			fmt.Println("Stop sequence initiated.")
 
 			exec.Command("pkill", "-9", "mpv").Run()
 			os.Remove("/tmp/mpvsocket")
-			CurrentPlayingUID = ""
+			globals.CurrentPlayingUID = ""
 
-			MQTTClient.Publish("vinyl/shelf/visuals", 0, false, `{"effect": "stop"}`)
+			globals.MQTTClient.Publish("vinyl/shelf/visuals", 0, false, `{"effect": "stop"}`)
 		})
 	}
 }
 
-func libraryRequestHandler(_ mqtt.Client, _ mqtt.Message) {
+func libraryRequestHandler(_ paho.Client, _ paho.Message) {
 	fmt.Println("Library request received, fetching database...")
 
-	libraryRows, queryError := Database.Query("SELECT uid, artist, album, tracks, media_uri FROM albums ORDER BY created_at DESC")
+	libraryRows, queryError := globals.Database.Query("SELECT uid, artist, album, tracks, media_uri FROM albums ORDER BY created_at DESC")
 	if queryError != nil {
 		log.Printf("Failed to query library: %v", queryError)
 		return
 	}
 	defer libraryRows.Close()
 
-	var albumRegistrations []RegistrationPayload
+	var albumRegistrations []models.RegistrationPayload
 	for libraryRows.Next() {
-		var albumRegistration RegistrationPayload
+		var albumRegistration models.RegistrationPayload
 		if scanError := libraryRows.Scan(
 			&albumRegistration.UID,
 			&albumRegistration.Artist,
@@ -124,21 +127,21 @@ func libraryRequestHandler(_ mqtt.Client, _ mqtt.Message) {
 	}
 
 	if albumRegistrations == nil {
-		albumRegistrations = []RegistrationPayload{}
+		albumRegistrations = []models.RegistrationPayload{}
 	}
 
-	libraryResponse := LibraryResponse{Albums: albumRegistrations}
+	libraryResponse := models.LibraryResponse{Albums: albumRegistrations}
 	libraryPayload, _ := json.Marshal(libraryResponse)
 
-	MQTTClient.Publish("vinyl/shelf/library/data", 0, false, libraryPayload)
+	globals.MQTTClient.Publish("vinyl/shelf/library/data", 0, false, libraryPayload)
 	fmt.Printf("Sent %d albums to the Flutter app\n", len(albumRegistrations))
 }
 
-func deleteHandler(_ mqtt.Client, message mqtt.Message) {
+func deleteHandler(_ paho.Client, message paho.Message) {
 	recordUID := string(message.Payload())
 	fmt.Printf("◎ - Delete request received for UID: %s\n", recordUID)
 
-	_, deleteError := Database.Exec("DELETE FROM albums WHERE uid = ?", recordUID)
+	_, deleteError := globals.Database.Exec("DELETE FROM albums WHERE uid = ?", recordUID)
 	if deleteError != nil {
 		log.Printf("Failed to delete record: %v", deleteError)
 		return
@@ -147,7 +150,7 @@ func deleteHandler(_ mqtt.Client, message mqtt.Message) {
 	fmt.Printf("◉ - Deleted record: %s\n", recordUID)
 }
 
-func subscribeToTopics(client mqtt.Client) {
+func SubscribeToTopics(client paho.Client) {
 	client.Subscribe("vinyl/shelf/tag", 0, tagHandler)
 	client.Subscribe("vinyl/shelf/register", 0, registrationHandler)
 	client.Subscribe("vinyl/shelf/status", 0, statusHandler)
@@ -155,7 +158,7 @@ func subscribeToTopics(client mqtt.Client) {
 	client.Subscribe("vinyl/shelf/delete", 0, deleteHandler)
 }
 
-func waitForMQTTConnection(connectionToken mqtt.Token) {
+func waitForMQTTConnection(connectionToken paho.Token) {
 	connectedWithinTimeout := connectionToken.WaitTimeout(10 * time.Second)
 	if !connectedWithinTimeout {
 		log.Fatal("MQTT connection timeout: Unable to connect to broker at 192.168.50.214:1883")
@@ -166,25 +169,25 @@ func waitForMQTTConnection(connectionToken mqtt.Token) {
 	}
 }
 
-func createMQTTClientOptions(mqttClientID string) *mqtt.ClientOptions {
-	mqttClientOptions := mqtt.NewClientOptions().AddBroker("tcp://192.168.50.214:1883")
+func createMQTTClientOptions(mqttClientID string) *paho.ClientOptions {
+	mqttClientOptions := paho.NewClientOptions().AddBroker("tcp://192.168.50.214:1883")
 	mqttClientOptions.SetClientID(mqttClientID)
 	mqttClientOptions.SetAutoReconnect(true)
 
-	mqttClientOptions.OnConnect = func(connectedMQTTClient mqtt.Client) {
+	mqttClientOptions.OnConnect = func(connectedMQTTClient paho.Client) {
 		fmt.Printf("Orchestrator Online: %s\n", mqttClientID)
-		subscribeToTopics(connectedMQTTClient)
+		SubscribeToTopics(connectedMQTTClient)
 	}
 
 	return mqttClientOptions
 }
 
-func setupMQTT() {
+func SetupMQTT() {
 	mqttClientID := fmt.Sprintf("vinyl_orchestrator_%d", time.Now().Unix())
 	mqttClientOptions := createMQTTClientOptions(mqttClientID)
-	MQTTClient = mqtt.NewClient(mqttClientOptions)
+	globals.MQTTClient = paho.NewClient(mqttClientOptions)
 
 	fmt.Println("⚭ - Connecting to MQTT broker at 192.168.50.214:1883...")
-	connectionToken := MQTTClient.Connect()
+	connectionToken := globals.MQTTClient.Connect()
 	waitForMQTTConnection(connectionToken)
 }

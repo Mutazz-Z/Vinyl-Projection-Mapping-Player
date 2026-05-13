@@ -1,4 +1,4 @@
-package main
+package player
 
 import (
 	"bufio"
@@ -10,17 +10,18 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"vinyl-orchestrator/globals"
 )
 
 func HandleReplacedTag() {
 	fmt.Println("Same record replaced, resuming without restart.")
-	StopTimer.Stop()
-	StopTimer = nil
+	globals.RecordRemovedTimer.Stop()
+	globals.RecordRemovedTimer = nil
 }
 
 func HandleNewTag(recordUID string) {
 	fmt.Printf("New record detected: %s\n", recordUID)
-	MQTTClient.Publish("vinyl/request_register", 0, false, recordUID)
+	globals.MQTTClient.Publish("vinyl/request_register", 0, false, recordUID)
 
 	unknownVisual := map[string]string{
 		"effect":           "unknown",
@@ -28,10 +29,10 @@ func HandleNewTag(recordUID string) {
 		"registration_url": fmt.Sprintf("http://192.168.50.214:8000/?uid=%s", url.QueryEscape(recordUID)),
 	}
 	unknownVisualPayload, _ := json.Marshal(unknownVisual)
-	MQTTClient.Publish("vinyl/shelf/visuals", 0, false, unknownVisualPayload)
+	globals.MQTTClient.Publish("vinyl/shelf/visuals", 0, false, unknownVisualPayload)
 }
 
-func SendDataToProjector(artistName, albumTitle, mediaURI, trackList string) {
+func sendDataToProjector(artistName, albumTitle, mediaURI, trackList string) {
 	visualData := map[string]string{
 		"artist":    artistName,
 		"album":     albumTitle,
@@ -40,16 +41,16 @@ func SendDataToProjector(artistName, albumTitle, mediaURI, trackList string) {
 		"media_uri": mediaURI,
 	}
 	visualPayload, _ := json.Marshal(visualData)
-	MQTTClient.Publish("vinyl/shelf/visuals", 0, false, visualPayload)
+	globals.MQTTClient.Publish("vinyl/shelf/visuals", 0, false, visualPayload)
 }
 
-func KillOldPlayback() {
+func killOldPlayback() {
 	exec.Command("pkill", "-9", "mpv").Run()
 	os.Remove("/tmp/mpvsocket")
-	CurrentPlayingUID = ""
+	globals.CurrentPlayingUID = ""
 }
 
-func StartMpvPlayback(mediaURI string) {
+func startMpvPlayback(mediaURI string) {
 	mpvCommand := exec.Command("mpv", "--no-video", "--input-ipc-server=/tmp/mpvsocket", mediaURI)
 	startPlaybackError := mpvCommand.Start()
 	if startPlaybackError != nil {
@@ -59,17 +60,17 @@ func StartMpvPlayback(mediaURI string) {
 }
 
 func HandleKnownTag(recordUID, artistName, albumTitle, mediaURI, trackList string) {
-	CurrentPlayingUID = recordUID
+	globals.CurrentPlayingUID = recordUID
 	fmt.Printf("NOW PLAYING: %s - %s\n", artistName, albumTitle)
 
-	SendDataToProjector(artistName, albumTitle, mediaURI, trackList)
-	KillOldPlayback()
-	StartMpvPlayback(mediaURI)
+	sendDataToProjector(artistName, albumTitle, mediaURI, trackList)
+	killOldPlayback()
+	startMpvPlayback(mediaURI)
 
-	go TrackPlaybackProgress()
+	go trackPlaybackProgress()
 }
 
-func GetMPVProperty(connection net.Conn, propertyName string) (float64, error) {
+func getMPVProperty(connection net.Conn, propertyName string) (float64, error) {
 	commandPayload := map[string]interface{}{
 		"command": []interface{}{"get_property", propertyName},
 	}
@@ -97,7 +98,7 @@ func GetMPVProperty(connection net.Conn, propertyName string) (float64, error) {
 	return 0, fmt.Errorf("no response from mpv")
 }
 
-func TrackPlaybackProgress() {
+func trackPlaybackProgress() {
 	socketPath := "/tmp/mpvsocket"
 	var socketConnection net.Conn
 	var socketConnectionError error
@@ -122,9 +123,9 @@ func TrackPlaybackProgress() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		trackPositionSeconds, trackPositionError := GetMPVProperty(socketConnection, "time-pos")
-		trackDurationSeconds, trackDurationError := GetMPVProperty(socketConnection, "duration")
-		playlistTrackIndex, playlistIndexError := GetMPVProperty(socketConnection, "playlist-pos")
+		trackPositionSeconds, trackPositionError := getMPVProperty(socketConnection, "time-pos")
+		trackDurationSeconds, trackDurationError := getMPVProperty(socketConnection, "duration")
+		playlistTrackIndex, playlistIndexError := getMPVProperty(socketConnection, "playlist-pos")
 
 		if trackPositionError != nil || trackDurationError != nil || playlistIndexError != nil {
 			continue
@@ -139,6 +140,6 @@ func TrackPlaybackProgress() {
 		}
 
 		payload, _ := json.Marshal(progressData)
-		MQTTClient.Publish("vinyl/shelf/visuals/progress", 0, false, payload)
+		globals.MQTTClient.Publish("vinyl/shelf/visuals/progress", 0, false, payload)
 	}
 }

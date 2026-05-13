@@ -21,10 +21,10 @@ jobs:
             goos: linux
             goarch: arm64
             goarm: ""
-          - target: linux-armv7
-            goos: linux
-            goarch: arm
-            goarm: "7"
+          - target: macos-arm64
+            goos: darwin
+            goarch: arm64
+            goarm: ''
 
     steps:
       - name: Checkout repository

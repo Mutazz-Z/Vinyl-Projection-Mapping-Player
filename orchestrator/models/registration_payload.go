@@ -1,9 +1,4 @@
-package main
-
-type TagPayload struct {
-	UID    string `json:"uid"`
-	Source string `json:"source"`
-}
+package models
 
 type RegistrationPayload struct {
 	UID      string `json:"uid"`
@@ -11,8 +6,4 @@ type RegistrationPayload struct {
 	Album    string `json:"album"`
 	Tracks   string `json:"tracks"`
 	MediaURI string `json:"media_uri"`
-}
-
-type LibraryResponse struct {
-	Albums []RegistrationPayload `json:"albums"`
 }

@@ -7,12 +7,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"vinyl-orchestrator/globals"
+	orchestratormqtt "vinyl-orchestrator/mqtt"
 
 	_ "modernc.org/sqlite"
 )
 
 func checkDatabaseForErrors(databaseOpenError error, databaseFailedToOpen bool) {
-	Database, databaseOpenError = sql.Open("sqlite", "./vinyl.database")
+	globals.Database, databaseOpenError = sql.Open("sqlite", "./vinyl.database")
 
 	if databaseOpenError != nil {
 		databaseFailedToOpen = true
@@ -43,7 +45,7 @@ func waitForShutdownSignal() {
 func main() {
 	fmt.Println("⏺ Orchestrator starting...")
 	initializeDatabase()
-	setupMQTT()
+	orchestratormqtt.SetupMQTT()
 	waitForShutdownSignal()
 	fmt.Println("\n⏺ Shutting down orchestrator...")
 }

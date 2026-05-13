@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"vinyl-orchestrator/globals"
 )
 
 func setupDatabase() {
@@ -14,7 +15,7 @@ func setupDatabase() {
         media_uri TEXT,
         created_at DATETIME
     );`
-	_, err := Database.Exec(query)
+	_, err := globals.Database.Exec(query)
 	if err != nil {
 		log.Fatalf("Failed to create table: %v", err)
 	}
