@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - "**"
-  pull_request:
-    branches:
-      - "**"
 
 concurrency:
   group: orchestrator-build-${{ github.ref }}
@@ -14,7 +11,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build (${{ matrix.target }})
+    name: Orchestrator (${{ matrix.target }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
