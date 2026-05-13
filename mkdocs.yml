@@ -15,12 +15,11 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Installation: installation.md
-  - Features: features.md
-  - Contributing: contributing.md
+  - Technologies: technologies.md
 
 plugins:
   - search
+  - mermaid2
 
 markdown_extensions:
   - pymdownx.emoji
