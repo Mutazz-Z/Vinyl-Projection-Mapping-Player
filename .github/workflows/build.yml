@@ -1,0 +1,54 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "**"
+
+concurrency:
+  group: orchestrator-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Orchestrator (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-arm64
+            goos: linux
+            goarch: arm64
+            goarm: ""
+          - target: macos-arm64
+            goos: darwin
+            goarch: arm64
+            goarm: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: orchestrator/go.mod
+          cache-dependency-path: orchestrator/go.sum
+
+      - name: Ensure builds directory exists
+        run: mkdir -p builds
+
+      - name: Build orchestrator
+        working-directory: orchestrator
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: go build -o ../builds/vinyl-orchestrator-${{ matrix.target }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vinyl-orchestrator-${{ matrix.target }}
+          path: builds/vinyl-orchestrator-${{ matrix.target }}
