@@ -18,7 +18,10 @@ const (
 	defaultMQTTBrokerHost = "192.168.50.214"
 	defaultMQTTBrokerPort = "1883"
 	mqttConnectionTimeout = 10 * time.Second
+	playbackWatchdogDuration = 10 * time.Second
 )
+
+var playbackWatchdogTimer *time.Timer
 
 type playbackEventPayload struct {
 	Event      string `json:"event"`
@@ -26,6 +29,23 @@ type playbackEventPayload struct {
 	TrackName  string `json:"track_name"`
 	Position   int    `json:"position"`
 	Duration   int    `json:"duration"`
+}
+
+func startPlaybackWatchdog() {
+	if playbackWatchdogTimer != nil {
+		playbackWatchdogTimer.Stop()
+	}
+	playbackWatchdogTimer = time.AfterFunc(playbackWatchdogDuration, func() {
+		fmt.Println("Watchdog: Target device failed to respond in 10s")
+		globals.CurrentPlayingUID = ""
+
+		errorVisual := map[string]interface{}{
+			"effect":  "error",
+			"message": "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again",
+		}
+		errorPayload, _ := json.Marshal(errorVisual)
+		globals.MQTTClient.Publish("vinyl/shelf/visuals", 0, false, errorPayload)
+	})
 }
 
 func normalizeUID(uid string) string {
@@ -76,6 +96,7 @@ func tagHandler(_ paho.Client, message paho.Message) {
 			fmt.Println("Removal timer cancelled.")
 		}
 		player.HandleKnownTag(tagPayload.UID, album)
+		startPlaybackWatchdog()
 	}
 }
 
@@ -143,12 +164,18 @@ func registrationHandler(_ paho.Client, message paho.Message) {
 
 	if isNewRegistration {
 		player.HandleKnownTag(uidForWrite, registrationPayload)
+		startPlaybackWatchdog()
 	}
 }
 
 func statusHandler(_ paho.Client, message paho.Message) {
 	shelfStatus := string(message.Payload())
 	if shelfStatus == "removed" {
+		if playbackWatchdogTimer != nil {
+			playbackWatchdogTimer.Stop()
+			playbackWatchdogTimer = nil
+		}
+
 		fmt.Printf("Record removed: Stopping in %v...\n", globals.RecordRemovedTimeout)
 
 		globals.RecordRemovedTimer = time.AfterFunc(globals.RecordRemovedTimeout, func() {
@@ -297,6 +324,11 @@ func playbackEventHandler(_ paho.Client, message paho.Message) {
 
 	switch playbackEvent.Event {
 	case "play":
+		if playbackWatchdogTimer != nil {
+			playbackWatchdogTimer.Stop()
+			playbackWatchdogTimer = nil
+		}
+
 		globals.PlaybackState = models.PlaybackStatePlaying
 		fmt.Printf("▶ PLAYING: Track %d - %s (Duration: %dms)\n", playbackEvent.TrackIndex, playbackEvent.TrackName, playbackEvent.Duration)
 	case "pause":

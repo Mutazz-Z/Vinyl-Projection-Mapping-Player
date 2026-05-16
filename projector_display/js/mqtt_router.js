@@ -1,4 +1,4 @@
-(function() {
+(function () {
     const PI_IP = '192.168.50.214';
     const PORT = 9001;
 
@@ -10,14 +10,14 @@
         'projector_' + Math.random().toString(16).substring(2, 10)
     );
 
-    client.onConnectionLost = function() {
+    client.onConnectionLost = function () {
         console.warn('Projector MQTT disconnected — retrying in 5 s');
-        setTimeout(function() {
+        setTimeout(function () {
             client.connect({ onSuccess: onConnect, useSSL: false });
         }, 5000);
     };
 
-    client.onMessageArrived = function(message) {
+    client.onMessageArrived = function (message) {
         const topic = message.destinationName;
         let payload;
 
@@ -38,6 +38,8 @@
                 case 'unknown':
                     window.ProjectorPlayback.showUnknownTag(payload);
                     break;
+                case 'error':
+                    window.ProjectorPlayback.showPlaybackError(payload.message || "Playback failed to start.", payload); break;
             }
             return;
         }

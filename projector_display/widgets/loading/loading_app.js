@@ -38,7 +38,7 @@
         clearWatchdog();
         var outline = getOutline();
         if (!outline) return;
-        outline.classList.remove('hidden', 'pulsing', 'error');
+        outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
         outline.style.opacity = '1';
         outline.style.transform = 'translate(-50%, -50%) scale(1.25)';
     }
@@ -47,14 +47,13 @@
         var outline = getOutline();
         if (!outline) return Promise.resolve();
 
-        // 1. Start the 10-second Watchdog Timer
         clearWatchdog();
         watchdogTimer = setTimeout(function () {
             console.error("Watchdog: Target device failed to respond in 10s.");
             showError();
         }, 10000);
 
-        outline.classList.remove('hidden', 'pulsing', 'error');
+        outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
         outline.style.opacity = '1';
         outline.style.transform = 'translate(-50%, -50%) scale(0.5)';
 
@@ -64,12 +63,12 @@
     }
 
     function expandToOverlay() {
-        clearWatchdog(); // Success! Kill the death timer.
+        clearWatchdog();
 
         var outline = getOutline();
         if (!outline) return Promise.resolve();
 
-        outline.classList.remove('pulsing', 'hidden', 'error');
+        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
         outline.style.opacity = '1';
 
         void outline.offsetWidth; // DOM Reflow
@@ -82,7 +81,7 @@
     function fadeOut() {
         var outline = getOutline();
         if (!outline) return Promise.resolve();
-        outline.classList.remove('pulsing', 'hidden');
+        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
         outline.style.opacity = '0';
 
         return waitForTransition(outline, 'opacity', 420)
@@ -102,7 +101,7 @@
         clearWatchdog();
         var outline = getOutline();
         if (!outline) return Promise.resolve();
-        outline.classList.remove('pulsing', 'hidden', 'error');
+        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
         outline.style.transform = 'translate(-50%, -50%) scale(1)';
         outline.style.opacity = '0';
 
@@ -119,29 +118,25 @@
         clearWatchdog();
         var outline = getOutline();
         if (!outline) return;
-        outline.classList.remove('pulsing', 'error');
+        outline.classList.remove('pulsing', 'error', 'error-fill');
         outline.classList.add('hidden');
         outline.style.opacity = '0';
     }
 
-    // TODO: error handler that actually helps
     function showError() {
         clearWatchdog();
         var outline = getOutline();
         if (!outline) return Promise.resolve();
-
         outline.classList.remove('pulsing');
+
         void outline.offsetWidth;
         outline.style.transform = 'translate(-50%, -50%) scale(0.5)';
-        outline.classList.add('error');
 
         return new Promise(function (resolve) {
-            setTimeout(function () {
-                fadeOut().then(function () {
-                    showIdle();
-                    resolve();
-                });
-            }, 3000);
+            requestAnimationFrame(function () {
+                outline.classList.add('error-fill');
+                resolve();
+            });
         });
     }
 

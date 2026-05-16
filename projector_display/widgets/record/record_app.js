@@ -1,4 +1,4 @@
-(function() {
+(function () {
     function getRecord() {
         return document.getElementById('record');
     }
@@ -60,11 +60,42 @@
         }
     }
 
+    function ejectRecord() {
+        var recordContainer = getRecordContainer();
+        if (!recordContainer) return;
+
+        var widgetSlot = recordContainer.parentElement;
+        if (widgetSlot) {
+            widgetSlot.style.overflow = 'visible';
+            widgetSlot.style.clipPath = 'inset(-100px -1000px -100px 0)';
+        }
+
+        recordContainer.style.display = 'block';
+
+        void recordContainer.offsetWidth;
+        recordContainer.classList.add('error-eject');
+    }
+
+    function resetRecord() {
+        var recordContainer = getRecordContainer();
+        if (!recordContainer) return;
+
+        recordContainer.classList.remove('error-eject');
+
+        var widgetSlot = recordContainer.parentElement;
+        if (widgetSlot) {
+            widgetSlot.style.removeProperty('overflow');
+            widgetSlot.style.removeProperty('clip-path');
+        }
+    }
+
     window.RecordWidget = {
         getRecord: getRecord,
         getRecordContainer: getRecordContainer,
         setSpinState: setSpinState,
         applyDesignData: applyDesignData,
-        clearDesignData: clearDesignData
+        clearDesignData: clearDesignData,
+        ejectRecord: ejectRecord,
+        resetRecord: resetRecord
     };
 })();

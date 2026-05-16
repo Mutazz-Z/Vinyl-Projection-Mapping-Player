@@ -44,5 +44,5 @@
 }
 
 .info-container::before {
-    content: '·';
+    content: ' ';
 }

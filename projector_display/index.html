@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,20 +17,23 @@
     <link rel="stylesheet" href="widgets/record/record.css">
     <link rel="stylesheet" href="widgets/tracklist/tracklist.css">
     <link rel="stylesheet" href="widgets/progress/progress.css">
+    <link rel="stylesheet" href="widgets/context_message/context_message.css">
     <link rel="stylesheet" href="widgets/visualizer/visualizer.css">
 </head>
+
 <body>
 
     <div id="boot-status">BOOTING PROJECTION UI...</div>
 
     <div id="projection-group">
-        <div id="overlay-widget"    class="widget-slot" data-widget="widgets/overlay/overlay.html"></div>
-        <div id="loading-widget"    class="widget-slot" data-widget="widgets/loading/loading.html"></div>
-        <div id="info-widget"       class="widget-slot" data-widget="widgets/info/info.html"></div>
-        <div id="record-widget"     class="widget-slot" data-widget="widgets/record/record.html"></div>
-        <div id="tracklist-widget"  class="widget-slot" data-widget="widgets/tracklist/tracklist.html"></div>
-        <div id="progress-widget"   class="widget-slot" data-widget="widgets/progress/progress.html"></div>
+        <div id="overlay-widget" class="widget-slot" data-widget="widgets/overlay/overlay.html"></div>
+        <div id="loading-widget" class="widget-slot" data-widget="widgets/loading/loading.html"></div>
+        <div id="info-widget" class="widget-slot" data-widget="widgets/info/info.html"></div>
+        <div id="record-widget" class="widget-slot" data-widget="widgets/record/record.html"></div>
+        <div id="tracklist-widget" class="widget-slot" data-widget="widgets/tracklist/tracklist.html"></div>
+        <div id="progress-widget" class="widget-slot" data-widget="widgets/progress/progress.html"></div>
         <div id="visualizer-widget" class="widget-slot" data-widget="widgets/visualizer/visualizer.html"></div>
+        <div id="context-message-widget" class="widget-slot" data-widget="widgets/context_message/context_message.html"></div>
     </div>
 
     <script>
@@ -65,6 +69,7 @@
                 await loadScript('widgets/record/record_app.js');
                 await loadScript('widgets/info/info_app.js');
                 await loadScript('widgets/progress/progress_app.js');
+                await loadScript('widgets/context_message/context_message_app.js');
                 await loadScript('js/playback_controller.js');
                 await loadScript('js/mqtt_router.js');
 
@@ -103,4 +108,5 @@
         window.onload = buildDashboard;
     </script>
 </body>
+
 </html>

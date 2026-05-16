@@ -376,7 +376,7 @@
         });
     }
 
-    function stopPlayback() {
+    function stopPlayback(isError) {
         isPlayingState = false;
         currentPlayingAlbum = '';
         awaitingMusicStart = false;
@@ -387,6 +387,10 @@
         window.InfoWidget.setIdle();
         window.ProgressWidget.hide();
         window.ProgressWidget.reset();
+
+        if (window.RecordWidget && window.RecordWidget.resetRecord) {
+            window.RecordWidget.resetRecord();
+        }
 
         const record = window.RecordWidget.getRecord();
         const recordContainer = window.RecordWidget.getRecordContainer();
@@ -399,33 +403,37 @@
         }
 
         if (recordContainer) {
-            recordContainer.classList.remove('visible');
+            if (!isError) {
+                recordContainer.classList.remove('visible');
 
-            recordHideCleanupTimer = setTimeout(function () {
-                if (token !== playbackToken) return;
-                recordContainer.style.display = 'none';
-                window.RecordWidget.clearDesignData();
+                recordHideCleanupTimer = setTimeout(function () {
+                    if (token !== playbackToken) return;
+                    recordContainer.style.display = 'none';
+                    window.RecordWidget.clearDesignData();
 
-                currentDesignData = {};
-                window.OverlayWidget.clearOverlayArt();
-            }, RECORD_SLIDE_MS);
+                    currentDesignData = {};
+                    window.OverlayWidget.clearOverlayArt();
+                }, RECORD_SLIDE_MS);
+            }
         }
 
         if (record) window.RecordWidget.setSpinState('paused');
 
         if (tracklistContainer) {
-            tracklistHideVisibilityTimer = setTimeout(function () {
-                if (token !== playbackToken) return;
-                tracklistContainer.classList.remove('visible');
-            }, RECORD_SLIDE_MS);
+            if (!isError) {
+                tracklistHideVisibilityTimer = setTimeout(function () {
+                    if (token !== playbackToken) return;
+                    tracklistContainer.classList.remove('visible');
+                }, RECORD_SLIDE_MS);
 
-            tracklistDataFlushTimer = setTimeout(function () {
-                if (token !== playbackToken) return;
-                window.TracklistWidget.clear();
-                currentTracks = [];
-                currentActiveTrackIndex = 0;
-            }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
-        } else {
+                tracklistDataFlushTimer = setTimeout(function () {
+                    if (token !== playbackToken) return;
+                    window.TracklistWidget.clear();
+                    currentTracks = [];
+                    currentActiveTrackIndex = 0;
+                }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
+            }
+        } else if (!isError) {
             window.TracklistWidget.clear();
             currentTracks = [];
             currentActiveTrackIndex = 0;
@@ -436,6 +444,12 @@
 
         stopVisualizer();
         stopFxVideo();
+
+        if (!isError && window.ContextMessageWidget) {
+            window.ContextMessageWidget.hide();
+        }
+
+        if (isError) return;
 
         idleStateRestoreTimer = setTimeout(function () {
             if (token !== playbackToken) return;
@@ -456,6 +470,41 @@
 
         const unknownIndicator = document.getElementById('unknown-tag-indicator');
         if (unknownIndicator) unknownIndicator.classList.add('visible');
+    }
+
+    function showPlaybackError(message, errorPayload) {
+        let designData = null;
+
+        if (errorPayload && hasAnyDesignData(errorPayload)) {
+            designData = errorPayload;
+        } else if (pendingStartPayload && pendingStartPayload.designData) {
+            designData = pendingStartPayload.designData;
+        }
+
+        stopPlayback(true);
+        const currentToken = playbackToken;
+
+        if (designData && window.RecordWidget && window.RecordWidget.applyDesignData) {
+            window.RecordWidget.applyDesignData(designData);
+        }
+
+        if (window.LoadingWidget && window.LoadingWidget.showError) {
+            window.LoadingWidget.showError();
+        }
+
+        setTimeout(function () {
+            if (currentToken !== playbackToken) return;
+
+            if (window.RecordWidget && window.RecordWidget.ejectRecord) {
+                window.RecordWidget.ejectRecord();
+            }
+
+            if (window.ContextMessageWidget) {
+                window.ContextMessageWidget.showError(message);
+            } else {
+                console.error("Playback Error:", message);
+            }
+        }, 450);
     }
 
     function startPlayback(payload) {
@@ -494,6 +543,14 @@
 
         const unknownIndicator = document.getElementById('unknown-tag-indicator');
         if (unknownIndicator) unknownIndicator.classList.remove('visible');
+
+        if (window.ContextMessageWidget) {
+            window.ContextMessageWidget.hide();
+        }
+
+        if (window.RecordWidget && window.RecordWidget.resetRecord) {
+            window.RecordWidget.resetRecord();
+        }
 
         window.InfoWidget.setIdle();
         window.ProgressWidget.hide();
@@ -551,6 +608,7 @@
         startPlayback: startPlayback,
         stopPlayback: stopPlayback,
         showUnknownTag: showUnknownTag,
+        showPlaybackError: showPlaybackError,
         handleProgress: handleProgress,
         notifyMusicStarted: function (payload) {
             if (awaitingMusicStart && awaitingMusicStartToken === playbackToken) {
