@@ -54,7 +54,7 @@ jobs:
           path: builds/vinyl-orchestrator-${{ matrix.target }}
 
   build-frontend:
-    name: Build Flutter Web
+    name: Flutter Web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
