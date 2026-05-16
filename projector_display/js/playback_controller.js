@@ -188,12 +188,23 @@
         const url = buildRegistrationUrl(payload);
         if (typeof QRCode !== 'undefined') {
             const tmp = document.createElement('div');
-            tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+            tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
             document.body.appendChild(tmp);
-            new QRCode(tmp, { text: url, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
-            const img = tmp.querySelector('img');
+            new QRCode(tmp, {
+                text: url,
+                width: 240,
+                height: 240,
+                correctLevel: QRCode.CorrectLevel.M
+            });
             const canvas = tmp.querySelector('canvas');
-            qrImg.src = img ? img.src : (canvas ? canvas.toDataURL('image/png') : '');
+            if (canvas) {
+                qrImg.src = canvas.toDataURL('image/png');
+            } else {
+                const img = tmp.querySelector('img');
+                if (img && img.src) {
+                    qrImg.src = img.src;
+                }
+            }
             document.body.removeChild(tmp);
         }
 
