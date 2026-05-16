@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="widgets/progress/progress.css">
     <link rel="stylesheet" href="widgets/context_message/context_message.css">
     <link rel="stylesheet" href="widgets/visualizer/visualizer.css">
+    <link rel="stylesheet" href="widgets/qrcode/qrcode.css">
 </head>
 
 <body>
@@ -34,6 +35,7 @@
         <div id="progress-widget" class="widget-slot" data-widget="widgets/progress/progress.html"></div>
         <div id="visualizer-widget" class="widget-slot" data-widget="widgets/visualizer/visualizer.html"></div>
         <div id="context-message-widget" class="widget-slot" data-widget="widgets/context_message/context_message.html"></div>
+        <div id="qrcode-widget" class="widget-slot" data-widget="widgets/qrcode/qrcode.html"></div>
     </div>
 
     <script>
@@ -72,6 +74,7 @@
                 await loadScript('widgets/context_message/context_message_app.js');
                 await loadScript('js/playback_controller.js');
                 await loadScript('js/mqtt_router.js');
+                await loadScript('widgets/qrcode/qrcode_app.js');
 
                 setBootStatus('BOOT: Ready');
                 setTimeout(() => { if (bootStatus) bootStatus.style.display = 'none'; }, 3000);

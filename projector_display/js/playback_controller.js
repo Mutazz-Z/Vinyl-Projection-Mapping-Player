@@ -442,6 +442,10 @@
         const unknownIndicator = document.getElementById('unknown-tag-indicator');
         if (unknownIndicator) unknownIndicator.classList.remove('visible');
 
+        if (window.QrCodeWidget && window.QrCodeWidget.hide) {
+            window.QrCodeWidget.hide();
+        }
+
         stopVisualizer();
         stopFxVideo();
 
@@ -463,13 +467,10 @@
 
     function showUnknownTag(payload) {
         stopPlayback();
-        renderUnknownTagQR(payload);
 
-        const fxContainer = document.getElementById('fx-video-container');
-        if (fxContainer) fxContainer.classList.add('active');
-
-        const unknownIndicator = document.getElementById('unknown-tag-indicator');
-        if (unknownIndicator) unknownIndicator.classList.add('visible');
+        if (window.QrCodeWidget && window.QrCodeWidget.show) {
+            window.QrCodeWidget.show(payload);
+        }
     }
 
     function showPlaybackError(message, errorPayload) {
@@ -546,6 +547,10 @@
 
         if (window.ContextMessageWidget) {
             window.ContextMessageWidget.hide();
+        }
+
+        if (window.QrCodeWidget && window.QrCodeWidget.hide) {
+            window.QrCodeWidget.hide();
         }
 
         if (window.RecordWidget && window.RecordWidget.resetRecord) {
