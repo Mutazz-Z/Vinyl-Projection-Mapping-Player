@@ -1,0 +1,108 @@
+.record-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    transform: translateX(-100%) scale(0.7);
+    transition: transform 0.7s cubic-bezier(0.7,0,0.3,1);
+}
+
+.record-container.visible {
+    pointer-events: auto;
+    transform: translateX(0) scale(1);
+}
+
+.half-mask {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+#record {
+    width: 200%;
+    height: 100%;
+    margin-left: -100%;
+    border-radius: 50%;
+    position: relative;
+
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    box-shadow: 6px 0 40px rgba(0, 0, 0, 0.9), inset -4px 0 20px rgba(0, 0, 0, 0.6);
+
+    animation: record-spin 8s linear infinite;
+    animation-play-state: paused;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#record::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-image:
+        repeating-radial-gradient(circle at 50% 50%,
+            rgba(0, 0, 0, 0.3) 0,
+            rgba(0, 0, 0, 0.3) 2px,
+            rgba(255, 255, 255, 0.1) 2px,
+            rgba(255, 255, 255, 0.1) 3px);
+    pointer-events: none;
+    mix-blend-mode: overlay;
+}
+
+.record-label {
+    width: 40%;
+    height: 40%;
+    border-radius: 50%;
+    position: relative;
+    z-index: 1;
+    
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #2a2a2a;
+}
+
+.record-label::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-image:
+        repeating-radial-gradient(circle at 50% 50%,
+            rgba(0, 0, 0, 0.15) 0,
+            rgba(0, 0, 0, 0.15) 1px,
+            rgba(255, 255, 255, 0.05) 1px,
+            rgba(255, 255, 255, 0.05) 2px);
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    opacity: 0.4;
+    z-index: 1;
+}
+
+.record-label::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6%;
+    height: 6%;
+    background: #111;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+}
+
+@keyframes record-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+body.mapping-mode #record {
+    animation-play-state: running !important;
+}

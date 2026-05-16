@@ -1,0 +1,49 @@
+.viz-outer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: visible;
+}
+
+.viz-rotator {
+    position: absolute;
+    left: calc(var(--viz-depth) / 2 - var(--overlay-size) / 2);
+    top:  calc(var(--overlay-size) / 2 - var(--viz-depth) / 2);
+    width:  var(--overlay-size);
+    height: var(--viz-depth);
+    transform: rotate(-90deg);
+    transform-origin: center;
+}
+
+#visualizer {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    transition: opacity 0.4s ease;
+}
+
+#visualizer.paused {
+    opacity: 0;
+}
+
+.bar {
+    flex: 1;
+    max-width: 14px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 1px 1px 0 0;
+    height: 20%;
+    transition: height 0.14s ease;
+}
+
+body.mapping-mode #visualizer {
+    opacity: 1 !important;
+}
+
+body.mapping-mode .bar {
+    height: 60% !important;
+}

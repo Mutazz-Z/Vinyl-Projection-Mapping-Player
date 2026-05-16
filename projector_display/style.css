@@ -1,0 +1,138 @@
+/*
+ *
+ * Layout geometry:
+ *
+ *             ┌───────────────────────┐
+ *             │ info  500 × --info-h  │
+ *  ┌──────────┼───────────────────────┼──────────┬─────────────┐
+ *  │          │                       │          │             │
+ *  │ viz      │      overlay          │  record  │  tracklist  │
+ *  │ (rotated │      500 × 500        │  250×500 │  280×500    │
+ *  │  -90°)   │                       │          │             │
+ *  │          ├───────────────────────┤          │             │
+ *  │          │  progress  500×48     │          │             │
+ *  └──────────┴───────────────────────┴──────────┴─────────────┘
+ *
+ */
+
+:root {
+    --overlay-size:   500px;
+    --record-half:    250px; 
+    --tracklist-w:    280px;
+    --progress-h:      48px;
+    --viz-depth:       72px;
+    --info-h:          80px;
+
+    --accent:         #ffffff;
+    --font:           'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    color: #fff;
+    font-family: var(--font);
+    overflow: hidden;
+}
+
+#boot-status {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 99999;
+    background: #ffd400;
+    color: #111;
+    font: 700 17px/1.4 monospace;
+    padding: 8px 14px;
+    letter-spacing: 0.02em;
+}
+
+#projection-group {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width:  var(--overlay-size);
+    height: var(--overlay-size);
+    overflow: visible;
+}
+
+.widget-slot {
+    position: absolute;
+    overflow: visible;
+}
+
+#overlay-widget {
+    top:  0;
+    left: 0;
+    width:  var(--overlay-size);
+    height: var(--overlay-size);
+    z-index: 1;
+    overflow: visible;
+}
+
+#loading-widget {
+    top:  0;
+    left: 0;
+    width:  var(--overlay-size);
+    height: var(--overlay-size);
+    z-index: 6;
+    overflow: visible;
+    pointer-events: none;
+}
+
+#info-widget {
+    top:  calc(-1 * var(--info-h));
+    left: 0;
+    width:  var(--overlay-size);
+    height: var(--info-h);
+    z-index: 10;
+    pointer-events: none;
+}
+
+#record-widget {
+    top:  0;
+    left: var(--overlay-size);
+    width:  var(--record-half);
+    height: var(--overlay-size);
+    z-index: 2;
+    overflow: hidden;
+}
+
+#tracklist-widget {
+    top:  0;
+    left: calc(var(--overlay-size) + var(--record-half));
+    width:  var(--tracklist-w);
+    height: var(--overlay-size);
+    overflow: visible;
+    z-index: 2;
+}
+
+#progress-widget {
+    top:  var(--overlay-size);
+    left: 0;
+    width:  var(--overlay-size);
+    height: var(--progress-h);
+    z-index: 2;
+}
+
+#visualizer-widget {
+    top:  0;
+    left: calc(-1 * var(--viz-depth));
+    width:  var(--viz-depth);
+    height: var(--overlay-size);
+    z-index: 2;
+    overflow: visible;
+}
+
+body.mapping-mode .widget-slot {
+    outline: 1px dashed rgba(255, 200, 0, 0.35);
+    outline-offset: -1px;
+}
+
+body.mapping-mode #projection-group {
+    outline: 2px solid rgba(255, 200, 0, 0.9);
+    outline-offset: 0;
+}
