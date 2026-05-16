@@ -1,4 +1,7 @@
-(function() {
+(function () {
+    var statusTimer = null;
+    var isCurrentlyPaused = false;
+
     function setActive(active) {
         var fxContainer = document.getElementById('fx-video-container');
         if (!fxContainer) return;
@@ -24,9 +27,75 @@
         setOverlayArt('');
     }
 
+    function showStatusIcon(type) {
+        var iconEl = document.getElementById('status-icon-overlay');
+        var fxContainer = document.getElementById('fx-video-container');
+        if (!iconEl) return;
+
+        var stateChanged = false;
+
+        if (type === 'play') {
+            if (isCurrentlyPaused) {
+                isCurrentlyPaused = false;
+                if (fxContainer) fxContainer.classList.remove('paused');
+                stateChanged = true;
+            }
+        } else if (type === 'pause') {
+            if (!isCurrentlyPaused) {
+                isCurrentlyPaused = true;
+                if (fxContainer) fxContainer.classList.add('paused');
+                stateChanged = true;
+            }
+        }
+
+        if ((type === 'play' || type === 'pause') && !stateChanged) {
+            return;
+        }
+
+        if (statusTimer) {
+            clearTimeout(statusTimer);
+            statusTimer = null;
+        }
+
+        var imgPath = '';
+        if (type === 'play') imgPath = 'widgets/assets/play_overlay.png';
+        else if (type === 'pause') imgPath = 'widgets/assets/pause_overlay.png';
+
+        if (!imgPath) {
+            iconEl.classList.remove('visible');
+            return;
+        }
+
+        iconEl.style.backgroundImage = 'url("' + imgPath + '")';
+        void iconEl.offsetWidth; // Force reflow
+        iconEl.classList.add('visible');
+
+        if (type !== 'pause') {
+            statusTimer = setTimeout(function () {
+                iconEl.classList.remove('visible');
+            }, 2000);
+        }
+    }
+
+    function resetStatus() {
+        isCurrentlyPaused = false;
+        var iconEl = document.getElementById('status-icon-overlay');
+        var fxContainer = document.getElementById('fx-video-container');
+
+        if (iconEl) iconEl.classList.remove('visible');
+        if (fxContainer) fxContainer.classList.remove('paused');
+
+        if (statusTimer) {
+            clearTimeout(statusTimer);
+            statusTimer = null;
+        }
+    }
+
     window.OverlayWidget = {
         setActive: setActive,
         setOverlayArt: setOverlayArt,
-        clearOverlayArt: clearOverlayArt
+        clearOverlayArt: clearOverlayArt,
+        showStatusIcon: showStatusIcon,
+        resetStatus: resetStatus
     };
 })();

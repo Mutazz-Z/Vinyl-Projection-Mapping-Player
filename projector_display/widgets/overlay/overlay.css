@@ -46,7 +46,6 @@
     opacity: 1;
 }
 
-/* Unknown tag overlay */
 #unknown-tag-indicator {
     position: absolute;
     inset: 0;
@@ -102,6 +101,26 @@
     font-size: 0.72rem;
     color: rgba(255, 255, 255, 0.45);
     word-break: break-all;
+}
+
+#status-icon-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    background-size: 120px;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#status-icon-overlay.visible {
+    opacity: 1;
+}
+
+#fx-video-container.active.paused {
+    opacity: 0.0; 
 }
 
 /* Mapping mode: always show container outline */

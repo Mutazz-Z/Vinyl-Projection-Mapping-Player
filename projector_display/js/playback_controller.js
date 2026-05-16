@@ -413,6 +413,9 @@
 
                     currentDesignData = {};
                     window.OverlayWidget.clearOverlayArt();
+
+                    if (window.OverlayWidget.resetStatus) window.OverlayWidget.resetStatus();
+
                 }, RECORD_SLIDE_MS);
             }
         }
@@ -609,12 +612,38 @@
         }
     }
 
+    function handlePlaybackEvent(payload) {
+        if (!payload) return;
+        if (!isPlayingState) return;
+
+        const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
+        const stateName = typeof payload.state === 'string' ? payload.state.toLowerCase() : '';
+
+        if (eventName === 'track_changed') {
+            const incomingIndex = resolveTrackIndexFromPayload(payload);
+            if (incomingIndex !== undefined) {
+                updateArcCarousel(incomingIndex);
+            }
+        }
+
+        if (eventName === 'play' || stateName === 'playing') {
+            if (window.OverlayWidget && window.OverlayWidget.showStatusIcon) window.OverlayWidget.showStatusIcon('play');
+            if (window.RecordWidget && window.RecordWidget.setSpinState) window.RecordWidget.setSpinState('running');
+            if (window.VisualizerWidget && window.VisualizerWidget.start) window.VisualizerWidget.start();
+        } else if (eventName === 'pause' || stateName === 'paused') {
+            if (window.OverlayWidget && window.OverlayWidget.showStatusIcon) window.OverlayWidget.showStatusIcon('pause');
+            if (window.RecordWidget && window.RecordWidget.setSpinState) window.RecordWidget.setSpinState('paused');
+            if (window.VisualizerWidget && window.VisualizerWidget.pause) window.VisualizerWidget.pause();
+        }
+    }
+
     window.ProjectorPlayback = {
         startPlayback: startPlayback,
         stopPlayback: stopPlayback,
         showUnknownTag: showUnknownTag,
         showPlaybackError: showPlaybackError,
         handleProgress: handleProgress,
+        handlePlaybackEvent: handlePlaybackEvent,
         notifyMusicStarted: function (payload) {
             if (awaitingMusicStart && awaitingMusicStartToken === playbackToken) {
                 resolveAwaitingMusicStart(payload || null);

@@ -66,6 +66,10 @@
             if (isPlayingEvent || isPlayingState) {
                 window.ProjectorPlayback.notifyMusicStarted(payload);
             }
+
+            if (window.ProjectorPlayback && window.ProjectorPlayback.handlePlaybackEvent) {
+                window.ProjectorPlayback.handlePlaybackEvent(payload);
+            }
         }
     };
 
