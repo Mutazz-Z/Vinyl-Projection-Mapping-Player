@@ -377,6 +377,8 @@
     }
 
     function stopPlayback(isError) {
+        localStorage.removeItem('vinyl_projection_active_payload');
+
         isPlayingState = false;
         currentPlayingAlbum = '';
         awaitingMusicStart = false;
@@ -512,6 +514,8 @@
     }
 
     function startPlayback(payload) {
+        localStorage.setItem('vinyl_projection_active_payload', JSON.stringify(payload));
+
         const effectiveDesignData = getEffectiveDesignData(payload);
         const incomingAlbum = (payload && payload.album) ? payload.album.trim() : '';
 
@@ -648,8 +652,40 @@
             if (awaitingMusicStart && awaitingMusicStartToken === playbackToken) {
                 resolveAwaitingMusicStart(payload || null);
             }
+        },
+        restoreState: function () {
+            try {
+                const saved = localStorage.getItem('vinyl_projection_active_payload');
+                if (saved) {
+                    const payload = JSON.parse(saved);
+
+                    if (window.LoadingWidget) {
+                        window.LoadingWidget.forceHide();
+
+                        this._originalScan = window.LoadingWidget.beginScanLoading;
+                        this._originalScan = window.LoadingWidget.expandToOverlay;
+                        window.LoadingWidget.beginScanLoading = function () { return Promise.resolve(); };
+                        window.LoadingWidget.expandToOverlay = function () { return Promise.resolve(); };
+                    }
+
+                    this.startPlayback(payload);
+
+                    setTimeout(() => {
+                        this.notifyMusicStarted(payload);
+                        this.handlePlaybackEvent({ event: 'play', state: 'playing' });
+
+                        if (window.LoadingWidget && this._originalScan) {
+                            window.LoadingWidget.beginScanLoading = this._originalScan;
+                            window.LoadingWidget.expandToOverlay = this._originalScan;
+                        }
+                    }, 50);
+                }
+            } catch (e) {
+                console.warn('Failed to restore playback state from refresh:', e);
+            }
         }
     };
+
 
     if (window.LoadingWidget && window.LoadingWidget.showIdle) {
         window.LoadingWidget.showIdle();

@@ -67,7 +67,7 @@
         }
 
         iconEl.style.backgroundImage = 'url("' + imgPath + '")';
-        void iconEl.offsetWidth; // Force reflow
+        void iconEl.offsetWidth;
         iconEl.classList.add('visible');
 
         if (type !== 'pause') {

@@ -39,7 +39,8 @@
                     window.ProjectorPlayback.showUnknownTag(payload);
                     break;
                 case 'error':
-                    window.ProjectorPlayback.showPlaybackError(payload.message || "Playback failed to start.", payload); break;
+                    window.ProjectorPlayback.showPlaybackError(payload.message || "Playback failed to start.", payload);
+                    break;
             }
             return;
         }
@@ -54,12 +55,15 @@
                 payload.track_idx = payload.track_index;
             }
 
-            if (payload && payload.position !== undefined && payload.duration !== undefined) {
-                window.ProjectorPlayback.handleProgress(payload);
-            }
-
             const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
             const stateName = typeof payload.state === 'string' ? payload.state.toLowerCase() : '';
+
+            if (payload && payload.position !== undefined && payload.duration !== undefined) {
+                if (eventName !== 'pause' && eventName !== 'play') {
+                    window.ProjectorPlayback.handleProgress(payload);
+                }
+            }
+
             const isPlayingEvent = eventName === 'play' || eventName === 'track_changed';
             const isPlayingState = stateName === 'playing' || payload.playing === true;
 
