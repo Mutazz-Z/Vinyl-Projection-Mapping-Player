@@ -127,7 +127,8 @@
         clearWatchdog();
         var outline = getOutline();
         if (!outline) return Promise.resolve();
-        outline.classList.remove('pulsing');
+        outline.classList.remove('pulsing', 'hidden');
+        outline.style.opacity = '1';
 
         void outline.offsetWidth;
         outline.style.transform = 'translate(-50%, -50%) scale(0.5)';

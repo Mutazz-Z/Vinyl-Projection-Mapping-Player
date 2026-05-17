@@ -287,6 +287,31 @@
         return undefined;
     }
 
+    function detectHijack(payload) {
+        if (!isPlayingState || !payload) return false;
+
+        const trackName = typeof payload.track_name === 'string' ? payload.track_name.trim() : '';
+        const incomingAlbum = typeof payload.album === 'string' ? payload.album.trim() :
+            (typeof payload.album_name === 'string' ? payload.album_name.trim() : '');
+
+        if (incomingAlbum && currentPlayingAlbum) {
+            const incLower = incomingAlbum.toLowerCase();
+            const currLower = currentPlayingAlbum.toLowerCase();
+            if (incLower.indexOf(currLower) === -1 && currLower.indexOf(incLower) === -1) {
+                return "Playback Error\n\nTarget device is playing a different album";
+            }
+        }
+
+        if (trackName && currentTracks && currentTracks.length > 0) {
+            const resolvedIdx = resolveTrackIndexFromPayload(payload);
+            if (resolvedIdx === undefined) {
+                return "Playback Error\n\nTarget device is playing a different track";
+            }
+        }
+
+        return false;
+    }
+
     function resolveTrackIndexFromEventFallback(payload) {
         if (!payload || !payload.event) return undefined;
         var eventName = String(payload.event).toLowerCase();
@@ -379,6 +404,8 @@
     function stopPlayback(isError) {
         localStorage.removeItem('vinyl_projection_active_payload');
 
+        const wasPlaying = isPlayingState;
+
         isPlayingState = false;
         currentPlayingAlbum = '';
         awaitingMusicStart = false;
@@ -402,47 +429,39 @@
             tracklistContainer.classList.remove('carousel');
             tracklistContainer.classList.add('visible');
             setTracklistLinearLayout();
+            tracklistHideVisibilityTimer = setTimeout(function () {
+                if (token !== playbackToken) return;
+                tracklistContainer.classList.remove('visible');
+            }, RECORD_SLIDE_MS);
+
+            tracklistDataFlushTimer = setTimeout(function () {
+                if (token !== playbackToken) return;
+                window.TracklistWidget.clear();
+                currentTracks = [];
+                currentActiveTrackIndex = 0;
+            }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
+        } else {
+            window.TracklistWidget.clear();
+            currentTracks = [];
+            currentActiveTrackIndex = 0;
         }
 
         if (recordContainer) {
-            if (!isError) {
-                recordContainer.classList.remove('visible');
+            recordContainer.classList.remove('visible');
 
+            if (!isError) {
                 recordHideCleanupTimer = setTimeout(function () {
                     if (token !== playbackToken) return;
                     recordContainer.style.display = 'none';
                     window.RecordWidget.clearDesignData();
-
                     currentDesignData = {};
                     window.OverlayWidget.clearOverlayArt();
-
                     if (window.OverlayWidget.resetStatus) window.OverlayWidget.resetStatus();
-
                 }, RECORD_SLIDE_MS);
             }
         }
 
         if (record) window.RecordWidget.setSpinState('paused');
-
-        if (tracklistContainer) {
-            if (!isError) {
-                tracklistHideVisibilityTimer = setTimeout(function () {
-                    if (token !== playbackToken) return;
-                    tracklistContainer.classList.remove('visible');
-                }, RECORD_SLIDE_MS);
-
-                tracklistDataFlushTimer = setTimeout(function () {
-                    if (token !== playbackToken) return;
-                    window.TracklistWidget.clear();
-                    currentTracks = [];
-                    currentActiveTrackIndex = 0;
-                }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
-            }
-        } else if (!isError) {
-            window.TracklistWidget.clear();
-            currentTracks = [];
-            currentActiveTrackIndex = 0;
-        }
 
         const unknownIndicator = document.getElementById('unknown-tag-indicator');
         if (unknownIndicator) unknownIndicator.classList.remove('visible');
@@ -460,14 +479,16 @@
 
         if (isError) return;
 
-        idleStateRestoreTimer = setTimeout(function () {
-            if (token !== playbackToken) return;
-            if (window.LoadingWidget && window.LoadingWidget.revealIdleFromOverlay) {
-                window.LoadingWidget.revealIdleFromOverlay();
-            } else if (window.LoadingWidget && window.LoadingWidget.showIdle) {
+        if (window.LoadingWidget) {
+            if (wasPlaying && window.LoadingWidget.revealIdleFromOverlay) {
+                idleStateRestoreTimer = setTimeout(function () {
+                    if (token !== playbackToken) return;
+                    window.LoadingWidget.revealIdleFromOverlay();
+                }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
+            } else if (window.LoadingWidget.showIdle) {
                 window.LoadingWidget.showIdle();
             }
-        }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
+        }
     }
 
     function showUnknownTag(payload) {
@@ -487,6 +508,7 @@
             designData = pendingStartPayload.designData;
         }
 
+        const wasPlaying = isPlayingState;
         stopPlayback(true);
         const currentToken = playbackToken;
 
@@ -494,12 +516,14 @@
             window.RecordWidget.applyDesignData(designData);
         }
 
-        if (window.LoadingWidget && window.LoadingWidget.showError) {
-            window.LoadingWidget.showError();
-        }
+        const ejectDelay = wasPlaying ? (RECORD_SLIDE_MS + TRACKLIST_FADE_MS) : 0;
 
         setTimeout(function () {
             if (currentToken !== playbackToken) return;
+
+            if (window.LoadingWidget && window.LoadingWidget.showError) {
+                window.LoadingWidget.showError();
+            }
 
             if (window.RecordWidget && window.RecordWidget.ejectRecord) {
                 window.RecordWidget.ejectRecord();
@@ -510,7 +534,7 @@
             } else {
                 console.error("Playback Error:", message);
             }
-        }, 450);
+        }, ejectDelay + 50);
     }
 
     function startPlayback(payload) {
@@ -604,6 +628,12 @@
 
         if (!payload.duration || payload.duration === 0) return;
 
+        const hijackErrorMsg = detectHijack(payload);
+        if (hijackErrorMsg) {
+            showPlaybackError(hijackErrorMsg);
+            return;
+        }
+
         window.ProgressWidget.update(payload.position, payload.duration);
 
         var activeTrackIndex = resolveTrackIndexFromPayload(payload);
@@ -619,6 +649,12 @@
     function handlePlaybackEvent(payload) {
         if (!payload) return;
         if (!isPlayingState) return;
+
+        const hijackErrorMsg = detectHijack(payload);
+        if (hijackErrorMsg) {
+            showPlaybackError(hijackErrorMsg);
+            return;
+        }
 
         const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
         const stateName = typeof payload.state === 'string' ? payload.state.toLowerCase() : '';
@@ -663,7 +699,7 @@
                         window.LoadingWidget.forceHide();
 
                         this._originalScan = window.LoadingWidget.beginScanLoading;
-                        this._originalScan = window.LoadingWidget.expandToOverlay;
+                        this._originalExpand = window.LoadingWidget.expandToOverlay;
                         window.LoadingWidget.beginScanLoading = function () { return Promise.resolve(); };
                         window.LoadingWidget.expandToOverlay = function () { return Promise.resolve(); };
                     }
@@ -676,7 +712,7 @@
 
                         if (window.LoadingWidget && this._originalScan) {
                             window.LoadingWidget.beginScanLoading = this._originalScan;
-                            window.LoadingWidget.expandToOverlay = this._originalScan;
+                            window.LoadingWidget.expandToOverlay = this._originalExpand;
                         }
                     }, 50);
                 }
