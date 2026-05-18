@@ -110,7 +110,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   Widget _pageForTab(AppPageTab selectedTab) {
     switch (selectedTab) {
       case AppPageTab.home:
-        return const HomeScreen();
+        return HomeScreen(mqttService: mqttService);
       case AppPageTab.library:
         return const LibraryScreen();
       case AppPageTab.debug:

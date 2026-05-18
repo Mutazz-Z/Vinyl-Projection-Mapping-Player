@@ -86,8 +86,49 @@ class MqttService {
     }
   }
 
+  void Function(String id, double width, double height)? onProjectorDiscovered;
+
   void _onConnected() {
     debugPrint('MqttService: Connected to Pi MQTT broker.');
+
+    _mqttClient!.subscribe('vinyl/shelf/mapping/status', MqttQos.atLeastOnce);
+
+    _mqttClient!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+      final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
+      final String topic = c[0].topic;
+      final String pt = MqttPublishPayload.bytesToStringAsString(
+        recMess.payload.message,
+      );
+
+      if (topic == 'vinyl/shelf/mapping/status') {
+        try {
+          final data = jsonDecode(pt);
+          if (data['id'] != null &&
+              data['width'] != null &&
+              data['height'] != null) {
+            onProjectorDiscovered?.call(
+              data['id'].toString(),
+              (data['width'] as num).toDouble(),
+              (data['height'] as num).toDouble(),
+            );
+          }
+        } catch (e) {
+          debugPrint('Error parsing projector status: $e');
+        }
+      }
+    });
+  }
+
+  void pingProjectors() {
+    if (!_isConnected) return;
+    final Map<String, dynamic> payload = {'action': 'ping'};
+    final MqttClientPayloadBuilder payloadBuilder = MqttClientPayloadBuilder();
+    payloadBuilder.addString(jsonEncode(payload));
+    _mqttClient!.publishMessage(
+      'vinyl/shelf/mapping',
+      MqttQos.atLeastOnce,
+      payloadBuilder.payload!,
+    );
   }
 
   void _onDisconnected() {
@@ -456,7 +497,6 @@ class MqttService {
     );
   }
 
-  // temp will probably remove once im done debugging
   void publishRaw(
     String topic,
     String message, {
@@ -471,12 +511,45 @@ class MqttService {
 
     _mqttClient!.publishMessage(topic, qos, payloadBuilder.payload!);
   }
-  // end of temp function
 
   String decodePayload(dynamic rawPayload) {
     final MqttPublishMessage publishMessage = rawPayload as MqttPublishMessage;
     return MqttPublishPayload.bytesToStringAsString(
       publishMessage.payload.message,
+    );
+  }
+
+  void toggleMappingMode({String targetId = 'all'}) {
+    if (!_isConnected) return;
+    final Map<String, dynamic> payload = {
+      'action': 'toggle',
+      'targetId': targetId,
+    };
+    final MqttClientPayloadBuilder builder = MqttClientPayloadBuilder();
+    builder.addString(jsonEncode(payload));
+    _mqttClient!.publishMessage(
+      'vinyl/shelf/mapping',
+      MqttQos.atLeastOnce,
+      builder.payload!,
+    );
+  }
+
+  void updateMappingLayout(
+    List<Map<String, dynamic>> layoutData, {
+    String targetId = 'all',
+  }) {
+    if (!_isConnected) return;
+    final Map<String, dynamic> payload = {
+      'action': 'layout',
+      'targetId': targetId,
+      'data': layoutData,
+    };
+    final MqttClientPayloadBuilder builder = MqttClientPayloadBuilder();
+    builder.addString(jsonEncode(payload));
+    _mqttClient!.publishMessage(
+      'vinyl/shelf/mapping',
+      MqttQos.atLeastOnce,
+      builder.payload!,
     );
   }
 }

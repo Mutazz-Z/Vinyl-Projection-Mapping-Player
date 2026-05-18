@@ -50,10 +50,6 @@
     transition: opacity 0.15s ease;
 }
 
-body.mapping-mode #visualizer {
-    opacity: 1 !important;
-}
-
 body.mapping-mode .bar {
     height: 60% !important;
 }

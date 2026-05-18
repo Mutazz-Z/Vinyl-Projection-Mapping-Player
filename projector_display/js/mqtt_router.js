@@ -4,10 +4,11 @@
 
     window.PI_IP = PI_IP;
 
+    const CLIENT_ID = 'projector_' + Math.random().toString(16).substring(2, 10);
     const client = new Paho.MQTT.Client(
         PI_IP,
         PORT,
-        'projector_' + Math.random().toString(16).substring(2, 10)
+        CLIENT_ID
     );
 
     client.onConnectionLost = function () {
@@ -27,6 +28,29 @@
             return;
         }
 
+        if (topic === 'vinyl/shelf/mapping') {
+            if (payload.targetId && payload.targetId !== CLIENT_ID && payload.targetId !== 'all') {
+                return;
+            }
+
+            if (payload.action === 'toggle') {
+                if (window.ProjectorMapping) window.ProjectorMapping.toggleMode();
+            }
+            else if (payload.action === 'layout' && payload.data) {
+                if (window.ProjectorMapping) window.ProjectorMapping.updateLayout(payload.data);
+            }
+            else if (payload.action === 'ping') {
+                const statusPayload = {
+                    id: CLIENT_ID,
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                };
+                const statusMsg = new Paho.MQTT.Message(JSON.stringify(statusPayload));
+                statusMsg.destinationName = 'vinyl/shelf/mapping/status';
+                client.send(statusMsg);
+            }
+            return;
+        }
         if (topic === 'vinyl/shelf/visuals') {
             switch (payload.effect) {
                 case 'play':
@@ -82,6 +106,7 @@
         client.subscribe('vinyl/shelf/visuals');
         client.subscribe('vinyl/shelf/visuals/progress');
         client.subscribe('vinyl/shelf/playback/state');
+        client.subscribe('vinyl/shelf/mapping');
     }
 
     client.connect({ onSuccess: onConnect, useSSL: false });

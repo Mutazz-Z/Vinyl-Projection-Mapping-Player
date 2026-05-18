@@ -7,7 +7,7 @@
  *
  */
 
-const LAYOUT_KEY        = 'vinylProjectionLayout';
+const LAYOUT_KEY = 'vinylProjectionLayout';
 const LAYOUT_BACKUP_KEY = 'vinylProjectionLayoutBackup';
 
 function readJSON(key) {
@@ -69,3 +69,26 @@ setInterval(() => {
         saveLayout();
     }
 }, 2000);
+
+window.ProjectorMapping = {
+    toggleMode: function () {
+        document.body.classList.toggle('mapping-mode');
+        const on = document.body.classList.contains('mapping-mode');
+        console.log('Remote Mapping mode:', on ? 'ON' : 'OFF');
+        if (on) saveLayout();
+    },
+
+    updateLayout: function (layoutData) {
+        if (!maptastic || typeof maptastic.setLayout !== 'function') return;
+        try {
+            maptastic.setLayout(layoutData);
+
+            window.dispatchEvent(new Event('resize'));
+
+            saveLayout();
+            console.log('Remote layout applied successfully.');
+        } catch (err) {
+            console.error("Failed to apply remote layout", err);
+        }
+    }
+};
