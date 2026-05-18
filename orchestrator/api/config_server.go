@@ -121,4 +121,65 @@ func StartConfigServer() {
 			log.Printf("Config server error: %v", err)
 		}
 	}()
+
+	http.HandleFunc("/api/config/ui", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method == "GET" {
+			rows, err := globals.Database.Query("SELECT key, value FROM app_settings WHERE key LIKE 'mapping_%'")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+
+			data := make(map[string]string)
+			for rows.Next() {
+				var k, v string
+				rows.Scan(&k, &v)
+				data[k] = v
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(data)
+			return
+		}
+
+		if r.Method == "POST" {
+			var req map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			tx, err := globals.Database.Begin()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			stmt, err := tx.Prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value;`)
+			if err == nil {
+				for k, v := range req {
+					_, err := stmt.Exec(k, v)
+					if err != nil {
+						log.Printf("Failed to save setting %s: %v", k, err)
+					}
+				}
+				stmt.Close()
+			}
+
+			tx.Commit()
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"success"}`))
+			return
+		}
+	})
 }

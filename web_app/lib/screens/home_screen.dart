@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_app/services/interactive_mapper.dart';
 import 'package:web_app/services/mqtt_service.dart';
 import 'package:web_app/theme/app_theme.dart';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   final MqttService mqttService;
@@ -11,6 +14,14 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
+}
+
+String get _uiApiUrl {
+  final String host = Uri.base.host;
+  final ip = (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1')
+      ? host
+      : '127.0.0.1';
+  return 'http://$ip:8100/api/config/ui';
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -38,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final GlobalKey<InteractiveMapperState> _mapperKey =
       GlobalKey<InteractiveMapperState>();
+
+  Timer? _saveDebounceTimer;
 
   @override
   void initState() {
@@ -69,27 +82,48 @@ class _HomeScreenState extends State<HomeScreen> {
     _brY.dispose();
     _blX.dispose();
     _blY.dispose();
+    _saveDebounceTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadLastState() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _projectorWidth = prefs.getDouble('last_width') ?? 1510;
-      _projectorHeight = prefs.getDouble('last_height') ?? 860;
-
-      _widthController.text = _projectorWidth.round().toString();
-      _heightController.text = _projectorHeight.round().toString();
-
-      _tlX.text = prefs.getString('last_tlX') ?? '0';
-      _tlY.text = prefs.getString('last_tlY') ?? '0';
-      _trX.text = prefs.getString('last_trX') ?? _projectorWidth.toString();
-      _trY.text = prefs.getString('last_trY') ?? '0';
-      _brX.text = prefs.getString('last_brX') ?? _projectorWidth.toString();
-      _brY.text = prefs.getString('last_brY') ?? _projectorHeight.toString();
-      _blX.text = prefs.getString('last_blX') ?? '0';
-      _blY.text = prefs.getString('last_blY') ?? _projectorHeight.toString();
+  void _scheduleSave() {
+    _saveDebounceTimer?.cancel();
+    
+    _saveDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _saveLastState();
     });
+  }
+
+  Future<void> _loadLastState() async {
+    try {
+      final res = await http
+          .get(Uri.parse(_uiApiUrl))
+          .timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+        setState(() {
+          _projectorWidth =
+              double.tryParse(data['mapping_width'] ?? '') ?? 1920;
+          _projectorHeight =
+              double.tryParse(data['mapping_height'] ?? '') ?? 1080;
+
+          _widthController.text = _projectorWidth.round().toString();
+          _heightController.text = _projectorHeight.round().toString();
+
+          _tlX.text = data['mapping_tlX'] ?? '0';
+          _tlY.text = data['mapping_tlY'] ?? '0';
+          _trX.text = data['mapping_trX'] ?? _projectorWidth.toString();
+          _trY.text = data['mapping_trY'] ?? '0';
+          _brX.text = data['mapping_brX'] ?? _projectorWidth.toString();
+          _brY.text = data['mapping_brY'] ?? _projectorHeight.toString();
+          _blX.text = data['mapping_blX'] ?? '0';
+          _blY.text = data['mapping_blY'] ?? _projectorHeight.toString();
+        });
+      }
+    } catch (e) {
+      debugPrint('Warning: Could not load global mapping state. ($e)');
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _onManualCoordinateChanged();
@@ -97,64 +131,92 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _saveLastState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('last_width', _projectorWidth);
-    await prefs.setDouble('last_height', _projectorHeight);
-
-    await prefs.setString('last_tlX', _tlX.text);
-    await prefs.setString('last_tlY', _tlY.text);
-    await prefs.setString('last_trX', _trX.text);
-    await prefs.setString('last_trY', _trY.text);
-    await prefs.setString('last_brX', _brX.text);
-    await prefs.setString('last_brY', _brY.text);
-    await prefs.setString('last_blX', _blX.text);
-    await prefs.setString('last_blY', _blY.text);
+    try {
+      await http.post(
+        Uri.parse(_uiApiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mapping_width': _projectorWidth.toString(),
+          'mapping_height': _projectorHeight.toString(),
+          'mapping_tlX': _tlX.text,
+          'mapping_tlY': _tlY.text,
+          'mapping_trX': _trX.text,
+          'mapping_trY': _trY.text,
+          'mapping_brX': _brX.text,
+          'mapping_brY': _brY.text,
+          'mapping_blX': _blX.text,
+          'mapping_blY': _blY.text,
+        }),
+      );
+    } catch (e) {
+      debugPrint('Warning: Could not save mapping state globally. ($e)');
+    }
   }
 
   Future<void> _savePreset() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('preset_tlX', _tlX.text);
-    await prefs.setString('preset_tlY', _tlY.text);
-    await prefs.setString('preset_trX', _trX.text);
-    await prefs.setString('preset_trY', _trY.text);
-    await prefs.setString('preset_brX', _brX.text);
-    await prefs.setString('preset_brY', _brY.text);
-    await prefs.setString('preset_blX', _blX.text);
-    await prefs.setString('preset_blY', _blY.text);
-
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Custom preset saved!')));
+    try {
+      await http.post(
+        Uri.parse(_uiApiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mapping_preset_tlX': _tlX.text,
+          'mapping_preset_tlY': _tlY.text,
+          'mapping_preset_trX': _trX.text,
+          'mapping_preset_trY': _trY.text,
+          'mapping_preset_brX': _brX.text,
+          'mapping_preset_brY': _brY.text,
+          'mapping_preset_blX': _blX.text,
+          'mapping_preset_blY': _blY.text,
+        }),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Custom preset saved to global database!'),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving preset globally: $e');
     }
   }
 
   Future<void> _loadPreset() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey('preset_tlX')) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('No preset saved yet.')));
+    try {
+      final res = await http.get(Uri.parse(_uiApiUrl));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+        if (!data.containsKey('mapping_preset_tlX')) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No global preset saved yet.')),
+            );
+          }
+          return;
+        }
+
+        setState(() {
+          _tlX.text = data['mapping_preset_tlX'] ?? '0';
+          _tlY.text = data['mapping_preset_tlY'] ?? '0';
+          _trX.text = data['mapping_preset_trX'] ?? '0';
+          _trY.text = data['mapping_preset_trY'] ?? '0';
+          _brX.text = data['mapping_preset_brX'] ?? '0';
+          _brY.text = data['mapping_preset_brY'] ?? '0';
+          _blX.text = data['mapping_preset_blX'] ?? '0';
+          _blY.text = data['mapping_preset_blY'] ?? '0';
+        });
+
+        _onManualCoordinateChanged();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Global preset loaded!')),
+          );
+        }
       }
-      return;
-    }
-
-    _tlX.text = prefs.getString('preset_tlX') ?? '0';
-    _tlY.text = prefs.getString('preset_tlY') ?? '0';
-    _trX.text = prefs.getString('preset_trX') ?? '0';
-    _trY.text = prefs.getString('preset_trY') ?? '0';
-    _brX.text = prefs.getString('preset_brX') ?? '0';
-    _brY.text = prefs.getString('preset_brY') ?? '0';
-    _blX.text = prefs.getString('preset_blX') ?? '0';
-    _blY.text = prefs.getString('preset_blY') ?? '0';
-
-    _onManualCoordinateChanged();
-
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Custom preset loaded!')));
+    } catch (e) {
+      debugPrint('Error loading global preset: $e');
     }
   }
 
@@ -179,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _projectorWidth = double.tryParse(_widthController.text) ?? 1920;
       _projectorHeight = double.tryParse(_heightController.text) ?? 1080;
     });
-    _saveLastState();
+    _scheduleSave();
     FocusScope.of(context).unfocus();
   }
 
@@ -193,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _blX.text = (corners[3].dx * _projectorWidth).round().toString();
     _blY.text = (corners[3].dy * _projectorHeight).round().toString();
 
-    _saveLastState();
+    _scheduleSave();
   }
 
   List<Offset> _getCurrentCornersAsPercentages() {
@@ -228,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onManualCoordinateChanged() {
     _mapperKey.currentState?.applyCorners(_getCurrentCornersAsPercentages());
-    _saveLastState();
+    _scheduleSave();
   }
 
   Widget _buildCoordinateField(String label, TextEditingController controller) {
@@ -534,8 +596,7 @@ class FullscreenMapperScreen extends StatelessWidget {
                   projectorWidth: projectorWidth,
                   projectorHeight: projectorHeight,
                   initialCorners: initialCorners,
-                  onCornersChanged:
-                      onCornersChanged,
+                  onCornersChanged: onCornersChanged,
                 ),
               ),
             ),
