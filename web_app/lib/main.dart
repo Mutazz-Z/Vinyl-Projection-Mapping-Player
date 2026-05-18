@@ -10,7 +10,7 @@ import 'services/mqtt_service.dart';
 import 'services/playback_monitoring_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_navigation_rail.dart';
-import 'services/orchestrator_api_service.dart';
+import 'screens/welcome_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final MqttService mqttService = MqttService();
@@ -27,17 +27,19 @@ void main() async {
 
   await musicAssistant.init();
 
-  _initializeBackgroundNetworkStack();
+  final bool isFirstBoot = !musicAssistant.settings.isConfigured;
 
-  runApp(const VinylApp());
+  if (!isFirstBoot) {
+    _initializeBackgroundNetworkStack();
+  }
+
+  runApp(VinylApp(isFirstBoot: isFirstBoot));
 }
 
 void _initializeBackgroundNetworkStack() async {
   try {
     final String brokerAddress = musicAssistant.settings.mqttHost;
     final int brokerPort = musicAssistant.settings.mqttPort;
-
-    await orchestratorApi.syncMqttConfig(brokerAddress);
 
     final bool didConnect = await mqttService.connect(
       brokerAddress,
@@ -56,20 +58,29 @@ void _initializeBackgroundNetworkStack() async {
 }
 
 class VinylApp extends StatelessWidget {
-  const VinylApp({super.key});
+  final bool isFirstBoot;
+
+  const VinylApp({super.key, required this.isFirstBoot});
 
   @override
   Widget build(BuildContext context) {
     final String? scannedUid = Uri.base.queryParameters['uid'];
     final bool hasScannedUid = scannedUid != null && scannedUid.isNotEmpty;
 
+    Widget initialScreen;
+    if (hasScannedUid) {
+      initialScreen = RegisterScreen(uid: scannedUid);
+    } else if (isFirstBoot) {
+      initialScreen = const WelcomeScreen();
+    } else {
+      initialScreen = const AppShellScreen();
+    }
+
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Vinyl Orchestrator',
       theme: AppTheme.darkTheme,
-      home: hasScannedUid
-          ? RegisterScreen(uid: scannedUid)
-          : const AppShellScreen(),
+      home: initialScreen,
     );
   }
 }

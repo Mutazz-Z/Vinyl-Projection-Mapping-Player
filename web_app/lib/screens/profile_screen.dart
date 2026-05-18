@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/services/music_assistant_service.dart';
 import 'package:web_app/theme/app_theme.dart';
-import 'package:web_app/services/orchestrator_api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -115,8 +114,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final currentHost = _mqttHostController.text.trim();
     final parsedPort = int.tryParse(_mqttPortController.text.trim()) ?? 9001;
-
-    await orchestratorApi.syncMqttConfig(currentHost);
 
     mqttService.disconnect();
     await mqttService.connect(currentHost, parsedPort);

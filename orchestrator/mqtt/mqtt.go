@@ -420,8 +420,21 @@ func ReconnectMQTT(newHost string, newPort string) error {
 }
 
 func SetupMQTT() {
-	brokerHost := getEnv("MQTT_BROKER_HOST", utils.GetLocalIP())
-	brokerPort := getEnv("MQTT_BROKER_PORT", "1883")
+	var savedHost, savedPort string
+
+	globals.Database.QueryRow("SELECT value FROM app_settings WHERE key='mqtt_host'").Scan(&savedHost)
+	globals.Database.QueryRow("SELECT value FROM app_settings WHERE key='mqtt_tcp_port'").Scan(&savedPort)
+
+	brokerHost := savedHost
+	if brokerHost == "" {
+		brokerHost = getEnv("MQTT_BROKER_HOST", utils.GetLocalIP())
+	}
+
+	brokerPort := savedPort
+	if brokerPort == "" {
+		brokerPort = getEnv("MQTT_BROKER_PORT", "1883")
+	}
+
 	brokerAddress := fmt.Sprintf("%s:%s", brokerHost, brokerPort)
 
 	mqttClientID := fmt.Sprintf("vinyl_orchestrator_%d", time.Now().Unix())

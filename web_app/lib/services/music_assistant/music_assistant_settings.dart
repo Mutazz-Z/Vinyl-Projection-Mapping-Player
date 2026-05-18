@@ -1,48 +1,52 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class MusicAssistantSettings {
-  String url;
-  String token;
-  String playerEntityId;
-  String apiPath;
-  String mqttHost;
-  int mqttPort;
-
-  MusicAssistantSettings({
-    this.url = const String.fromEnvironment('HOME_ASSISTANT_URL'),
-    this.token = const String.fromEnvironment('HOME_ASSISTANT_TOKEN'),
-    this.playerEntityId = const String.fromEnvironment(
-      'MUSIC_ASSISTANT_PLAYER_ENTITY_ID',
-    ),
-    this.apiPath = const String.fromEnvironment('HOME_ASSISTANT_API_PATH'),
-    this.mqttHost = const String.fromEnvironment(
-      'MQTT_BROKER_HOST',
-      defaultValue: '',
-    ),
-    this.mqttPort = const int.fromEnvironment(
-      'MQTT_BROKER_PORT',
-      defaultValue: 9001,
-    ),
-  });
+  String url = '';
+  String token = '';
+  String playerEntityId = '';
+  String apiPath = '';
+  String mqttHost = '';
+  int mqttPort = 9001;
 
   bool get isConfigured => url.isNotEmpty && token.isNotEmpty;
 
-  Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    url = prefs.getString('home_assistant_url') ?? url;
-    token = prefs.getString('home_assistant_token') ?? token;
-    playerEntityId =
-        prefs.getString('music_assistant_player_entity_id') ?? playerEntityId;
-    apiPath = prefs.getString('home_assistant_api_path') ?? apiPath;
-
-    final String currentHostIp = Uri.base.host.isNotEmpty
-        ? Uri.base.host
+  String get _orchestratorIp {
+    final String host = Uri.base.host;
+    return (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1')
+        ? host
         : '127.0.0.1';
+  }
 
-    final String savedMqttHost = prefs.getString('mqtt_host') ?? '';
-    mqttHost = savedMqttHost.isNotEmpty ? savedMqttHost : currentHostIp;
+  String get _apiUrl => 'http://$_orchestratorIp:8100/api/config';
 
-    mqttPort = prefs.getInt('mqtt_port') ?? mqttPort;
+  Future<void> load() async {
+    try {
+      final response = await http
+          .get(Uri.parse(_apiUrl))
+          .timeout(const Duration(seconds: 3));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        url = data['home_assistant_url'] ?? '';
+        token = data['home_assistant_token'] ?? '';
+        playerEntityId = data['home_assistant_player'] ?? '';
+        apiPath = data['home_assistant_api_path'] ?? '';
+
+        final savedHost = data['mqtt_host'] ?? '';
+        mqttHost = savedHost.isNotEmpty ? savedHost : _orchestratorIp;
+
+        final savedPort = data['mqtt_port'] ?? '';
+        mqttPort = int.tryParse(savedPort.toString()) ?? 9001;
+      }
+    } catch (e) {
+      debugPrint(
+        'Settings Load Warning: Could not reach Go DB. Assuming fresh install. ($e)',
+      );
+      mqttHost = _orchestratorIp;
+    }
   }
 
   Future<void> save({
@@ -53,30 +57,49 @@ class MusicAssistantSettings {
     required String newMqttHost,
     required int newMqttPort,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-
     url = normalizeUrl(newUrl);
     token = newToken.trim();
     playerEntityId = newEntityId.trim();
     apiPath = normalizeApiPath(newApiPath);
-
     mqttHost = newMqttHost.trim();
     mqttPort = newMqttPort;
 
-    await prefs.setString('home_assistant_url', url);
-    await prefs.setString('home_assistant_token', token);
-    await prefs.setString('music_assistant_player_entity_id', playerEntityId);
-    await prefs.setString('home_assistant_api_path', apiPath);
-    await prefs.setString('mqtt_host', mqttHost);
-    await prefs.setInt('mqtt_port', mqttPort);
+    try {
+      await http
+          .post(
+            Uri.parse(_apiUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'home_assistant_url': url,
+              'home_assistant_token': token,
+              'home_assistant_player': playerEntityId,
+              'home_assistant_api_path': apiPath,
+              'mqtt_host': mqttHost,
+              'mqtt_ws_port': mqttPort
+                  .toString(),
+              'mqtt_tcp_port': '1883',
+            }),
+          )
+          .timeout(const Duration(seconds: 3));
+      debugPrint('Settings successfully synced to Go Database.');
+    } catch (e) {
+      debugPrint('Settings Save Error: Could not sync to Go Database. ($e)');
+      throw Exception('Failed to save settings to backend.');
+    }
   }
 
   Future<void> updateApiPath(String newPath) async {
     final normalized = normalizeApiPath(newPath);
     if (apiPath != normalized) {
       apiPath = normalized;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('home_assistant_api_path', apiPath);
+      await save(
+        newUrl: url,
+        newToken: token,
+        newEntityId: playerEntityId,
+        newApiPath: apiPath,
+        newMqttHost: mqttHost,
+        newMqttPort: mqttPort,
+      );
     }
   }
 
