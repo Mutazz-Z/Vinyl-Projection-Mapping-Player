@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"syscall"
 	"vinyl-orchestrator/globals"
+	"vinyl-orchestrator/api"
 
 	assetsServer "vinyl-orchestrator/assets_server"
-	orchestratormqtt "vinyl-orchestrator/mqtt"
 	database "vinyl-orchestrator/database"
+	orchestratormqtt "vinyl-orchestrator/mqtt"
 
 	_ "modernc.org/sqlite"
 )
@@ -76,6 +77,8 @@ func waitForShutdownSignal() {
 func main() {
 	fmt.Println("⏺ Orchestrator starting...")
 	initializeDatabase()
+
+	api.StartConfigServer()
 
 	assetsServer.StartAssetServer()
 	orchestratormqtt.SetupMQTT()

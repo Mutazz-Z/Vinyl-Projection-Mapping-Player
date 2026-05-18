@@ -28,13 +28,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _listenForLibraryUpdates() {
     final messageStream = mqttService.updates;
 
-    if (messageStream == null) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-      return;
-    }
-
     _librarySubscription?.cancel();
     _librarySubscription = messageStream.listen((List<dynamic> messages) {
       if (!mounted || messages.isEmpty) {

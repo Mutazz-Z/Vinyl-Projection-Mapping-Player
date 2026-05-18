@@ -5,28 +5,54 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_browser_client.dart';
 
 class MqttService {
-  static const String _brokerAddress = '192.168.50.214';
-  static const int _brokerPort = 9001;
-
   MqttBrowserClient? _mqttClient;
+  String? _currentBrokerAddress;
+  int? _currentBrokerPort;
 
-  Stream<List<MqttReceivedMessage<MqttMessage>>>? get updates =>
-      _mqttClient?.updates;
+  final StreamController<List<MqttReceivedMessage<MqttMessage>>>
+  _updatesController =
+      StreamController<List<MqttReceivedMessage<MqttMessage>>>.broadcast();
+  StreamSubscription? _rawUpdatesSubscription;
+
+  final Set<String> _activeSubscriptions = {};
+
+  Stream<List<MqttReceivedMessage<MqttMessage>>> get updates =>
+      _updatesController.stream;
 
   bool get _isConnected =>
       _mqttClient?.connectionStatus?.state == MqttConnectionState.connected;
 
-  bool _initializeClient() {
+  void disconnect() {
     if (_mqttClient != null) {
-      return true;
+      debugPrint('MqttService: Disconnecting current client...');
+      try {
+        _mqttClient!.disconnect();
+      } catch (_) {}
+      _mqttClient = null;
     }
+    _rawUpdatesSubscription?.cancel();
+  }
+
+  bool _initializeClient(String brokerAddress, int brokerPort) {
+    if (_mqttClient != null) {
+      if (_mqttClient!.server == 'ws://$brokerAddress' &&
+          _mqttClient!.port == brokerPort) {
+        return true;
+      } else {
+        debugPrint(
+          'MqttService: Broker config changed. Tearing down old client.',
+        );
+        disconnect();
+      }
+    }
+
     try {
       final String uniqueClientIdentifier =
           'flutter_client_${DateTime.now().millisecondsSinceEpoch}';
       _mqttClient = MqttBrowserClient.withPort(
-        'ws://$_brokerAddress',
+        'ws://$brokerAddress',
         uniqueClientIdentifier,
-        _brokerPort,
+        brokerPort,
       );
       _mqttClient!.websocketProtocols =
           MqttClientConstants.protocolsSingleDefault;
@@ -43,13 +69,22 @@ class MqttService {
     }
   }
 
-  Future<bool> connect() async {
-    if (!_initializeClient()) {
-      return false;
+  Future<bool> connect(String brokerAddress, int brokerPort) async {
+    _currentBrokerAddress = brokerAddress;
+    _currentBrokerPort = brokerPort;
+
+    if (!_initializeClient(brokerAddress, brokerPort)) return false;
+
+    if (_isConnected) {
+      debugPrint(
+        'MqttService: Already connected to $brokerAddress. Skipping request.',
+      );
+      return true;
     }
+
     try {
       debugPrint(
-        'MqttService: Connecting to broker at ws://$_brokerAddress:$_brokerPort...',
+        'MqttService: Connecting to ws://$brokerAddress:$brokerPort...',
       );
       final MqttClientConnectionStatus? connectionStatus = await _mqttClient!
           .connect()
@@ -57,66 +92,77 @@ class MqttService {
             const Duration(seconds: 10),
             onTimeout: () {
               debugPrint('MqttService: Connection attempt timed out.');
-              _mqttClient?.disconnect();
+              disconnect();
               return null;
             },
           );
+
       if (connectionStatus?.state == MqttConnectionState.connected) {
         debugPrint('MqttService: Successfully connected to broker.');
         return true;
       } else {
-        debugPrint(
-          'MqttService: Connection failed with state: ${connectionStatus?.state}',
-        );
         return false;
       }
     } on Exception catch (error) {
       debugPrint('MqttService: Connection exception: $error');
-      _mqttClient?.disconnect();
+      disconnect();
       return false;
     }
   }
 
   void subscribe(String topic) {
+    _activeSubscriptions.add(topic);
     if (_isConnected) {
       debugPrint('MqttService: Subscribing to topic "$topic".');
       _mqttClient!.subscribe(topic, MqttQos.atLeastOnce);
     } else {
-      debugPrint('MqttService: Cannot subscribe — client is not connected.');
+      debugPrint('MqttService: Saved subscription "$topic" for later.');
     }
   }
 
   void Function(String id, double width, double height)? onProjectorDiscovered;
 
   void _onConnected() {
-    debugPrint('MqttService: Connected to Pi MQTT broker.');
+    debugPrint('MqttService: Connected to MQTT broker.');
 
-    _mqttClient!.subscribe('vinyl/shelf/mapping/status', MqttQos.atLeastOnce);
+    _rawUpdatesSubscription?.cancel();
+    if (_mqttClient!.updates != null) {
+      _rawUpdatesSubscription = _mqttClient!.updates!.listen((messages) {
+        _updatesController.add(messages);
 
-    _mqttClient!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
-      final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
-      final String topic = c[0].topic;
-      final String pt = MqttPublishPayload.bytesToStringAsString(
-        recMess.payload.message,
-      );
+        if (messages.isNotEmpty) {
+          final String topic = messages[0].topic;
+          final MqttPublishMessage recMess =
+              messages[0].payload as MqttPublishMessage;
+          final String pt = MqttPublishPayload.bytesToStringAsString(
+            recMess.payload.message,
+          );
 
-      if (topic == 'vinyl/shelf/mapping/status') {
-        try {
-          final data = jsonDecode(pt);
-          if (data['id'] != null &&
-              data['width'] != null &&
-              data['height'] != null) {
-            onProjectorDiscovered?.call(
-              data['id'].toString(),
-              (data['width'] as num).toDouble(),
-              (data['height'] as num).toDouble(),
-            );
+          if (topic == 'vinyl/shelf/mapping/status') {
+            try {
+              final data = jsonDecode(pt);
+              if (data['id'] != null &&
+                  data['width'] != null &&
+                  data['height'] != null) {
+                onProjectorDiscovered?.call(
+                  data['id'].toString(),
+                  (data['width'] as num).toDouble(),
+                  (data['height'] as num).toDouble(),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error parsing projector status: $e');
+            }
           }
-        } catch (e) {
-          debugPrint('Error parsing projector status: $e');
         }
-      }
-    });
+      });
+    }
+
+    for (final topic in _activeSubscriptions) {
+      _mqttClient!.subscribe(topic, MqttQos.atLeastOnce);
+    }
+
+    subscribe('vinyl/shelf/mapping/status');
   }
 
   void pingProjectors() {
@@ -137,9 +183,28 @@ class MqttService {
 
   void requestLibrary() {
     if (!_isConnected) {
-      debugPrint('MqttService: Cannot request library — not connected.');
+      debugPrint(
+        'MqttService: Cannot request library — not connected. Queuing request...',
+      );
+      if (_currentBrokerAddress == null || _currentBrokerPort == null) return;
+
+      connect(_currentBrokerAddress!, _currentBrokerPort!).then((
+        bool didConnect,
+      ) {
+        if (didConnect) {
+          Future.delayed(
+            const Duration(milliseconds: 250),
+            _publishLibraryRequest,
+          );
+        }
+      });
       return;
     }
+
+    _publishLibraryRequest();
+  }
+
+  void _publishLibraryRequest() {
     _mqttClient!.publishMessage(
       'vinyl/shelf/library/request',
       MqttQos.atMostOnce,
@@ -152,7 +217,13 @@ class MqttService {
       debugPrint(
         'MqttService: Not connected — attempting reconnect before delete.',
       );
-      connect().then((bool didConnect) {
+      if (_currentBrokerAddress == null || _currentBrokerPort == null) {
+        return;
+      }
+
+      connect(_currentBrokerAddress!, _currentBrokerPort!).then((
+        bool didConnect,
+      ) {
         if (didConnect) _publishDeleteMessage(uid);
       });
     } else {
@@ -194,7 +265,13 @@ class MqttService {
       debugPrint(
         'MqttService: Not connected — attempting reconnect before register.',
       );
-      connect().then((bool didConnect) {
+      if (_currentBrokerAddress == null || _currentBrokerPort == null) {
+        return;
+      }
+
+      connect(_currentBrokerAddress!, _currentBrokerPort!).then((
+        bool didConnect,
+      ) {
         if (didConnect) {
           _publishRegisterMessage(
             uid,
@@ -353,7 +430,13 @@ class MqttService {
       debugPrint(
         'MqttService: Not connected — attempting reconnect before update.',
       );
-      connect().then((bool didConnect) {
+      if (_currentBrokerAddress == null || _currentBrokerPort == null) {
+        return;
+      }
+
+      connect(_currentBrokerAddress!, _currentBrokerPort!).then((
+        bool didConnect,
+      ) {
         if (didConnect) {
           _publishUpdateMessage(
             uid,
@@ -431,7 +514,13 @@ class MqttService {
       debugPrint(
         'MqttService: Not connected — attempting reconnect before playback event.',
       );
-      connect().then((bool didConnect) {
+      if (_currentBrokerAddress == null || _currentBrokerPort == null) {
+        return;
+      }
+
+      connect(_currentBrokerAddress!, _currentBrokerPort!).then((
+        bool didConnect,
+      ) {
         if (didConnect) {
           _publishPlaybackEventMessage(
             event: event,

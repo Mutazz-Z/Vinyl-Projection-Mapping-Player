@@ -6,7 +6,7 @@
     function buildRegistrationUrl(payload) {
         if (payload && payload.registration_url) return payload.registration_url;
         const uid = (payload && payload.uid) ? payload.uid : '';
-        const piIp = window.PI_IP || '192.168.50.214';
+        const piIp = window.PI_IP || window.location.hostname;
         return 'http://' + piIp + ':8000/?uid=' + encodeURIComponent(uid);
     }
 
@@ -43,7 +43,7 @@
         }
 
         uidLabel.textContent = (payload && payload.uid) ? ('UID: ' + payload.uid) : '';
-        
+
         void container.offsetWidth;
         container.classList.add('visible');
     }

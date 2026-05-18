@@ -5,21 +5,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 	"vinyl-orchestrator/globals"
 	"vinyl-orchestrator/models"
 	"vinyl-orchestrator/player"
+	"vinyl-orchestrator/utils"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
 const (
-	defaultMQTTBrokerHost = "192.168.50.214"
-	defaultMQTTBrokerPort = "1883"
-	mqttConnectionTimeout = 10 * time.Second
+	mqttConnectionTimeout    = 10 * time.Second
 	playbackWatchdogDuration = 10 * time.Second
 )
+
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
 
 var playbackWatchdogTimer *time.Timer
 
@@ -364,11 +371,13 @@ func SubscribeToTopics(client paho.Client) {
 func waitForMQTTConnection(connectionToken paho.Token, brokerAddress string) {
 	connectedWithinTimeout := connectionToken.WaitTimeout(mqttConnectionTimeout)
 	if !connectedWithinTimeout {
-		log.Fatalf("MQTT connection timeout: Unable to connect to broker at %s", brokerAddress)
+		log.Printf("MQTT timeout: Unable to connect to %s. Waiting for config update...", brokerAddress)
+		return
 	}
 
 	if connectionToken.Error() != nil {
-		log.Fatal(connectionToken.Error())
+		log.Printf("MQTT error: %v. Waiting for config update...", connectionToken.Error())
+		return
 	}
 }
 
@@ -385,9 +394,34 @@ func createMQTTClientOptions(mqttClientID string, brokerAddress string) *paho.Cl
 	return mqttClientOptions
 }
 
+func ReconnectMQTT(newHost string, newPort string) error {
+	fmt.Printf("\nReceived command to switch MQTT Broker to %s:%s...\n", newHost, newPort)
+
+	if globals.MQTTClient != nil && globals.MQTTClient.IsConnected() {
+		globals.MQTTClient.Disconnect(250)
+		fmt.Println("Disconnected from old broker.")
+	}
+
+	brokerAddress := fmt.Sprintf("%s:%s", newHost, newPort)
+	mqttClientID := fmt.Sprintf("vinyl_orchestrator_%d", time.Now().Unix())
+
+	mqttClientOptions := createMQTTClientOptions(mqttClientID, brokerAddress)
+	globals.MQTTClient = paho.NewClient(mqttClientOptions)
+
+	connectionToken := globals.MQTTClient.Connect()
+	connectedWithinTimeout := connectionToken.WaitTimeout(mqttConnectionTimeout)
+
+	if !connectedWithinTimeout || connectionToken.Error() != nil {
+		return fmt.Errorf("failed to connect to new broker at %s", brokerAddress)
+	}
+
+	fmt.Printf("Successfully migrated to new MQTT broker at %s\n", brokerAddress)
+	return nil
+}
+
 func SetupMQTT() {
-	brokerHost := defaultMQTTBrokerHost
-	brokerPort := defaultMQTTBrokerPort
+	brokerHost := getEnv("MQTT_BROKER_HOST", utils.GetLocalIP())
+	brokerPort := getEnv("MQTT_BROKER_PORT", "1883")
 	brokerAddress := fmt.Sprintf("%s:%s", brokerHost, brokerPort)
 
 	mqttClientID := fmt.Sprintf("vinyl_orchestrator_%d", time.Now().Unix())

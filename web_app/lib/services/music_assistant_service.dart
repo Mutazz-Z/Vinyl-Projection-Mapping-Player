@@ -40,6 +40,8 @@ class MusicAssistantService {
       newToken: homeAssistantToken,
       newEntityId: musicAssistantPlayerEntityId,
       newApiPath: homeAssistantApiPath,
+      newMqttHost: settings.mqttHost,
+      newMqttPort: settings.mqttPort,
     );
   }
 

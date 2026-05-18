@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
+
 	"vinyl-orchestrator/globals"
 	"vinyl-orchestrator/models"
-)
-
-const (
-	defaultRegistrationHost = "192.168.50.214"
-	defaultRegistrationPort = "8000"
+	"vinyl-orchestrator/utils"
 )
 
 func normalizeUID(uid string) string {
@@ -31,8 +29,17 @@ func HandleNewTag(recordUID string) {
 	fmt.Printf("New record detected: %s\n", recordUID)
 	globals.MQTTClient.Publish("vinyl/request_register", 0, false, recordUID)
 
-	registrationURL := fmt.Sprintf("http://%s:%s/?uid=%s", defaultRegistrationHost, defaultRegistrationPort, url.QueryEscape(recordUID))
+	regHost := os.Getenv("REGISTRATION_HOST")
+	if regHost == "" {
+		regHost = utils.GetLocalIP()
+	}
 
+	regPort := os.Getenv("REGISTRATION_PORT")
+	if regPort == "" {
+		regPort = "8000"
+	}
+
+	registrationURL := fmt.Sprintf("http://%s:%s/?uid=%s", regHost, regPort, url.QueryEscape(recordUID))
 	unknownVisualPayload := models.VisualEffectPayload{
 		Effect:          models.VisualEffectUnknown,
 		UID:             recordUID,

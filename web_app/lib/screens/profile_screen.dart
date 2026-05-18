@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/services/music_assistant_service.dart';
 import 'package:web_app/theme/app_theme.dart';
+import 'package:web_app/services/orchestrator_api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -18,6 +19,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _homeAssistantTokenController;
   late final TextEditingController _homeAssistantApiPathController;
   late final TextEditingController _playerEntityIdController;
+  late final TextEditingController _mqttHostController;
+  late final TextEditingController _mqttPortController;
 
   bool _isLoadingSettings = true;
   bool _isSavingSettings = false;
@@ -39,6 +42,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _homeAssistantTokenController.dispose();
     _homeAssistantApiPathController.dispose();
     _playerEntityIdController.dispose();
+    _mqttHostController.dispose();
+    _mqttPortController.dispose();
     super.dispose();
   }
 
@@ -51,6 +56,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ..addListener(_scheduleAutoSave);
     _playerEntityIdController = TextEditingController()
       ..addListener(_scheduleAutoSave);
+    _mqttHostController = TextEditingController()
+      ..addListener(_scheduleAutoSave);
+    _mqttPortController = TextEditingController()
+      ..addListener(_scheduleAutoSave);
   }
 
   void _loadSettings() {
@@ -60,6 +69,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _homeAssistantTokenController.text = settings.token;
     _homeAssistantApiPathController.text = settings.apiPath;
     _playerEntityIdController.text = settings.playerEntityId;
+
+    _mqttHostController.text = settings.mqttHost;
+    _mqttPortController.text = settings.mqttPort.toString();
 
     setState(() {
       _isLoadingSettings = false;
@@ -77,11 +89,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _commitSettingsToService() async {
-    await musicAssistant.saveSettings(
-      homeAssistantUrl: _homeAssistantUrlController.text.trim(),
-      homeAssistantToken: _homeAssistantTokenController.text.trim(),
-      homeAssistantApiPath: _homeAssistantApiPathController.text.trim(),
-      musicAssistantPlayerEntityId: _playerEntityIdController.text.trim(),
+    await musicAssistant.settings.save(
+      newUrl: _homeAssistantUrlController.text.trim(),
+      newToken: _homeAssistantTokenController.text.trim(),
+      newApiPath: _homeAssistantApiPathController.text.trim(),
+      newEntityId: _playerEntityIdController.text.trim(),
+      newMqttHost: _mqttHostController.text.trim(),
+      newMqttPort: int.tryParse(_mqttPortController.text.trim()) ?? 9001,
     );
   }
 
@@ -99,11 +113,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isSavingSettings = true);
     await _commitSettingsToService();
 
+    final currentHost = _mqttHostController.text.trim();
+    final parsedPort = int.tryParse(_mqttPortController.text.trim()) ?? 9001;
+
+    await orchestratorApi.syncMqttConfig(currentHost);
+
+    mqttService.disconnect();
+    await mqttService.connect(currentHost, parsedPort);
+
     if (!mounted) return;
     setState(() => _isSavingSettings = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Music Assistant settings saved.')),
+      const SnackBar(content: Text('Settings saved & Stack updated.')),
     );
   }
 
@@ -254,6 +276,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             helperText:
                 'Required for play/stop control. Also used as fallback metadata source from player state.',
           ),
+        ),
+        TextFormField(
+          controller: _mqttHostController,
+          decoration: const InputDecoration(
+            labelText: 'MQTT Broker IP',
+            hintText: '192.168.50.214',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.router),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        TextFormField(
+          controller: _mqttPortController,
+          decoration: const InputDecoration(
+            labelText: 'MQTT WebSocket Port',
+            hintText: '9001',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.settings_ethernet),
+          ),
+          keyboardType: TextInputType.number,
         ),
       ],
     );

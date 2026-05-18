@@ -1,6 +1,8 @@
 (function () {
-    const PI_IP = '192.168.50.214';
-    const PORT = 9001;
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const PI_IP = urlParams.get('broker') || window.location.hostname || '192.168.50.214';
+    const PORT = parseInt(urlParams.get('port'), 10) || 9001;
 
     window.PI_IP = PI_IP;
 

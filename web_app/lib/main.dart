@@ -10,6 +10,7 @@ import 'services/mqtt_service.dart';
 import 'services/playback_monitoring_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_navigation_rail.dart';
+import 'services/orchestrator_api_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final MqttService mqttService = MqttService();
@@ -33,7 +34,16 @@ void main() async {
 
 void _initializeBackgroundNetworkStack() async {
   try {
-    final bool didConnect = await mqttService.connect();
+    final String brokerAddress = musicAssistant.settings.mqttHost;
+    final int brokerPort = musicAssistant.settings.mqttPort;
+
+    await orchestratorApi.syncMqttConfig(brokerAddress);
+
+    final bool didConnect = await mqttService.connect(
+      brokerAddress,
+      brokerPort,
+    );
+
     if (didConnect) {
       debugPrint(
         'main: Core MQTT link online. Handing off processing stream...',

@@ -22,10 +22,6 @@ class AppCoordinator {
 
   void start() {
     final messageStream = mqttService.updates;
-    if (messageStream == null) {
-      debugPrint('AppCoordinator: MQTT updates stream is unavailable.');
-      return;
-    }
 
     messageStream.listen((List<dynamic> messages) {
       if (messages.isEmpty) return;

@@ -5,6 +5,8 @@ class MusicAssistantSettings {
   String token;
   String playerEntityId;
   String apiPath;
+  String mqttHost;
+  int mqttPort;
 
   MusicAssistantSettings({
     this.url = const String.fromEnvironment('HOME_ASSISTANT_URL'),
@@ -13,6 +15,14 @@ class MusicAssistantSettings {
       'MUSIC_ASSISTANT_PLAYER_ENTITY_ID',
     ),
     this.apiPath = const String.fromEnvironment('HOME_ASSISTANT_API_PATH'),
+    this.mqttHost = const String.fromEnvironment(
+      'MQTT_BROKER_HOST',
+      defaultValue: '',
+    ),
+    this.mqttPort = const int.fromEnvironment(
+      'MQTT_BROKER_PORT',
+      defaultValue: 9001,
+    ),
   });
 
   bool get isConfigured => url.isNotEmpty && token.isNotEmpty;
@@ -24,6 +34,15 @@ class MusicAssistantSettings {
     playerEntityId =
         prefs.getString('music_assistant_player_entity_id') ?? playerEntityId;
     apiPath = prefs.getString('home_assistant_api_path') ?? apiPath;
+
+    final String currentHostIp = Uri.base.host.isNotEmpty
+        ? Uri.base.host
+        : '127.0.0.1';
+
+    final String savedMqttHost = prefs.getString('mqtt_host') ?? '';
+    mqttHost = savedMqttHost.isNotEmpty ? savedMqttHost : currentHostIp;
+
+    mqttPort = prefs.getInt('mqtt_port') ?? mqttPort;
   }
 
   Future<void> save({
@@ -31,6 +50,8 @@ class MusicAssistantSettings {
     required String newToken,
     required String newEntityId,
     required String newApiPath,
+    required String newMqttHost,
+    required int newMqttPort,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -39,10 +60,15 @@ class MusicAssistantSettings {
     playerEntityId = newEntityId.trim();
     apiPath = normalizeApiPath(newApiPath);
 
+    mqttHost = newMqttHost.trim();
+    mqttPort = newMqttPort;
+
     await prefs.setString('home_assistant_url', url);
     await prefs.setString('home_assistant_token', token);
     await prefs.setString('music_assistant_player_entity_id', playerEntityId);
     await prefs.setString('home_assistant_api_path', apiPath);
+    await prefs.setString('mqtt_host', mqttHost);
+    await prefs.setInt('mqtt_port', mqttPort);
   }
 
   Future<void> updateApiPath(String newPath) async {
