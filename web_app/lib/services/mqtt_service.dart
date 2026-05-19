@@ -33,9 +33,24 @@ class MqttService {
     _rawUpdatesSubscription?.cancel();
   }
 
+  /// NEW: Dynamically resolves where the browser should look for the broker.
+  /// If running on a MacBook, it points to the Pi's network IP/Domain.
+  /// If running on the Pi kiosk, it falls back gracefully to localhost.
+  String _getResolvedHost(String fallbackAddress) {
+    final String browserHost = Uri.base.host;
+    if (browserHost.isNotEmpty &&
+        browserHost != 'localhost' &&
+        browserHost != '127.0.0.1') {
+      return browserHost;
+    }
+    return fallbackAddress;
+  }
+
   bool _initializeClient(String brokerAddress, int brokerPort) {
+    final String resolvedHost = _getResolvedHost(brokerAddress);
+
     if (_mqttClient != null) {
-      if (_mqttClient!.server == 'ws://$brokerAddress' &&
+      if (_mqttClient!.server == 'ws://$resolvedHost' &&
           _mqttClient!.port == brokerPort) {
         return true;
       } else {
@@ -49,8 +64,10 @@ class MqttService {
     try {
       final String uniqueClientIdentifier =
           'flutter_client_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Use the dynamically resolved host interface instead of hardcoded database strings
       _mqttClient = MqttBrowserClient.withPort(
-        'ws://$brokerAddress',
+        'ws://$resolvedHost',
         uniqueClientIdentifier,
         brokerPort,
       );
@@ -77,14 +94,15 @@ class MqttService {
 
     if (_isConnected) {
       debugPrint(
-        'MqttService: Already connected to $brokerAddress. Skipping request.',
+        'MqttService: Already connected to ${_getResolvedHost(brokerAddress)}. Skipping request.',
       );
       return true;
     }
 
     try {
+      final String resolvedHost = _getResolvedHost(brokerAddress);
       debugPrint(
-        'MqttService: Connecting to ws://$brokerAddress:$brokerPort...',
+        'MqttService: Connecting to ws://$resolvedHost:$brokerPort...',
       );
       final MqttClientConnectionStatus? connectionStatus = await _mqttClient!
           .connect()

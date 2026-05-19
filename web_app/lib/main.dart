@@ -7,7 +7,7 @@ import 'screens/register_screen.dart';
 import 'services/app_coordinator.dart';
 import 'services/music_assistant_service.dart';
 import 'services/mqtt_service.dart';
-import 'services/playback_monitoring_service.dart';
+// import 'services/playback_monitoring_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_navigation_rail.dart';
 import 'screens/welcome_screen.dart';
@@ -94,19 +94,19 @@ class AppShellScreen extends StatefulWidget {
 
 class _AppShellScreenState extends State<AppShellScreen> {
   AppPageTab _selectedTab = AppPageTab.home;
-  late final PlaybackMonitoringService _playbackMonitoring;
+  // late final PlaybackMonitoringService _playbackMonitoring;
 
   @override
   void initState() {
     super.initState();
-    _playbackMonitoring = PlaybackMonitoringService(mqttService: mqttService);
-    _playbackMonitoring.startMonitoring();
+    // _playbackMonitoring = PlaybackMonitoringService(mqttService: mqttService);
+    // _playbackMonitoring.startMonitoring();
     debugPrint('AppShellScreen: Playback monitoring subsystem bound.');
   }
 
   @override
   void dispose() {
-    _playbackMonitoring.stopMonitoring();
+    // _playbackMonitoring.stopMonitoring();
     super.dispose();
   }
 

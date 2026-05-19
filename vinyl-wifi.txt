@@ -1,0 +1,2 @@
+WIFI_SSID="PlanetPluto"
+WIFI_PASSWORD="ancientbunny213"

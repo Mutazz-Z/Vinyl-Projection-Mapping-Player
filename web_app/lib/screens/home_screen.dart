@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web_app/services/interactive_mapper.dart';
 import 'package:web_app/services/mqtt_service.dart';
@@ -17,11 +18,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 String get _uiApiUrl {
-  final String host = Uri.base.host;
-  final ip = (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1')
-      ? host
-      : '127.0.0.1';
-  return 'http://$ip:8100/api/config/ui';
+  // If editing layout on your MacBook locally, hit the Go server port directly
+  if (kDebugMode && Uri.base.host == 'localhost') {
+    return 'http://localhost:8100/api/config/ui';
+  }
+
+  // In production, let the browser dynamically route through Nginx
+  return '/api/config/ui';
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -88,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _scheduleSave() {
     _saveDebounceTimer?.cancel();
-    
+
     _saveDebounceTimer = Timer(const Duration(milliseconds: 500), () {
       _saveLastState();
     });

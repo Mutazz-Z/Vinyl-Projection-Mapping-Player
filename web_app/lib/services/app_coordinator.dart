@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/enums.dart';
@@ -61,11 +60,11 @@ class AppCoordinator {
 
       if (_isDuplicateEvent(effect, mediaUri)) return;
 
-      if (effect == VisualEffect.play && mediaUri.isNotEmpty) {
-        _executePlayback(musicAssistant.playMediaUri(mediaUri), 'play');
-      } else if (effect == VisualEffect.stop) {
-        _executePlayback(musicAssistant.stopPlayback(), 'stop');
-      }
+      // if (effect == VisualEffect.play && mediaUri.isNotEmpty) {
+      //   _executePlayback(musicAssistant.playMediaUri(mediaUri), 'play');
+      // } else if (effect == VisualEffect.stop) {
+      //   _executePlayback(musicAssistant.stopPlayback(), 'stop');
+      // }
     } catch (error) {
       debugPrint('AppCoordinator: Failed to parse visual payload: $error');
     }
@@ -86,21 +85,21 @@ class AppCoordinator {
     return false;
   }
 
-  void _executePlayback(Future<void> action, String operationName) {
-    unawaited(
-      action.catchError((Object error) {
-        debugPrint(
-          'AppCoordinator: Music Assistant $operationName failed: ${_compactError(error)}',
-        );
-      }),
-    );
-  }
+  // void _executePlayback(Future<void> action, String operationName) {
+  //   unawaited(
+  //     action.catchError((Object error) {
+  //       debugPrint(
+  //         'AppCoordinator: Music Assistant $operationName failed: ${_compactError(error)}',
+  //       );
+  //     }),
+  //   );
+  // }
 
-  String _compactError(Object error) {
-    const int maxLength = 320;
-    final String fullError = error.toString().replaceAll('\n', ' ').trim();
-    return fullError.length <= maxLength
-        ? fullError
-        : '${fullError.substring(0, maxLength)}...';
-  }
+  // String _compactError(Object error) {
+  //   const int maxLength = 320;
+  //   final String fullError = error.toString().replaceAll('\n', ' ').trim();
+  //   return fullError.length <= maxLength
+  //       ? fullError
+  //       : '${fullError.substring(0, maxLength)}...';
+  // }
 }

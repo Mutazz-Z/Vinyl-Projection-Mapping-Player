@@ -17,11 +17,12 @@ class MusicAssistantApi {
     }
 
     try {
-      final Uri baseUri = getNormalizedBaseUri();
+      // Point all traffic to the local proxy gateway
+      final Uri baseProxyUri = getNormalizedBaseUri();
       final Map<String, String> headers = getAuthHeaders();
 
       final (:String? prefix, :Object? lastException) = await resolveApiPrefix(
-        baseUri: baseUri,
+        baseUri: baseProxyUri,
         headers: headers,
       );
 
@@ -30,19 +31,21 @@ class MusicAssistantApi {
           return ConnectionTestResult(
             success: false,
             message:
-                'CORS or network error — the browser blocked the request to $baseUri. Error: $lastException',
+                'Gateway error — unable to reach the local proxy at $baseProxyUri. Error: $lastException',
           );
         }
         return ConnectionTestResult(
           success: false,
-          message: 'All known API paths at $baseUri returned 404.',
+          message:
+              'Target Home Assistant returned 404 for all known API paths via the proxy gateway.',
         );
       }
 
       final Uri statusUri = buildApiUri(
-        baseUri,
+        baseProxyUri,
         buildApiRelativePath(prefix, ''),
       );
+
       final http.Response response = await http.get(
         statusUri,
         headers: headers,
@@ -52,7 +55,7 @@ class MusicAssistantApi {
         return ConnectionTestResult(
           success: false,
           message:
-              'API is reachable, but the token was rejected (${response.statusCode}).',
+              'API proxy is working, but Home Assistant rejected the token (${response.statusCode}).',
           statusCode: response.statusCode,
         );
       }
@@ -61,7 +64,8 @@ class MusicAssistantApi {
         await settings.updateApiPath(prefix);
         return ConnectionTestResult(
           success: true,
-          message: 'Connected successfully at $statusUri',
+          message:
+              'Connected successfully to Home Assistant via proxy gateway.',
           statusCode: response.statusCode,
         );
       }
@@ -69,7 +73,7 @@ class MusicAssistantApi {
       return ConnectionTestResult(
         success: false,
         message:
-            'Home Assistant responded with HTTP ${response.statusCode} at $statusUri.',
+            'Home Assistant responded with HTTP ${response.statusCode} via the gateway.',
         statusCode: response.statusCode,
       );
     } catch (error) {
@@ -77,17 +81,22 @@ class MusicAssistantApi {
       return ConnectionTestResult(
         success: false,
         message:
-            'Network/CORS error while contacting Home Assistant. Error: $error',
+            'Proxy gateway communication failed. Is the Go backend running? Error: $error',
       );
     }
   }
 
+  /// NEW: Routes all frontend API calls to the dynamic Go backend proxy.
+  /// The frontend no longer cares what the user's HA URL is; the backend handles it.
   Uri getNormalizedBaseUri() {
-    final Uri parsedUri = Uri.parse(settings.url);
-    final String normalizedPath = parsedUri.path.endsWith('/')
-        ? parsedUri.path
-        : '${parsedUri.path}/';
-    return parsedUri.replace(path: normalizedPath);
+    // If running in local dev mode on a MacBook, hit the Go port directly
+    if (Uri.base.host == 'localhost') {
+      return Uri.parse('http://localhost:8100/api/ha-proxy/');
+    }
+
+    // In production, use a relative resolution to route through Nginx
+    // Note: The trailing slash is CRUCIAL so Uri.resolve appends endpoints correctly!
+    return Uri.base.resolve('/api/ha-proxy/');
   }
 
   Map<String, String> getAuthHeaders() {

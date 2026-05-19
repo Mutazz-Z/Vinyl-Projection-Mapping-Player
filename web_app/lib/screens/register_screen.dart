@@ -363,7 +363,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _playNow(String mediaUri) async {
     try {
-      await musicAssistant.playMediaUri(mediaUri);
+      // await musicAssistant.playMediaUri(mediaUri);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Playing on Music Assistant...')),
@@ -455,7 +455,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               imageController: _innerRecordImageController,
               onModeReset: (mode) => setState(() {
                 _innerMode = mode;
-                _innerRecordImageController.clear();
+                // Only wipe the path if they are explicitly falling back to solid color mode
+                if (mode == DesignMode.color) {
+                  _innerRecordImageController.clear();
+                }
               }),
             ),
             const SizedBox(height: AppSpacing.fieldGap),
@@ -466,7 +469,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               imageController: _outerDesignImageController,
               onModeReset: (mode) => setState(() {
                 _outerMode = mode;
-                _outerDesignImageController.clear();
+                // Only wipe the path if they are explicitly falling back to solid color mode
+                if (mode == DesignMode.color) {
+                  _outerDesignImageController.clear();
+                }
               }),
             ),
             const SizedBox(height: AppSpacing.fieldGap),

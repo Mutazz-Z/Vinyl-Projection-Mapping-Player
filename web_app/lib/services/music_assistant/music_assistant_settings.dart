@@ -12,14 +12,20 @@ class MusicAssistantSettings {
 
   bool get isConfigured => url.isNotEmpty && token.isNotEmpty;
 
+  String get _apiUrl {
+    if (kDebugMode && Uri.base.host == 'localhost') {
+      return 'http://localhost:8100/api/config';
+    }
+    return '/api/config';
+  }
+
+  // Fallback helper for local states
   String get _orchestratorIp {
     final String host = Uri.base.host;
     return (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1')
         ? host
         : '127.0.0.1';
   }
-
-  String get _apiUrl => 'http://$_orchestratorIp:8100/api/config';
 
   Future<void> load() async {
     try {
@@ -75,8 +81,7 @@ class MusicAssistantSettings {
               'home_assistant_player': playerEntityId,
               'home_assistant_api_path': apiPath,
               'mqtt_host': mqttHost,
-              'mqtt_ws_port': mqttPort
-                  .toString(),
+              'mqtt_ws_port': mqttPort.toString(),
               'mqtt_tcp_port': '1883',
             }),
           )

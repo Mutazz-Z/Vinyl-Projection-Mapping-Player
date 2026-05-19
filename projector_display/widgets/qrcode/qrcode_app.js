@@ -4,10 +4,13 @@
     }
 
     function buildRegistrationUrl(payload) {
-        if (payload && payload.registration_url) return payload.registration_url;
+        if (payload && payload.registration_url) {
+            return payload.registration_url.replace(':8000', '');
+        }
         const uid = (payload && payload.uid) ? payload.uid : '';
-        const piIp = window.PI_IP || window.location.hostname;
-        return 'http://' + piIp + ':8000/?uid=' + encodeURIComponent(uid);
+        let piIp = window.PI_IP || window.location.hostname;
+        piIp = piIp.replace(':8000', '');
+        return 'http://' + piIp + '/?uid=' + encodeURIComponent(uid);
     }
 
     function show(payload) {

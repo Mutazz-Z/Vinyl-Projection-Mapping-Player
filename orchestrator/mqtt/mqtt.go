@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"vinyl-orchestrator/globals"
 	"vinyl-orchestrator/models"
@@ -28,7 +29,10 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-var playbackWatchdogTimer *time.Timer
+var (
+	playbackWatchdogTimer *time.Timer
+	watchdogMutex         sync.Mutex // <--- Protects the global timer pointer
+)
 
 type playbackEventPayload struct {
 	Event      string `json:"event"`
@@ -38,11 +42,29 @@ type playbackEventPayload struct {
 	Duration   int    `json:"duration"`
 }
 
+// Dedicated helper to clear the watchdog safely from any thread
+func stopPlaybackWatchdog() {
+	watchdogMutex.Lock()
+	defer watchdogMutex.Unlock()
+
+	if playbackWatchdogTimer != nil {
+		playbackWatchdogTimer.Stop()
+		playbackWatchdogTimer = nil
+	}
+}
+
 func startPlaybackWatchdog() {
+	watchdogMutex.Lock()
+	defer watchdogMutex.Unlock()
+
 	if playbackWatchdogTimer != nil {
 		playbackWatchdogTimer.Stop()
 	}
+
 	playbackWatchdogTimer = time.AfterFunc(playbackWatchdogDuration, func() {
+		watchdogMutex.Lock()
+		defer watchdogMutex.Unlock()
+
 		fmt.Println("Watchdog: Target device failed to respond in 10s")
 		globals.CurrentPlayingUID = ""
 
@@ -194,6 +216,7 @@ func statusHandler(_ paho.Client, message paho.Message) {
 			}
 			stopVisualPayload, _ := json.Marshal(stopVisual)
 			globals.MQTTClient.Publish("vinyl/shelf/visuals", 0, false, stopVisualPayload)
+			player.StopMedia()
 		})
 	}
 }
@@ -324,6 +347,11 @@ func playbackEventHandler(_ paho.Client, message paho.Message) {
 		return
 	}
 
+	// PROOF OF LIFE: If the device sent any valid event, stop the timer!
+	if playbackEvent.Event == "play" || playbackEvent.Event == "progress" || playbackEvent.Event == "track_changed" {
+		stopPlaybackWatchdog()
+	}
+
 	globals.CurrentTrackIndex = playbackEvent.TrackIndex
 	globals.CurrentTrackName = playbackEvent.TrackName
 	globals.PlaybackPositionInMsec = playbackEvent.Position
@@ -331,11 +359,6 @@ func playbackEventHandler(_ paho.Client, message paho.Message) {
 
 	switch playbackEvent.Event {
 	case "play":
-		if playbackWatchdogTimer != nil {
-			playbackWatchdogTimer.Stop()
-			playbackWatchdogTimer = nil
-		}
-
 		globals.PlaybackState = models.PlaybackStatePlaying
 		fmt.Printf("▶ PLAYING: Track %d - %s (Duration: %dms)\n", playbackEvent.TrackIndex, playbackEvent.TrackName, playbackEvent.Duration)
 	case "pause":
@@ -444,4 +467,5 @@ func SetupMQTT() {
 	fmt.Printf("⚭ - Connecting to MQTT broker at %s...\n", brokerAddress)
 	connectionToken := globals.MQTTClient.Connect()
 	waitForMQTTConnection(connectionToken, brokerAddress)
+	player.InitHAClient()
 }

@@ -86,7 +86,7 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
                       final double outerAngle =
                           _ringSpinController.value * 2 * math.pi;
                       final double innerAngle =
-                          -_ringSpinController.value * 2.8 * math.pi;
+                          _ringSpinController.value * 2 * math.pi;
 
                       return Stack(
                         alignment: Alignment.center,

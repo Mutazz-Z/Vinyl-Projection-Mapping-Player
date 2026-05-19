@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil" // NEW
+	"net/url"           // NEW
+	"strings"           // NEW
 	"vinyl-orchestrator/globals"
 	orchestratormqtt "vinyl-orchestrator/mqtt"
 )
@@ -113,6 +116,51 @@ func StartConfigServer() {
 			w.Write([]byte(`{"status":"success"}`))
 			return
 		}
+	})
+
+	http.HandleFunc("/api/ha-proxy/", func(w http.ResponseWriter, r *http.Request) {
+		// 1. Handle CORS Preflight for the Flutter Web App
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// 2. Fetch the user's dynamic Home Assistant URL from the database
+		config := getConfigFromDB()
+		if config.HAUrl == "" {
+			http.Error(w, "Home Assistant URL not configured in database", http.StatusBadRequest)
+			return
+		}
+
+		target, err := url.Parse(config.HAUrl)
+		if err != nil {
+			http.Error(w, "Invalid Home Assistant URL", http.StatusInternalServerError)
+			return
+		}
+
+		proxy := &httputil.ReverseProxy{
+			Rewrite: func(pr *httputil.ProxyRequest) {
+				// Automatically handles the base routing, schema, and X-Forwarded headers
+				pr.SetXForwarded()
+				pr.SetURL(target)
+
+				// CRITICAL FIX: Strip the proxy prefix from BOTH path variables
+				pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, "/api/ha-proxy")
+				if pr.Out.URL.RawPath != "" {
+					pr.Out.URL.RawPath = strings.TrimPrefix(pr.Out.URL.RawPath, "/api/ha-proxy")
+				}
+
+				// Overwrite the Host header so Cloudflare routes the domain correctly
+				pr.Out.Host = target.Host
+			},
+		}
+
+		// 5. Serve the proxy (This automatically supports WebSockets for live HA data too!)
+		proxy.ServeHTTP(w, r)
 	})
 
 	fmt.Println("Config API listening on http://0.0.0.0:8100")

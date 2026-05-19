@@ -76,4 +76,5 @@ func HandleKnownTag(recordUID string, albumMetadata models.RegistrationPayload) 
 	fmt.Printf("NOW PLAYING: %s - %s\n", albumMetadata.Artist, albumMetadata.Album)
 
 	sendDataToProjector(albumMetadata)
+	PlayMedia(albumMetadata.MediaURI)
 }

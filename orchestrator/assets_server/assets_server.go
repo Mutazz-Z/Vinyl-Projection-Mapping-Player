@@ -78,7 +78,6 @@ func seedBuiltInOverlays(assetRoot string) error {
 }
 
 func createAssetDirectories(assetRoot string) error {
-
 	categories := []string{"overlays", "album-covers", "ring-images"}
 	if err := os.MkdirAll(assetRoot, defaultFileMode); err != nil {
 		return fmt.Errorf("failed to create asset root: %w", err)
@@ -101,12 +100,11 @@ func sanitizeCategory(value string) string {
 	return strings.Trim(replaced, "-._/")
 }
 
-func buildAssetURL(request *http.Request, assetPath string) string {
-	scheme := "http"
-	if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	return fmt.Sprintf("%s://%s%s", scheme, request.Host, assetPath)
+// FIXED: Returns a clean, root-relative path.
+// Browsers automatically resolve this against whatever domain/IP/port the user typed
+// into their address bar, removing the need to manage dynamic host domains entirely.
+func buildAssetURL(_ *http.Request, assetPath string) string {
+	return assetPath
 }
 
 func handleAssetUpload(assetRoot string) http.HandlerFunc {
@@ -115,7 +113,7 @@ func handleAssetUpload(assetRoot string) http.HandlerFunc {
 			http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		
+
 		err := request.ParseMultipartForm(maxMultipartMemory)
 		if err != nil {
 			http.Error(response, "invalid multipart form", http.StatusBadRequest)
@@ -162,7 +160,8 @@ func handleAssetUpload(assetRoot string) http.HandlerFunc {
 			return
 		}
 
-		assetPath := fmt.Sprintf("/assets/%s/%s", category, storedName)
+		// FIXED: Routed safely under the /api/assets/ unified location structure
+		assetPath := fmt.Sprintf("/api/assets/files/%s/%s", category, storedName)
 		uploadResponse := assetUploadResponse{
 			Name: storedName,
 			Path: assetPath,
@@ -200,7 +199,8 @@ func handleAssetList(assetRoot string) http.HandlerFunc {
 				continue
 			}
 
-			assetPath := fmt.Sprintf("/assets/%s/%s", category, directoryEntry.Name())
+			// FIXED: Routed safely under the /api/assets/ unified location structure
+			assetPath := fmt.Sprintf("/api/assets/files/%s/%s", category, directoryEntry.Name())
 			items = append(items, assetListItem{
 				Name: directoryEntry.Name(),
 				Path: assetPath,
@@ -257,7 +257,9 @@ func StartAssetServer() {
 	serverMux := http.NewServeMux()
 	serverMux.Handle("/api/assets/upload", withCORS(handleAssetUpload(assetRoot)))
 	serverMux.Handle("/api/assets/list", withCORS(handleAssetList(assetRoot)))
-	serverMux.Handle("/assets/", withCORS(http.StripPrefix("/assets/", http.FileServer(http.Dir(assetRoot)))))
+
+	// FIXED: Static file server mounted inside the existing Nginx proxy route scope
+	serverMux.Handle("/api/assets/files/", withCORS(http.StripPrefix("/api/assets/files/", http.FileServer(http.Dir(assetRoot)))))
 
 	host := getEnvOrDefault("VINYL_ASSET_HOST", defaultAssetHost)
 	port := getEnvOrDefault("VINYL_ASSET_PORT", defaultAssetPort)
