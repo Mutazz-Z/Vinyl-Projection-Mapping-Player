@@ -1,88 +1,94 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
-	"vinyl-orchestrator/globals"
-	"vinyl-orchestrator/api"
 
-	assetsServer "vinyl-orchestrator/assets_server"
-	database "vinyl-orchestrator/database"
-	orchestratormqtt "vinyl-orchestrator/mqtt"
+	_ "github.com/mattn/go-sqlite3"
 
-	_ "modernc.org/sqlite"
+	"vinyl-orchestrator/application/playback"
+	"vinyl-orchestrator/application/display"
+	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/plugins/assets"
+	"vinyl-orchestrator/plugins/database"
+	"vinyl-orchestrator/plugins/homeassistant"
+	"vinyl-orchestrator/plugins/mqtt"
+	"vinyl-orchestrator/plugins/webapi"
 )
 
-func resolveDatabasePath() string {
-	configuredPath := os.Getenv("VINYL_DATABASE_PATH")
-	if configuredPath != "" {
-		return configuredPath
+func resolvePrimaryDatabaseFilePath() string {
+	environmentalPath := os.Getenv("VINYL_DATABASE_PATH")
+	if environmentalPath != "" {
+		return environmentalPath
 	}
-
-	candidates := []string{
-		"./vinyl.database",
-		"./builds/vinyl.database",
-		"../builds/vinyl.database",
-	}
-
-	for _, candidate := range candidates {
-		if _, statError := os.Stat(candidate); statError == nil {
-			return candidate
-		}
-	}
-
-	return "./vinyl.database"
-}
-
-func checkDatabaseForErrors(databaseOpenError error, databaseFailedToOpen bool) {
-	databasePath := resolveDatabasePath()
-	globals.Database, databaseOpenError = sql.Open("sqlite", databasePath)
-
-	if databaseOpenError != nil {
-		databaseFailedToOpen = true
-	} else {
-		databaseFailedToOpen = false
-		if absolutePath, absolutePathError := filepath.Abs(databasePath); absolutePathError == nil {
-			fmt.Printf("Database path: %s\n", absolutePath)
-		} else {
-			fmt.Printf("Database path: %s\n", databasePath)
-		}
-	}
-}
-
-func initializeDatabase() {
-	var databaseOpenError error
-	var databaseFailedToOpen bool
-	checkDatabaseForErrors(databaseOpenError, databaseFailedToOpen)
-
-	if databaseFailedToOpen {
-		log.Fatal(databaseOpenError)
-	}
-
-	fmt.Println("Database initialized - ❖")
-	database.SetupDatabase()
-}
-
-func waitForShutdownSignal() {
-	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
-	<-signalChannel
+	return "../builds/data/vinyl.database"
 }
 
 func main() {
-	fmt.Println("⏺ Orchestrator starting...")
-	initializeDatabase()
+	fmt.Println("Orchestrator Boot Sequence Initiated...")
 
-	api.StartConfigServer()
+	databaseFilePath := resolvePrimaryDatabaseFilePath()
+	sharedDatabaseConnection, databaseConnectionError := sql.Open("sqlite3", databaseFilePath)
+	if databaseConnectionError != nil {
+		panic(fmt.Sprintf("Fatal Error: Could not establish database connection: %v", databaseConnectionError))
+	}
+	defer sharedDatabaseConnection.Close()
 
-	assetsServer.StartAssetServer()
-	orchestratormqtt.SetupMQTT()
+	systemDataSource, dataSourceInitializationError := database.NewSQLiteDataSource(sharedDatabaseConnection)
+	if dataSourceInitializationError != nil {
+		panic(fmt.Sprintf("Fatal Error: Could not initialize data source: %v", dataSourceInitializationError))
+	}
 
-	waitForShutdownSignal()
-	fmt.Println("\n⏺ Shutting down orchestrator...")
+	libraryRepository, repositoryInitializationError := database.NewSQLiteLibraryRepository(sharedDatabaseConnection)
+	if repositoryInitializationError != nil {
+		panic(fmt.Sprintf("Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
+	}
+
+	homeAssistantMediaAdapter := homeassistant.NewHomeAssistantAdapter()
+
+	orchestratorPlugins := []core.Plugin{
+		homeAssistantMediaAdapter,
+		playback.NewPlaybackApplicationService(homeAssistantMediaAdapter),
+		display.NewDisplayApplicationService(),
+		mqtt.NewBrokerPlugin(),
+		webapi.NewWebServerPlugin(),
+		assets.NewAssetPlugin(),
+	}
+
+	applicationContext, cancelApplicationContext := context.WithCancel(context.Background())
+	defer cancelApplicationContext()
+
+	for _, currentPlugin := range orchestratorPlugins {
+		fmt.Printf("Initializing Module: %s\n", currentPlugin.Name())
+
+		initializationError := currentPlugin.Init(systemDataSource, libraryRepository)
+		if initializationError != nil {
+			panic(fmt.Sprintf("Fatal Error: %s failed to initialize: %v", currentPlugin.Name(), initializationError))
+		}
+
+		startupError := currentPlugin.StartPlugin(applicationContext)
+		if startupError != nil {
+			panic(fmt.Sprintf("Fatal Error: %s failed to start: %v", currentPlugin.Name(), startupError))
+		}
+	}
+
+	fmt.Println("Orchestrator Boot Sequence Complete. All modules running.")
+
+	shutdownSignalChannel := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignalChannel, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdownSignalChannel
+
+	fmt.Println("\nReceived termination signal. Executing graceful shutdown sequence...")
+
+	for index := len(orchestratorPlugins) - 1; index >= 0; index-- {
+		pluginToStop := orchestratorPlugins[index]
+		fmt.Printf("Stopping Module: %s\n", pluginToStop.Name())
+		pluginToStop.StopPlugin(applicationContext)
+	}
+
+	fmt.Println("Graceful shutdown complete. Orchestrator terminated.")
 }
