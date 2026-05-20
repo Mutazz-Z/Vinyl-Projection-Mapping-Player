@@ -5,13 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"vinyl-orchestrator/core"
 )
 
 type MetadataResolver interface {
-	FetchCleanMetadata(mediaUri string) (*core.VinylAlbumRecord, error)
+	FetchCleanMetadata(mediaResourceIdentifier string) (*core.VinylAlbumRecord, error)
+	ValidateSystemCredentials() error
+}
+
+type AssetRouter interface {
+	RegisterRoutes(mux *http.ServeMux)
 }
 
 type WebServerPlugin struct {
@@ -19,11 +25,13 @@ type WebServerPlugin struct {
 	libraryRepository core.LibraryRepository
 	httpServer        *http.Server
 	metadataResolver  MetadataResolver
+	assetRouter       AssetRouter
 }
 
-func NewWebServerPlugin(resolver MetadataResolver) *WebServerPlugin {
+func NewWebServerPlugin(resolver MetadataResolver, assetRouter AssetRouter) *WebServerPlugin {
 	return &WebServerPlugin{
 		metadataResolver: resolver,
+		assetRouter:      assetRouter,
 	}
 }
 
@@ -43,6 +51,13 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	requestRouter.HandleFunc("/api/library", plugin.handleLibraryCollectionRequests)
 	requestRouter.HandleFunc("/api/library/", plugin.handleSingleRecordRequests)
 	requestRouter.HandleFunc("/api/metadata/resolve", plugin.handleMetadataResolutionRequest)
+	requestRouter.HandleFunc("/api/system/test", plugin.handleConnectionTestRequest)
+	requestRouter.HandleFunc("/api/config", plugin.handleSystemConfigurationRequests)
+	requestRouter.HandleFunc("/api/config/ui", plugin.handleUiConfigurationRequests)
+
+	if plugin.assetRouter != nil {
+		plugin.assetRouter.RegisterRoutes(requestRouter)
+	}
 
 	plugin.httpServer = &http.Server{
 		Addr:    ":8080",
@@ -60,6 +75,106 @@ func (plugin *WebServerPlugin) startListeningForNetworkRequests() {
 	if serveError != nil && serveError != http.ErrServerClosed {
 		fmt.Printf("Web Server API encountered a fatal error: %v\n", serveError)
 	}
+}
+
+func (plugin *WebServerPlugin) handleSystemConfigurationRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method == http.MethodGet {
+		plugin.executeReadSystemConfigurationCommand(responseWriter)
+		return
+	}
+
+	if httpRequest.Method == http.MethodPost {
+		plugin.executeWriteSystemConfigurationCommand(responseWriter, httpRequest)
+		return
+	}
+
+	http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+}
+
+func (plugin *WebServerPlugin) executeReadSystemConfigurationCommand(responseWriter http.ResponseWriter) {
+	var musicAssistantUrlString string
+	var musicAssistantTokenString string
+	var musicAssistantPlayerIdString string
+	var mqttHostAddressString string
+	var mqttWebSocketPortNumber int
+
+	plugin.systemDataSource.Read("music_assistant_url", &musicAssistantUrlString)
+	plugin.systemDataSource.Read("music_assistant_token", &musicAssistantTokenString)
+	plugin.systemDataSource.Read("music_assistant_player_id", &musicAssistantPlayerIdString)
+	plugin.systemDataSource.Read("mqtt_broker_host_address", &mqttHostAddressString)
+	plugin.systemDataSource.Read("mqtt_websocket_port", &mqttWebSocketPortNumber)
+
+	configurationPayload := map[string]string{
+		"music_assistant_url":       musicAssistantUrlString,
+		"music_assistant_token":     musicAssistantTokenString,
+		"music_assistant_player_id": musicAssistantPlayerIdString,
+		"mqtt_host":                 mqttHostAddressString,
+		"mqtt_ws_port":              fmt.Sprintf("%d", mqttWebSocketPortNumber),
+	}
+
+	responseWriter.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(responseWriter).Encode(configurationPayload)
+}
+
+func (plugin *WebServerPlugin) executeWriteSystemConfigurationCommand(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	var incomingConfigurationPayload map[string]string
+	decodingError := json.NewDecoder(httpRequest.Body).Decode(&incomingConfigurationPayload)
+	if decodingError != nil {
+		http.Error(responseWriter, "Bad Request: Invalid JSON Payload", http.StatusBadRequest)
+		return
+	}
+
+	writeErrors := plugin.persistConfigurationKeysToDataSource(incomingConfigurationPayload)
+	if len(writeErrors) > 0 {
+		http.Error(responseWriter, fmt.Sprintf("Partial write failure: %v", writeErrors), http.StatusInternalServerError)
+		return
+	}
+
+	responseWriter.WriteHeader(http.StatusOK)
+	fmt.Fprint(responseWriter, "Configuration saved successfully")
+}
+
+func (plugin *WebServerPlugin) persistConfigurationKeysToDataSource(incomingConfigurationPayload map[string]string) []error {
+	var encounteredErrors []error
+
+	stringKeyMappings := map[string]string{
+		"music_assistant_url":       "music_assistant_url",
+		"music_assistant_token":     "music_assistant_token",
+		"music_assistant_player_id": "music_assistant_player_id",
+		"mqtt_host":                 "mqtt_broker_host_address",
+	}
+
+	for incomingKey, registryKey := range stringKeyMappings {
+		incomingValue, keyExistsInPayload := incomingConfigurationPayload[incomingKey]
+		if !keyExistsInPayload {
+			continue
+		}
+		if writeError := plugin.systemDataSource.Write(registryKey, incomingValue); writeError != nil {
+			encounteredErrors = append(encounteredErrors, fmt.Errorf("failed to write %s: %v", registryKey, writeError))
+		}
+	}
+
+	integerKeyMappings := map[string]string{
+		"mqtt_ws_port":  "mqtt_websocket_port",
+		"mqtt_tcp_port": "mqtt_tcp_port",
+	}
+
+	for incomingKey, registryKey := range integerKeyMappings {
+		incomingStringValue, keyExistsInPayload := incomingConfigurationPayload[incomingKey]
+		if !keyExistsInPayload {
+			continue
+		}
+		parsedIntegerValue, parseError := strconv.Atoi(incomingStringValue)
+		if parseError != nil {
+			encounteredErrors = append(encounteredErrors, fmt.Errorf("failed to parse %s as integer: %v", incomingKey, parseError))
+			continue
+		}
+		if writeError := plugin.systemDataSource.Write(registryKey, parsedIntegerValue); writeError != nil {
+			encounteredErrors = append(encounteredErrors, fmt.Errorf("failed to write %s: %v", registryKey, writeError))
+		}
+	}
+
+	return encounteredErrors
 }
 
 func (plugin *WebServerPlugin) handleLibraryCollectionRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
@@ -190,4 +305,92 @@ func (plugin *WebServerPlugin) StopPlugin(applicationContext context.Context) er
 		return plugin.httpServer.Shutdown(applicationContext)
 	}
 	return nil
+}
+
+func (plugin *WebServerPlugin) handleConnectionTestRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method != http.MethodGet {
+		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	validationError := plugin.metadataResolver.ValidateSystemCredentials()
+
+	if validationError != nil {
+		responseWriter.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(responseWriter, "%v", validationError)
+		return
+	}
+
+	responseWriter.WriteHeader(http.StatusOK)
+	fmt.Fprintf(responseWriter, "Authentication Successful")
+}
+
+var uiMappingKeys = []string{
+	"mapping_width", "mapping_height",
+	"mapping_tlX", "mapping_tlY",
+	"mapping_trX", "mapping_trY",
+	"mapping_brX", "mapping_brY",
+	"mapping_blX", "mapping_blY",
+	"mapping_preset_tlX", "mapping_preset_tlY",
+	"mapping_preset_trX", "mapping_preset_trY",
+	"mapping_preset_brX", "mapping_preset_brY",
+	"mapping_preset_blX", "mapping_preset_blY",
+}
+
+func (plugin *WebServerPlugin) handleUiConfigurationRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method == http.MethodGet {
+		plugin.executeReadUiConfigurationCommand(responseWriter)
+		return
+	}
+
+	if httpRequest.Method == http.MethodPost {
+		plugin.executeWriteUiConfigurationCommand(responseWriter, httpRequest)
+		return
+	}
+
+	http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+}
+
+func (plugin *WebServerPlugin) executeReadUiConfigurationCommand(responseWriter http.ResponseWriter) {
+	configurationPayload := make(map[string]string, len(uiMappingKeys))
+
+	for _, registryKey := range uiMappingKeys {
+		var storedValue string
+		plugin.systemDataSource.Read(registryKey, &storedValue)
+		configurationPayload[registryKey] = storedValue
+	}
+
+	responseWriter.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(responseWriter).Encode(configurationPayload)
+}
+
+func (plugin *WebServerPlugin) executeWriteUiConfigurationCommand(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	var incomingPayload map[string]string
+	if decodingError := json.NewDecoder(httpRequest.Body).Decode(&incomingPayload); decodingError != nil {
+		http.Error(responseWriter, "Bad Request: Invalid JSON Payload", http.StatusBadRequest)
+		return
+	}
+
+	validKeySet := make(map[string]struct{}, len(uiMappingKeys))
+	for _, registryKey := range uiMappingKeys {
+		validKeySet[registryKey] = struct{}{}
+	}
+
+	var encounteredErrors []error
+	for incomingKey, incomingValue := range incomingPayload {
+		if _, isValidKey := validKeySet[incomingKey]; !isValidKey {
+			continue
+		}
+		if writeError := plugin.systemDataSource.Write(incomingKey, incomingValue); writeError != nil {
+			encounteredErrors = append(encounteredErrors, fmt.Errorf("failed to write %s: %v", incomingKey, writeError))
+		}
+	}
+
+	if len(encounteredErrors) > 0 {
+		http.Error(responseWriter, fmt.Sprintf("Partial write failure: %v", encounteredErrors), http.StatusInternalServerError)
+		return
+	}
+
+	responseWriter.WriteHeader(http.StatusOK)
+	fmt.Fprint(responseWriter, "UI configuration saved successfully")
 }

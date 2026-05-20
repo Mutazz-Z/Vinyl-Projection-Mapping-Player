@@ -26,7 +26,7 @@ type PlaybackApplicationService struct {
 func NewPlaybackApplicationService(mediaPlayer core.MediaPlayer) *PlaybackApplicationService {
 	return &PlaybackApplicationService{
 		activeMediaPlayer:    mediaPlayer,
-		WatchdogTimeout:      10 * time.Second,
+		WatchdogTimeout:      30 * time.Second,
 		recordRemovedTimeout: 1 * time.Second,
 	}
 }

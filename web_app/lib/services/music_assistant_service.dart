@@ -1,64 +1,109 @@
 export 'package:web_app/models/music_assistant_models.dart';
+export 'package:web_app/models/vinyl_album_record.dart';
 
 import 'package:web_app/models/music_assistant_models.dart';
+import 'package:web_app/models/vinyl_album_record.dart';
 import 'package:web_app/services/music_assistant/music_assistant_settings.dart';
-import 'package:web_app/services/music_assistant/music_assistant_api.dart';
-import 'package:web_app/services/music_assistant/music_assistant_metadata.dart';
+import 'package:web_app/services/orchestrator_api_client.dart';
 
 class MusicAssistantService {
-  late final MusicAssistantSettings settings;
-  late final MusicAssistantApi api;
-  late final MusicAssistantMetadata metadata;
+  late final MusicAssistantSettings applicationSettings;
+  late final OrchestratorApiClient orchestratorApiClient;
 
-  bool _isInitialized = false;
+  bool isServiceInitialized = false;
 
-  bool get isConfigured => settings.isConfigured;
+  bool get isSystemConfigured => applicationSettings.isConfigured;
 
-  Future<void> init() async {
-    if (_isInitialized) return;
+  Future<void> initializeService() async {
+    if (isServiceInitialized) {
+      return;
+    }
 
-    settings = MusicAssistantSettings();
-    await settings.load();
+    applicationSettings = MusicAssistantSettings();
+    await applicationSettings.load();
 
-    api = MusicAssistantApi(settings);
-    metadata = MusicAssistantMetadata(settings, api);
-    // player = MusicAssistantPlayer(settings, api, metadata);
+    orchestratorApiClient = OrchestratorApiClient();
 
-    _isInitialized = true;
+    isServiceInitialized = true;
   }
 
-  Future<void> saveSettings({
-    required String homeAssistantUrl,
-    required String homeAssistantToken,
-    required String musicAssistantPlayerEntityId,
-    required String homeAssistantApiPath,
-  }) async {
-    await settings.save(
-      newUrl: homeAssistantUrl,
-      newToken: homeAssistantToken,
-      newEntityId: musicAssistantPlayerEntityId,
-      newApiPath: homeAssistantApiPath,
-      newMqttHost: settings.mqttHost,
-      newMqttPort: settings.mqttPort,
+  Future<ConnectionTestResult> testConnectionDetailed() async {
+    return await orchestratorApiClient.executeSystemConnectionTest();
+  }
+
+  Future<RegistrationResolutionResult> resolveRegistrationInput(
+    String mediaResourceIdentifier,
+  ) async {
+    final String sanitizedResourceIdentifier = mediaResourceIdentifier.trim();
+
+    if (sanitizedResourceIdentifier.isEmpty) {
+      return generateEmptyResolutionResult();
+    }
+
+    final VinylAlbumRecord fetchedAlbumRecord = await fetchCleanMetadataRecord(
+      sanitizedResourceIdentifier,
+    );
+
+    return formatPopulatedResolutionResult(
+      sanitizedResourceIdentifier,
+      fetchedAlbumRecord,
     );
   }
 
-  Future<bool> testConnection() async {
-    final result = await api.testConnection();
-    return result.success;
+  Future<VinylAlbumRecord> fetchCleanMetadataRecord(
+    String mediaResourceIdentifier,
+  ) async {
+    try {
+      return await orchestratorApiClient.resolveMediaMetadata(
+        mediaResourceIdentifier,
+      );
+    } catch (resolutionException) {
+      return generateFallbackEmptyAlbumRecord(mediaResourceIdentifier);
+    }
   }
 
-  Future<ConnectionTestResult> testConnectionDetailed() => api.testConnection();
+  RegistrationResolutionResult generateEmptyResolutionResult() {
+    return const RegistrationResolutionResult(
+      inputValue: '',
+      resolvedUri: '',
+      metadata: <String, String>{},
+    );
+  }
 
-  Future<Map<String, String>> fetchMetadata(String mediaUri) =>
-      metadata.fetchMetadata(mediaUri);
+  RegistrationResolutionResult formatPopulatedResolutionResult(
+    String sanitizedResourceIdentifier,
+    VinylAlbumRecord fetchedAlbumRecord,
+  ) {
+    final Map<String, String> mappedMetadataPayload =
+        mapVinylRecordToMetadataDictionary(fetchedAlbumRecord);
 
-  Future<RegistrationResolutionResult> resolveRegistrationInput(String input) =>
-      metadata.resolveRegistrationInput(input);
+    return RegistrationResolutionResult(
+      inputValue: sanitizedResourceIdentifier,
+      resolvedUri: sanitizedResourceIdentifier,
+      metadata: mappedMetadataPayload,
+    );
+  }
 
-  // Future<void> playMediaUri(String mediaUri) => player.playMediaUri(mediaUri);
-  // Future<void> togglePlayPause() => player.togglePlayPause();
-  // Future<void> nextTrack() => player.nextTrack();
-  // Future<void> previousTrack() => player.previousTrack();
-  // Future<void> stopPlayback() => player.stopPlayback();
+  Map<String, String> mapVinylRecordToMetadataDictionary(
+    VinylAlbumRecord fetchedAlbumRecord,
+  ) {
+    return <String, String>{
+      'artist': fetchedAlbumRecord.artistName,
+      'album': fetchedAlbumRecord.albumTitle,
+      'tracks': fetchedAlbumRecord.trackList,
+      'album_cover_art': fetchedAlbumRecord.albumCoverArt,
+    };
+  }
+
+  VinylAlbumRecord generateFallbackEmptyAlbumRecord(
+    String mediaResourceIdentifier,
+  ) {
+    return VinylAlbumRecord(
+      albumTitle: '',
+      artistName: '',
+      albumCoverArt: '',
+      trackList: '',
+      mediaResourceUri: mediaResourceIdentifier,
+    );
+  }
 }

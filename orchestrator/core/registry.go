@@ -63,4 +63,78 @@ var SystemRegistry = map[string]SystemVariableDefinition{
 		StorageType:      Volatile,
 		DefaultDataValue: "removed",
 	},
+
+	"mapping_width": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "1920",
+	},
+	"mapping_height": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "1080",
+	},
+	"mapping_tlX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "0",
+	},
+	"mapping_tlY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "0",
+	},
+	"mapping_trX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "1920",
+	},
+	"mapping_trY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "0",
+	},
+	"mapping_brX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "1920",
+	},
+	"mapping_brY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "1080",
+	},
+	"mapping_blX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "0",
+	},
+	"mapping_blY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "1080",
+	},
+
+	"mapping_preset_tlX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_tlY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_trX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_trY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_brX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_brY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_blX": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
+	"mapping_preset_blY": {
+		StorageType:      NonVolatile,
+		DefaultDataValue: "",
+	},
 }

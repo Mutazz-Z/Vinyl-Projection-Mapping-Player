@@ -7,7 +7,6 @@ import 'screens/register_screen.dart';
 import 'services/app_coordinator.dart';
 import 'services/music_assistant_service.dart';
 import 'services/mqtt_service.dart';
-// import 'services/playback_monitoring_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_navigation_rail.dart';
 import 'screens/welcome_screen.dart';
@@ -25,9 +24,9 @@ final AppCoordinator appCoordinator = AppCoordinator(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await musicAssistant.init();
+  await musicAssistant.initializeService();
 
-  final bool isFirstBoot = !musicAssistant.settings.isConfigured;
+  final bool isFirstBoot = !musicAssistant.applicationSettings.isConfigured;
 
   if (!isFirstBoot) {
     _initializeBackgroundNetworkStack();
@@ -38,8 +37,8 @@ void main() async {
 
 void _initializeBackgroundNetworkStack() async {
   try {
-    final String brokerAddress = musicAssistant.settings.mqttHost;
-    final int brokerPort = musicAssistant.settings.mqttPort;
+    final String brokerAddress = musicAssistant.applicationSettings.mqttHostAddressString;
+    final int brokerPort = musicAssistant.applicationSettings.mqttWebSocketPortNumber;
 
     final bool didConnect = await mqttService.connect(
       brokerAddress,
@@ -94,19 +93,15 @@ class AppShellScreen extends StatefulWidget {
 
 class _AppShellScreenState extends State<AppShellScreen> {
   AppPageTab _selectedTab = AppPageTab.home;
-  // late final PlaybackMonitoringService _playbackMonitoring;
 
   @override
   void initState() {
     super.initState();
-    // _playbackMonitoring = PlaybackMonitoringService(mqttService: mqttService);
-    // _playbackMonitoring.startMonitoring();
     debugPrint('AppShellScreen: Playback monitoring subsystem bound.');
   }
 
   @override
   void dispose() {
-    // _playbackMonitoring.stopMonitoring();
     super.dispose();
   }
 

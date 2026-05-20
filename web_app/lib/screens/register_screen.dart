@@ -358,12 +358,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     Navigator.pop(context);
-    if (_isEditing) mqttService.requestLibrary();
+    mqttService.requestLibrary();
   }
 
   Future<void> _playNow(String mediaUri) async {
     try {
-      // await musicAssistant.playMediaUri(mediaUri);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Playing on Music Assistant...')),
@@ -450,12 +449,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: <Widget>[
             _buildRingDesignSection(
               title: 'Inner Ring Design',
+              assetCategory: 'labels',
               mode: _innerMode,
               colorController: _innerRecordColorController,
               imageController: _innerRecordImageController,
               onModeReset: (mode) => setState(() {
                 _innerMode = mode;
-                // Only wipe the path if they are explicitly falling back to solid color mode
                 if (mode == DesignMode.color) {
                   _innerRecordImageController.clear();
                 }
@@ -464,12 +463,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: AppSpacing.fieldGap),
             _buildRingDesignSection(
               title: 'Outer Ring Design',
+              assetCategory: 'outer-rings',
               mode: _outerMode,
               colorController: _outerDesignColorController,
               imageController: _outerDesignImageController,
               onModeReset: (mode) => setState(() {
                 _outerMode = mode;
-                // Only wipe the path if they are explicitly falling back to solid color mode
                 if (mode == DesignMode.color) {
                   _outerDesignImageController.clear();
                 }
@@ -522,6 +521,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildRingDesignSection({
     required String title,
+    required String assetCategory,
     required DesignMode mode,
     required TextEditingController colorController,
     required TextEditingController imageController,
@@ -535,7 +535,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       isUploading: _isUploadingAsset,
       onSelectColorMode: () => onModeReset(DesignMode.color),
       onSelectImageMode: () => _pickAndUploadAsset(
-        category: 'ring-images',
+        category: assetCategory,
         extensions: <String>['png', 'jpg', 'jpeg', 'gif', 'webp'],
         onUploaded: (url) {
           imageController.text = url;

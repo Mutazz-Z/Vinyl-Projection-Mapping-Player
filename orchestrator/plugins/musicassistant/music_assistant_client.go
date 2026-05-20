@@ -4,20 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"vinyl-orchestrator/core"
+
+	"github.com/gorilla/websocket"
 )
 
 type MusicAssistantClient struct {
 	systemDataSource         core.DataSource
-	httpClient               *http.Client
 	webSocketConnection      *websocket.Conn
 	isAuthenticated          bool
 	webSocketMutex           sync.Mutex
@@ -28,9 +27,6 @@ type MusicAssistantClient struct {
 
 func NewMusicAssistantClient() *MusicAssistantClient {
 	return &MusicAssistantClient{
-		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
 		pendingRequests: make(map[uint64]chan map[string]interface{}),
 	}
 }
@@ -135,11 +131,26 @@ func (client *MusicAssistantClient) sendPayloadOverWebSocket(activeConnection *w
 	return nil
 }
 
+func (client *MusicAssistantClient) sendFireAndForgetCommand(procedureCommand string, commandArguments map[string]interface{}) error {
+	activeConnection, isConnectionAuthenticated := client.retrieveActiveConnectionState()
+
+	connectionError := client.validateConnectionAndAuthenticationState(activeConnection, isConnectionAuthenticated, procedureCommand)
+	if connectionError != nil {
+		return connectionError
+	}
+
+	messageIdentifier := atomic.AddUint64(&client.messageIdentifierCounter, 1)
+	procedurePayload := client.constructProcedurePayload(messageIdentifier, procedureCommand, commandArguments)
+	return client.sendPayloadOverWebSocket(activeConnection, procedurePayload)
+}
+
 func (client *MusicAssistantClient) waitForProcedureResponseOrTimeout(responseChannel chan map[string]interface{}, procedureCommand string) (map[string]interface{}, error) {
 	select {
 	case responseData := <-responseChannel:
-		if procedureError, containsError := responseData["error"]; containsError {
-			return nil, fmt.Errorf("music assistant API rejected request: %v", procedureError)
+		// MA uses "error_code" + "details" for errors, not a top-level "error" field.
+		if errorCode, hasErrorCode := responseData["error_code"]; hasErrorCode {
+			details, _ := responseData["details"].(string)
+			return nil, fmt.Errorf("music assistant error %v: %s", errorCode, details)
 		}
 		return responseData, nil
 
@@ -165,12 +176,11 @@ func (client *MusicAssistantClient) PlayMedia(mediaResourceIdentifier string) er
 	}
 
 	commandArguments := map[string]interface{}{
-		"player_id": targetPlayerIdentifier,
-		"media":     mediaResourceIdentifier,
+		"queue_id": targetPlayerIdentifier,
+		"media":    []string{mediaResourceIdentifier},
 	}
 
-	_, executionError := client.executeRemoteProcedureCall("players/play_media", commandArguments)
-	return executionError
+	return client.sendFireAndForgetCommand("player_queues/play_media", commandArguments)
 }
 
 func (client *MusicAssistantClient) StopMedia() error {
@@ -180,14 +190,20 @@ func (client *MusicAssistantClient) StopMedia() error {
 	}
 
 	commandArguments := map[string]interface{}{
-		"player_id": targetPlayerIdentifier,
+		"queue_id": targetPlayerIdentifier,
 	}
 
-	_, executionError := client.executeRemoteProcedureCall("players/cmd_stop", commandArguments)
-	return executionError
+	return client.sendFireAndForgetCommand("player_queues/stop", commandArguments)
 }
 
 func (client *MusicAssistantClient) GetState() (string, error) {
+	client.webSocketMutex.Lock()
+	isReady := client.webSocketConnection != nil && client.isAuthenticated
+	client.webSocketMutex.Unlock()
+	if !isReady {
+		return "idle", nil
+	}
+
 	targetPlayerIdentifier, retrievalError := client.retrieveTargetPlayerIdentifier()
 	if retrievalError != nil {
 		return "", retrievalError
@@ -197,7 +213,7 @@ func (client *MusicAssistantClient) GetState() (string, error) {
 		"player_id": targetPlayerIdentifier,
 	}
 
-	rpcResponseData, executionError := client.executeRemoteProcedureCall("players/get_player", commandArguments)
+	rpcResponseData, executionError := client.executeRemoteProcedureCall("players/get", commandArguments)
 	if executionError != nil {
 		return "", executionError
 	}
@@ -290,8 +306,7 @@ func (client *MusicAssistantClient) extractAndFormatTrackList(fetchedVinylRecord
 	}
 
 	if len(parsedTrackNamesList) > 0 {
-		encodedTracksBytes, _ := json.Marshal(parsedTrackNamesList)
-		fetchedVinylRecord.TrackList = string(encodedTracksBytes)
+		fetchedVinylRecord.TrackList = strings.Join(parsedTrackNamesList, "\n")
 	}
 }
 
@@ -594,6 +609,12 @@ func (client *MusicAssistantClient) routePayloadToPendingRequest(messageIdentifi
 
 	if requestExists {
 		responseChannel <- incomingPayloadMap
+		return
+	}
+
+	if errorValue, containsError := incomingPayloadMap["error"]; containsError {
+		fmt.Printf("Music Assistant rejected fire-and-forget command (msg %d): %v\n", messageIdentifier, errorValue)
+	} else {
 	}
 }
 
@@ -603,4 +624,26 @@ func (client *MusicAssistantClient) broadcastServerEventToSystem(incomingPayload
 		specificEventTopicString := fmt.Sprintf("ma_event_%s", eventNameString)
 		client.systemDataSource.Publish(specificEventTopicString, eventDataPayload)
 	}
+}
+
+func (client *MusicAssistantClient) ValidateSystemCredentials() error {
+	_, _, areCredentialsValid := client.retrieveWebSocketCredentials()
+	if !areCredentialsValid {
+		return fmt.Errorf("credentials are empty or not configured in database")
+	}
+
+	client.webSocketMutex.Lock()
+	isConnected := client.webSocketConnection != nil
+	isAuthenticated := client.isAuthenticated
+	client.webSocketMutex.Unlock()
+
+	if !isConnected {
+		return fmt.Errorf("not connected to Music Assistant — check the URL and ensure the server is reachable")
+	}
+
+	if !isAuthenticated {
+		return fmt.Errorf("connected but not yet authenticated — the token may be incorrect")
+	}
+
+	return nil
 }

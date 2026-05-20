@@ -18,12 +18,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 String get _uiApiUrl {
-  // If editing layout on your MacBook locally, hit the Go server port directly
   if (kDebugMode && Uri.base.host == 'localhost') {
-    return 'http://localhost:8100/api/config/ui';
+    return 'http://localhost:8080/api/config/ui';
   }
 
-  // In production, let the browser dynamically route through Nginx
   return '/api/config/ui';
 }
 

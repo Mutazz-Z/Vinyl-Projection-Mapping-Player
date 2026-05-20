@@ -10,13 +10,13 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"vinyl-orchestrator/application/playback"
 	"vinyl-orchestrator/application/display"
+	"vinyl-orchestrator/application/playback"
 	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/plugins/assets"
 	"vinyl-orchestrator/plugins/database"
-	"vinyl-orchestrator/plugins/musicassistant"
 	"vinyl-orchestrator/plugins/mqtt"
+	"vinyl-orchestrator/plugins/musicassistant"
 	"vinyl-orchestrator/plugins/webapi"
 )
 
@@ -50,13 +50,15 @@ func main() {
 
 	musicAssistantClient := musicassistant.NewMusicAssistantClient()
 
+	assetPlugin := assets.NewAssetPlugin()
+
 	orchestratorPlugins := []core.Plugin{
 		musicAssistantClient,
 		playback.NewPlaybackApplicationService(musicAssistantClient),
 		display.NewDisplayApplicationService(),
 		mqtt.NewBrokerPlugin(),
-		webapi.NewWebServerPlugin(musicAssistantClient),
-		assets.NewAssetPlugin(),
+		webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin),
+		assetPlugin,
 	}
 
 	applicationContext, cancelApplicationContext := context.WithCancel(context.Background())

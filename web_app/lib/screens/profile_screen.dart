@@ -12,158 +12,172 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _formValidationKey = GlobalKey<FormState>();
 
-  late final TextEditingController _homeAssistantUrlController;
-  late final TextEditingController _homeAssistantTokenController;
-  late final TextEditingController _homeAssistantApiPathController;
-  late final TextEditingController _playerEntityIdController;
+  late final TextEditingController _musicAssistantUrlController;
+  late final TextEditingController _musicAssistantTokenController;
+  late final TextEditingController _musicAssistantPlayerIdController;
   late final TextEditingController _mqttHostController;
   late final TextEditingController _mqttPortController;
 
-  bool _isLoadingSettings = true;
-  bool _isSavingSettings = false;
-  bool _isTestingConnection = false;
-  bool _obscureToken = true;
+  bool _isLoadingSettingsState = true;
+  bool _isSavingSettingsState = false;
+  bool _isTestingConnectionState = false;
+  bool _obscureTokenFieldState = true;
   Timer? _autoSaveDebounceTimer;
 
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
-    _loadSettings();
+    _initializeTextControllers();
+    _loadConfigurationSettings();
   }
 
   @override
   void dispose() {
     _autoSaveDebounceTimer?.cancel();
-    _homeAssistantUrlController.dispose();
-    _homeAssistantTokenController.dispose();
-    _homeAssistantApiPathController.dispose();
-    _playerEntityIdController.dispose();
+    _musicAssistantUrlController.dispose();
+    _musicAssistantTokenController.dispose();
+    _musicAssistantPlayerIdController.dispose();
     _mqttHostController.dispose();
     _mqttPortController.dispose();
     super.dispose();
   }
 
-  void _initializeControllers() {
-    _homeAssistantUrlController = TextEditingController()
-      ..addListener(_scheduleAutoSave);
-    _homeAssistantTokenController = TextEditingController()
-      ..addListener(_scheduleAutoSave);
-    _homeAssistantApiPathController = TextEditingController()
-      ..addListener(_scheduleAutoSave);
-    _playerEntityIdController = TextEditingController()
-      ..addListener(_scheduleAutoSave);
+  void _initializeTextControllers() {
+    _musicAssistantUrlController = TextEditingController()
+      ..addListener(_scheduleAutomaticSave);
+    _musicAssistantTokenController = TextEditingController()
+      ..addListener(_scheduleAutomaticSave);
+    _musicAssistantPlayerIdController = TextEditingController()
+      ..addListener(_scheduleAutomaticSave);
     _mqttHostController = TextEditingController()
-      ..addListener(_scheduleAutoSave);
+      ..addListener(_scheduleAutomaticSave);
     _mqttPortController = TextEditingController()
-      ..addListener(_scheduleAutoSave);
+      ..addListener(_scheduleAutomaticSave);
   }
 
-  void _loadSettings() {
-    final settings = musicAssistant.settings;
+  void _loadConfigurationSettings() {
+    final applicationSettings = musicAssistant.applicationSettings;
 
-    _homeAssistantUrlController.text = settings.url;
-    _homeAssistantTokenController.text = settings.token;
-    _homeAssistantApiPathController.text = settings.apiPath;
-    _playerEntityIdController.text = settings.playerEntityId;
-
-    _mqttHostController.text = settings.mqttHost;
-    _mqttPortController.text = settings.mqttPort.toString();
+    _musicAssistantUrlController.text =
+        applicationSettings.musicAssistantUrlString;
+    _musicAssistantTokenController.text =
+        applicationSettings.musicAssistantTokenString;
+    _musicAssistantPlayerIdController.text =
+        applicationSettings.musicAssistantPlayerIdString;
+    _mqttHostController.text = applicationSettings.mqttHostAddressString;
+    _mqttPortController.text = applicationSettings.mqttWebSocketPortNumber
+        .toString();
 
     setState(() {
-      _isLoadingSettings = false;
+      _isLoadingSettingsState = false;
     });
   }
 
-  void _scheduleAutoSave() {
-    if (_isLoadingSettings) return;
+  void _scheduleAutomaticSave() {
+    if (_isLoadingSettingsState) {
+      return;
+    }
 
     _autoSaveDebounceTimer?.cancel();
     _autoSaveDebounceTimer = Timer(
       const Duration(milliseconds: 600),
-      _saveSettingsSilently,
+      _executeSilentSaveProcedure,
     );
   }
 
-  Future<void> _commitSettingsToService() async {
-    await musicAssistant.settings.save(
-      newUrl: _homeAssistantUrlController.text.trim(),
-      newToken: _homeAssistantTokenController.text.trim(),
-      newApiPath: _homeAssistantApiPathController.text.trim(),
-      newEntityId: _playerEntityIdController.text.trim(),
-      newMqttHost: _mqttHostController.text.trim(),
-      newMqttPort: int.tryParse(_mqttPortController.text.trim()) ?? 9001,
+  Future<void> _commitSettingsToBackendService() async {
+    final int parsedMqttPortNumber =
+        int.tryParse(_mqttPortController.text.trim()) ?? 9001;
+
+    await musicAssistant.applicationSettings.save(
+      targetMusicAssistantUrl: _musicAssistantUrlController.text.trim(),
+      targetMusicAssistantToken: _musicAssistantTokenController.text.trim(),
+      targetMusicAssistantPlayerId: _musicAssistantPlayerIdController.text
+          .trim(),
+      targetMqttHostAddress: _mqttHostController.text.trim(),
+      targetMqttWebSocketPort: parsedMqttPortNumber,
     );
   }
 
-  Future<void> _saveSettingsSilently() async {
+  Future<void> _executeSilentSaveProcedure() async {
     try {
-      await _commitSettingsToService();
-    } catch (_) {
-      // Silent by design during background auto-saving
+      await _commitSettingsToBackendService();
+    } catch (saveException) {
+      return;
     }
   }
 
-  Future<void> _saveSettings() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _executeManualSaveProcedure() async {
+    if (!_formValidationKey.currentState!.validate()) {
+      return;
+    }
 
-    setState(() => _isSavingSettings = true);
-    await _commitSettingsToService();
+    setState(() => _isSavingSettingsState = true);
+    await _commitSettingsToBackendService();
 
-    final currentHost = _mqttHostController.text.trim();
-    final parsedPort = int.tryParse(_mqttPortController.text.trim()) ?? 9001;
+    final String currentHostAddressString = _mqttHostController.text.trim();
+    final int parsedPortNumber =
+        int.tryParse(_mqttPortController.text.trim()) ?? 9001;
 
     mqttService.disconnect();
-    await mqttService.connect(currentHost, parsedPort);
+    await mqttService.connect(currentHostAddressString, parsedPortNumber);
 
-    if (!mounted) return;
-    setState(() => _isSavingSettings = false);
+    if (!mounted) {
+      return;
+    }
 
+    setState(() => _isSavingSettingsState = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved & Stack updated.')),
     );
   }
 
-  Future<void> _testConnection() async {
-    final String urlText = _homeAssistantUrlController.text.trim();
-    final String tokenText = _homeAssistantTokenController.text.trim();
+  Future<void> _executeConnectionTestProcedure() async {
+    final String urlTextString = _musicAssistantUrlController.text.trim();
+    final String tokenTextString = _musicAssistantTokenController.text.trim();
 
-    if (urlText.isEmpty || tokenText.isEmpty) {
+    if (urlTextString.isEmpty || tokenTextString.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Home Assistant URL and token are required to test.'),
+          content: Text('Music Assistant URL and token are required to test.'),
         ),
       );
       return;
     }
 
-    setState(() => _isTestingConnection = true);
+    setState(() => _isTestingConnectionState = true);
 
-    await _commitSettingsToService();
-    final ConnectionTestResult connectionResult = await musicAssistant
+    await _commitSettingsToBackendService();
+    final ConnectionTestResult connectionResultObject = await musicAssistant
         .testConnectionDetailed();
 
-    if (!mounted) return;
-    setState(() => _isTestingConnection = false);
+    if (!mounted) {
+      return;
+    }
 
-    _showConnectionResultDialog(connectionResult);
+    setState(() => _isTestingConnectionState = false);
+    _displayConnectionResultDialog(connectionResultObject);
   }
 
-  void _showConnectionResultDialog(ConnectionTestResult result) {
+  void _displayConnectionResultDialog(
+    ConnectionTestResult connectionResultObject,
+  ) {
     showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         icon: Icon(
-          result.success ? Icons.check_circle : Icons.error,
-          color: result.success ? Colors.green : Colors.red,
+          connectionResultObject.success ? Icons.check_circle : Icons.error,
+          color: connectionResultObject.success ? Colors.green : Colors.red,
           size: 36,
         ),
         title: Text(
-          result.success ? 'Connected Successfully' : 'Connection Failed',
+          connectionResultObject.success
+              ? 'Connected Successfully'
+              : 'Connection Failed',
         ),
-        content: SelectableText(result.message),
+        content: SelectableText(connectionResultObject.message),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -176,29 +190,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingSettings) {
+    if (_isLoadingSettingsState) {
       return const Center(child: CircularProgressIndicator());
     }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.pagePadding),
       child: Form(
-        key: _formKey,
+        key: _formValidationKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(context),
+            _buildScreenHeaderConfiguration(context),
             const SizedBox(height: AppSpacing.sectionGap),
-            _buildFormFields(),
+            _buildConfigurationFormFields(),
             const SizedBox(height: AppSpacing.sectionGap),
-            _buildActionButtons(),
+            _buildActionButtonsConfiguration(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildScreenHeaderConfiguration(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -208,77 +222,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: AppSpacing.inlineElementGap),
         Text(
-          'Configure Home Assistant credentials used for metadata auto-fill.',
+          'Configure Music Assistant credentials used for metadata auto-fill and playback.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );
   }
 
-  Widget _buildFormFields() {
+  Widget _buildConfigurationFormFields() {
     return Column(
       children: [
         TextFormField(
-          controller: _homeAssistantUrlController,
+          controller: _musicAssistantUrlController,
           decoration: const InputDecoration(
-            labelText: 'Home Assistant URL',
-            hintText: 'https://homeassistant.local:8123',
+            labelText: 'Music Assistant URL',
+            hintText: 'http://192.168.1.100:8095',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.language),
           ),
-          validator: (value) => (value ?? '').trim().isEmpty
-              ? 'Enter your Home Assistant URL.'
+          validator: (valueString) => (valueString ?? '').trim().isEmpty
+              ? 'Enter your Music Assistant URL.'
               : null,
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         TextFormField(
-          controller: _homeAssistantTokenController,
-          obscureText: _obscureToken,
+          controller: _musicAssistantTokenController,
+          obscureText: _obscureTokenFieldState,
           decoration: InputDecoration(
             labelText: 'Long-Lived Access Token',
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.key),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscureToken ? Icons.visibility : Icons.visibility_off,
+                _obscureTokenFieldState
+                    ? Icons.visibility
+                    : Icons.visibility_off,
               ),
-              onPressed: () => setState(() => _obscureToken = !_obscureToken),
+              onPressed: () => setState(
+                () => _obscureTokenFieldState = !_obscureTokenFieldState,
+              ),
             ),
           ),
-          validator: (value) => (value ?? '').trim().isEmpty
-              ? 'Enter your Home Assistant token.'
+          validator: (valueString) => (valueString ?? '').trim().isEmpty
+              ? 'Enter your Music Assistant token.'
               : null,
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         TextFormField(
-          controller: _homeAssistantApiPathController,
+          controller: _musicAssistantPlayerIdController,
           decoration: const InputDecoration(
-            labelText: 'API Path Prefix (Optional)',
-            hintText: 'homeassistant/',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.route),
-            helperText:
-                'Leave empty if HA is at domain root. Use a path if proxied under subpath.',
-          ),
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        TextFormField(
-          controller: _playerEntityIdController,
-          decoration: const InputDecoration(
-            labelText:
-                'Music Assistant Player Entity ID (Required for Playback)',
-            hintText: 'media_player.living_room',
+            labelText: 'Target Player Entity ID (Required)',
+            hintText: 'media_player.living_room_speaker',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.speaker),
             helperText:
-                'Required for play/stop control. Also used as fallback metadata source from player state.',
+                'The explicit ID Music Assistant will command for physical vinyl playback.',
           ),
         ),
+        const SizedBox(height: AppSpacing.sectionGap),
         TextFormField(
           controller: _mqttHostController,
           decoration: const InputDecoration(
             labelText: 'MQTT Broker IP',
-            hintText: '192.168.50.214',
+            hintText: '192.168.1.100',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.router),
           ),
@@ -298,31 +304,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtonsConfiguration() {
     return Row(
       children: [
         ElevatedButton.icon(
-          onPressed: _isSavingSettings ? null : _saveSettings,
-          icon: _isSavingSettings
+          onPressed: _isSavingSettingsState
+              ? null
+              : _executeManualSaveProcedure,
+          icon: _isSavingSettingsState
               ? const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.save),
-          label: Text(_isSavingSettings ? 'Saving...' : 'Save'),
+          label: Text(_isSavingSettingsState ? 'Saving...' : 'Save'),
         ),
         const SizedBox(width: AppSpacing.fieldGap),
         OutlinedButton.icon(
-          onPressed: _isTestingConnection ? null : _testConnection,
-          icon: _isTestingConnection
+          onPressed: _isTestingConnectionState
+              ? null
+              : _executeConnectionTestProcedure,
+          icon: _isTestingConnectionState
               ? const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.wifi_tethering),
-          label: Text(_isTestingConnection ? 'Testing...' : 'Test Connection'),
+          label: Text(
+            _isTestingConnectionState ? 'Testing...' : 'Test Connection',
+          ),
         ),
       ],
     );

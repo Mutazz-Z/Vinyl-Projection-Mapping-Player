@@ -3,16 +3,19 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class MediaAssetService {
-  // Uses a root-relative path. The browser will automatically prepend
-  // http://Vinyl-Projector.local/ or http://localhost/ depending on where the app is loaded!
-  static const String _baseProxyPath = '/api/assets';
+  static String get _goServerHost {
+    final String host = Uri.base.host.isEmpty ? 'localhost' : Uri.base.host;
+    return 'http://$host:8080';
+  }
+
+  static String get _baseApiUrl => '$_goServerHost/api/assets';
 
   static Future<String> uploadAsset({
     required Uint8List bytes,
     required String fileName,
     required String category,
   }) async {
-    final Uri uploadUri = Uri.parse('$_baseProxyPath/upload');
+    final Uri uploadUri = Uri.parse('$_baseApiUrl/upload');
     final http.MultipartRequest request = http.MultipartRequest(
       'POST',
       uploadUri,
@@ -32,20 +35,17 @@ class MediaAssetService {
       );
     }
 
-    final dynamic decoded = jsonDecode(responseBody);
-    final String? url = decoded['url']?.toString();
+    final String rawPath = responseBody.trim();
 
-    if (url == null || url.isEmpty) {
-      throw StateError('Asset upload response did not include URL.');
+    if (rawPath.isEmpty) {
+      throw StateError('Asset upload response was empty.');
     }
 
-    return url;
+    return '$_goServerHost$rawPath';
   }
 
   static Future<List<String>> listAssets({required String category}) async {
-    final Uri listUri = Uri.parse(
-      '$_baseProxyPath/list?category=${Uri.encodeQueryComponent(category)}',
-    );
+    final Uri listUri = Uri.parse('$_baseApiUrl/list');
     final http.Response response = await http.get(listUri);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -53,13 +53,12 @@ class MediaAssetService {
     }
 
     final dynamic decoded = jsonDecode(response.body);
-    final dynamic itemsDynamic = decoded['items'];
-    if (itemsDynamic is! List) return <String>[];
+    if (decoded is! List) return <String>[];
 
-    return itemsDynamic
-        .whereType<Map<String, dynamic>>()
-        .map((item) => item['url']?.toString() ?? '')
-        .where((url) => url.isNotEmpty)
+    return decoded
+        .map((item) => item.toString())
+        .where((path) => path.startsWith(category))
+        .map((path) => '$_goServerHost/assets/$path')
         .toList();
   }
 }

@@ -15,17 +15,17 @@ type DataSource interface {
 }
 
 type VinylAlbumRecord struct {
-	NfcUniqueIdentifier string
-	ArtistName          string
-	AlbumTitle          string
-	TrackList           string
-	MediaResourceUri    string
-	InnerRecordColor    string
-	InnerRecordImage    string
-	OuterDesignColor    string
-	OuterDesignImage    string
-	OverlayArt          string
-	AlbumCoverArt       string
+	NfcUniqueIdentifier string `json:"uid"`
+	ArtistName          string `json:"artist"`
+	AlbumTitle          string `json:"album"`
+	TrackList           string `json:"tracks"`
+	MediaResourceUri    string `json:"media_uri"`
+	InnerRecordColor    string `json:"inner_record_color"`
+	InnerRecordImage    string `json:"inner_record_image"`
+	OuterDesignColor    string `json:"outer_design_color"`
+	OuterDesignImage    string `json:"outer_design_image"`
+	OverlayArt          string `json:"overlay_art"`
+	AlbumCoverArt       string `json:"album_cover_art"`
 }
 
 type LibraryRepository interface {
