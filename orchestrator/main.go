@@ -15,7 +15,7 @@ import (
 	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/plugins/assets"
 	"vinyl-orchestrator/plugins/database"
-	"vinyl-orchestrator/plugins/homeassistant"
+	"vinyl-orchestrator/plugins/musicassistant"
 	"vinyl-orchestrator/plugins/mqtt"
 	"vinyl-orchestrator/plugins/webapi"
 )
@@ -25,7 +25,7 @@ func resolvePrimaryDatabaseFilePath() string {
 	if environmentalPath != "" {
 		return environmentalPath
 	}
-	return "../builds/data/vinyl.database"
+	return "./builds/data/vinyl.database"
 }
 
 func main() {
@@ -48,14 +48,14 @@ func main() {
 		panic(fmt.Sprintf("Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
 	}
 
-	homeAssistantMediaAdapter := homeassistant.NewHomeAssistantAdapter()
+	musicAssistantClient := musicassistant.NewMusicAssistantClient()
 
 	orchestratorPlugins := []core.Plugin{
-		homeAssistantMediaAdapter,
-		playback.NewPlaybackApplicationService(homeAssistantMediaAdapter),
+		musicAssistantClient,
+		playback.NewPlaybackApplicationService(musicAssistantClient),
 		display.NewDisplayApplicationService(),
 		mqtt.NewBrokerPlugin(),
-		webapi.NewWebServerPlugin(),
+		webapi.NewWebServerPlugin(musicAssistantClient),
 		assets.NewAssetPlugin(),
 	}
 

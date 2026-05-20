@@ -3,9 +3,9 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-BINARY_MACOS = builds/vinyl-orchestrator-macos-arm64
-BINARY_RPI64 = builds/vinyl-orchestrator-linux-arm64
-DATABASE     = builds/vinyl.database
+BINARY_MACOS = builds/app/vinyl-orchestrator-macos-arm64
+BINARY_RPI64 = builds/app/vinyl-orchestrator-linux-arm64
+DATABASE     = builds/data/vinyl.database
 
 .PHONY: \
 	build_all \
@@ -57,14 +57,12 @@ hotfix_orchestrator: build-rpi64
 	
 	@echo "Backend hotfix deployed to $(RASPBERRYPI_TARGET)"
 
-# --- FRONTEND FLUTTER ADMIN HOTFIX ---
 hotfix_admin: build-flutter-web
 	
 	@echo "Streaming assets to Admin view (Port 80) via Tar-Pipe..."
 	COPYFILE_DISABLE=1 tar -czf - -C web_app/build/web . | sshpass -p '$(RASPBERRYPI_SSH_PASSWORD)' ssh vinyl@$(RASPBERRYPI_TARGET) "tar -xzf - -C /opt/vinyl/www/flutter/"
 	@echo "Admin panel updated!"
 
-# --- KIOSK PROJECTOR DISPLAY HOTFIX ---
 hotfix_projector:
 	@echo "Streaming vanilla JS assets to Projector view (Port 8080)..."
 	COPYFILE_DISABLE=1 tar -czf - -C projector_display . | sshpass -p '$(RASPBERRYPI_SSH_PASSWORD)' ssh vinyl@$(RASPBERRYPI_TARGET) "tar -xzf - -C /opt/vinyl/www/projector/"
@@ -73,6 +71,5 @@ hotfix_projector:
 	sshpass -p '$(RASPBERRYPI_SSH_PASSWORD)' ssh vinyl@$(RASPBERRYPI_TARGET) "echo '$(RASPBERRYPI_SSH_PASSWORD)' | sudo -S reboot"
 	@echo "⚡ Projector display restored and Pi is rebooting!"
 
-# --- DEPLOY BOTH FRONTENDS AT ONCE ---
 hotfix_frontend: hotfix_admin hotfix_projector
 	@echo "All hotfixes deployed successfully!"

@@ -10,14 +10,21 @@ import (
 	"vinyl-orchestrator/core"
 )
 
+type MetadataResolver interface {
+	FetchCleanMetadata(mediaUri string) (*core.VinylAlbumRecord, error)
+}
+
 type WebServerPlugin struct {
 	systemDataSource  core.DataSource
 	libraryRepository core.LibraryRepository
 	httpServer        *http.Server
+	metadataResolver  MetadataResolver
 }
 
-func NewWebServerPlugin() *WebServerPlugin {
-	return &WebServerPlugin{}
+func NewWebServerPlugin(resolver MetadataResolver) *WebServerPlugin {
+	return &WebServerPlugin{
+		metadataResolver: resolver,
+	}
 }
 
 func (plugin *WebServerPlugin) Name() string {
@@ -35,6 +42,7 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 
 	requestRouter.HandleFunc("/api/library", plugin.handleLibraryCollectionRequests)
 	requestRouter.HandleFunc("/api/library/", plugin.handleSingleRecordRequests)
+	requestRouter.HandleFunc("/api/metadata/resolve", plugin.handleMetadataResolutionRequest)
 
 	plugin.httpServer = &http.Server{
 		Addr:    ":8080",
@@ -83,6 +91,39 @@ func (plugin *WebServerPlugin) handleSingleRecordRequests(responseWriter http.Re
 	}
 
 	http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+}
+
+func (plugin *WebServerPlugin) handleMetadataResolutionRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method != http.MethodGet {
+		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	targetMediaUriString := httpRequest.URL.Query().Get("uri")
+	if strings.TrimSpace(targetMediaUriString) == "" {
+		http.Error(responseWriter, "Bad Request: Missing URI parameter", http.StatusBadRequest)
+		return
+	}
+
+	resolvedAlbumRecord, resolutionError := plugin.metadataResolver.FetchCleanMetadata(targetMediaUriString)
+	if resolutionError != nil {
+		http.Error(responseWriter, fmt.Sprintf("Failed to resolve metadata: %v", resolutionError), http.StatusInternalServerError)
+		return
+	}
+
+	responseWriter.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(responseWriter).Encode(resolvedAlbumRecord)
+}
+
+func (plugin *WebServerPlugin) extractMediaTypeFromUriString(targetUriString string) string {
+	uriHalvesArray := strings.Split(targetUriString, "://")
+	if len(uriHalvesArray) > 1 {
+		pathSegmentsArray := strings.Split(uriHalvesArray[1], "/")
+		if len(pathSegmentsArray) > 0 {
+			return pathSegmentsArray[0]
+		}
+	}
+	return "album"
 }
 
 func (plugin *WebServerPlugin) executeFetchAllAlbumsCommand(responseWriter http.ResponseWriter) {
