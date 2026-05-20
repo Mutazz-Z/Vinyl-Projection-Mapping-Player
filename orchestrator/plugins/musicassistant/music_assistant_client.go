@@ -210,18 +210,18 @@ func (client *MusicAssistantClient) GetState() (string, error) {
 	}
 
 	commandArguments := map[string]interface{}{
-		"player_id": targetPlayerIdentifier,
+		"queue_id": targetPlayerIdentifier,
 	}
 
-	rpcResponseData, executionError := client.executeRemoteProcedureCall("players/get", commandArguments)
+	rpcResponseData, executionError := client.executeRemoteProcedureCall("player_queues/get", commandArguments)
 	if executionError != nil {
 		return "", executionError
 	}
 
-	return client.extractPlayerStateFromRpcResponse(rpcResponseData), nil
+	return client.extractAndBroadcastState(rpcResponseData), nil
 }
 
-func (client *MusicAssistantClient) extractPlayerStateFromRpcResponse(rpcResponseData map[string]interface{}) string {
+func (client *MusicAssistantClient) extractAndBroadcastState(rpcResponseData map[string]interface{}) string {
 	responseResultData, isMapValid := rpcResponseData["result"].(map[string]interface{})
 	if !isMapValid {
 		return "idle"
@@ -231,8 +231,29 @@ func (client *MusicAssistantClient) extractPlayerStateFromRpcResponse(rpcRespons
 	if !isStringValid {
 		return "idle"
 	}
+	currentState := strings.ToLower(playerStateString)
 
-	return strings.ToLower(playerStateString)
+	var position, duration float64
+	if elapsed, ok := responseResultData["elapsed_time"].(float64); ok {
+		position = elapsed
+	}
+
+	if currentItem, ok := responseResultData["current_item"].(map[string]interface{}); ok {
+		if dur, ok := currentItem["duration"].(float64); ok {
+			duration = dur
+		}
+	}
+
+	payload := map[string]interface{}{
+		"state":    currentState,
+		"position": position,
+		"duration": duration,
+	}
+
+	client.systemDataSource.Publish("playback_state_changed", payload)
+	client.systemDataSource.Publish("playback_progress", payload)
+
+	return currentState
 }
 
 func (client *MusicAssistantClient) FetchCleanMetadata(mediaResourceIdentifier string) (*core.VinylAlbumRecord, error) {

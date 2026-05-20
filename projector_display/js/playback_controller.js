@@ -648,7 +648,6 @@
 
     function handlePlaybackEvent(payload) {
         if (!payload) return;
-        if (!isPlayingState) return;
 
         const hijackErrorMsg = detectHijack(payload);
         if (hijackErrorMsg) {
@@ -659,7 +658,7 @@
         const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
         const stateName = typeof payload.state === 'string' ? payload.state.toLowerCase() : '';
 
-        if (eventName === 'track_changed') {
+        if (eventName === 'track_changed' || payload.track_idx !== undefined) {
             const incomingIndex = resolveTrackIndexFromPayload(payload);
             if (incomingIndex !== undefined) {
                 updateArcCarousel(incomingIndex);
@@ -676,7 +675,6 @@
             if (window.VisualizerWidget && window.VisualizerWidget.pause) window.VisualizerWidget.pause();
         }
     }
-
     window.ProjectorPlayback = {
         startPlayback: startPlayback,
         stopPlayback: stopPlayback,

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"vinyl-orchestrator/core"
 )
 
@@ -26,6 +27,12 @@ type WebServerPlugin struct {
 	httpServer        *http.Server
 	metadataResolver  MetadataResolver
 	assetRouter       AssetRouter
+}
+
+var websocketUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 func NewWebServerPlugin(resolver MetadataResolver, assetRouter AssetRouter) *WebServerPlugin {
@@ -55,6 +62,8 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	requestRouter.HandleFunc("/api/config", plugin.handleSystemConfigurationRequests)
 	requestRouter.HandleFunc("/api/config/ui", plugin.handleUiConfigurationRequests)
 
+	requestRouter.HandleFunc("/ws", plugin.handleWebSockets)
+
 	if plugin.assetRouter != nil {
 		plugin.assetRouter.RegisterRoutes(requestRouter)
 	}
@@ -67,6 +76,72 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	go plugin.startListeningForNetworkRequests()
 
 	return nil
+}
+
+func (plugin *WebServerPlugin) handleWebSockets(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	conn, upgradeError := websocketUpgrader.Upgrade(responseWriter, httpRequest, nil)
+	if upgradeError != nil {
+		fmt.Printf("WebSocket Upgrade Error: %v\n", upgradeError)
+		return
+	}
+	defer conn.Close()
+
+	clientContext, cancelClient := context.WithCancel(context.Background())
+	defer cancelClient()
+
+	topicsToSubscribe := []string{
+		"projector_visual_update",
+		"vinyl/shelf/visuals",
+		"playback_progress",
+		"playback_state",
+		"playback_state_changed",
+		"playback_state_update",
+		"vinyl/shelf/visuals/progress",
+		"vinyl/shelf/playback/state",
+		"projector_mapping",
+		"vinyl/shelf/mapping",
+	}
+
+	mergedEventChannel := make(chan core.Event, 100)
+
+	for _, topic := range topicsToSubscribe {
+		subChan := plugin.systemDataSource.Subscribe(topic)
+		go func(c <-chan core.Event) {
+			for event := range c {
+				select {
+				case <-clientContext.Done():
+					return
+				case mergedEventChannel <- event:
+				}
+			}
+		}(subChan)
+	}
+
+	go func() {
+		for {
+			var incomingEvent core.Event
+			err := conn.ReadJSON(&incomingEvent)
+			if err != nil {
+				cancelClient()
+				break
+			}
+			if incomingEvent.Topic != "" {
+				plugin.systemDataSource.Publish(incomingEvent.Topic, incomingEvent.Payload)
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-clientContext.Done():
+			return
+		case outgoingEvent := <-mergedEventChannel:
+			if writeErr := conn.WriteJSON(outgoingEvent); writeErr != nil {
+				cancelClient()
+				return
+			}
+		}
+	}
 }
 
 func (plugin *WebServerPlugin) startListeningForNetworkRequests() {

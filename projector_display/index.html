@@ -6,11 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vinyl Projection</title>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <script src="https://rawcdn.githack.com/glowbox/maptasticjs/master/build/maptastic.min.js"></script>
 
     <link rel="stylesheet" href="style.css">
-
     <link rel="stylesheet" href="widgets/overlay/overlay.css">
     <link rel="stylesheet" href="widgets/loading/loading.css">
     <link rel="stylesheet" href="widgets/info/info.css">
@@ -23,7 +21,6 @@
 </head>
 
 <body>
-
     <div id="boot-status">BOOTING PROJECTION UI...</div>
 
     <div id="projection-group">
@@ -74,7 +71,7 @@
                 await loadScript('widgets/progress/progress_app.js');
                 await loadScript('widgets/context_message/context_message_app.js');
                 await loadScript('js/playback_controller.js');
-                await loadScript('js/mqtt_router.js');
+                await loadScript('js/websocket_router.js');
                 await loadScript('widgets/qrcode/qrcode_app.js');
 
                 if (window.ProjectorPlayback && window.ProjectorPlayback.restoreState) {
