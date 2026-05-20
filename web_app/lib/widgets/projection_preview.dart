@@ -30,10 +30,14 @@ class ProjectionPreview extends StatefulWidget {
 class _ProjectionPreviewState extends State<ProjectionPreview>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ringSpinController;
+  late final String _sessionCacheBuster;
 
   @override
   void initState() {
     super.initState();
+
+    _sessionCacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+
     _ringSpinController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 18),
@@ -82,39 +86,29 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
                 children: <Widget>[
                   AnimatedBuilder(
                     animation: _ringSpinController,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: <Widget>[
+                        _buildRingLayer(
+                          diameter: outerRingDiameter,
+                          color: widget.outerColor,
+                          imageUrl: widget.outerImage,
+                        ),
+                        _buildRingLayer(
+                          diameter: innerRingDiameter,
+                          color: widget.innerColor,
+                          imageUrl: widget.innerImage,
+                        ),
+                      ],
+                    ),
                     builder: (BuildContext context, Widget? child) {
-                      final double outerAngle =
-                          _ringSpinController.value * 2 * math.pi;
-                      final double innerAngle =
+                      final double spinAngle =
                           _ringSpinController.value * 2 * math.pi;
 
-                      return Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: <Widget>[
-                          Transform.translate(
-                            offset: Offset(ringOffsetX, 0),
-                            child: Transform.rotate(
-                              angle: outerAngle,
-                              child: _buildRingLayer(
-                                diameter: outerRingDiameter,
-                                color: widget.outerColor,
-                                imageUrl: widget.outerImage,
-                              ),
-                            ),
-                          ),
-                          Transform.translate(
-                            offset: Offset(ringOffsetX, 0),
-                            child: Transform.rotate(
-                              angle: innerAngle,
-                              child: _buildRingLayer(
-                                diameter: innerRingDiameter,
-                                color: widget.innerColor,
-                                imageUrl: widget.innerImage,
-                              ),
-                            ),
-                          ),
-                        ],
+                      return Transform.translate(
+                        offset: Offset(ringOffsetX, 0),
+                        child: Transform.rotate(angle: spinAngle, child: child),
                       );
                     },
                   ),
@@ -208,8 +202,14 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
       return fallback;
     }
 
+    final String urlWithBuster = source.contains('?')
+        ? '$source&v=$_sessionCacheBuster'
+        : '$source?v=$_sessionCacheBuster';
+
+    final String safeSource = Uri.encodeFull(urlWithBuster);
+
     return Image.network(
-      source,
+      safeSource,
       fit: fit,
       width: double.infinity,
       height: double.infinity,

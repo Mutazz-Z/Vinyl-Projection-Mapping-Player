@@ -64,16 +64,26 @@ func (plugin *AssetPlugin) StartPlugin(applicationContext context.Context) error
 }
 
 func (plugin *AssetPlugin) RegisterRoutes(requestRouter *http.ServeMux) {
-	fileServerHandler := http.FileServer(http.Dir(plugin.assetRootPath))
+	absPath, err := filepath.Abs(plugin.assetRootPath)
+	if err != nil {
+		absPath = plugin.assetRootPath // fallback
+	}
+
+	fileServerHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir(absPath)))
+
 	corsFileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		http.StripPrefix("/assets/", fileServerHandler).ServeHTTP(w, r)
+
+		fileServerHandler.ServeHTTP(w, r)
 	})
+
 	requestRouter.Handle("/assets/", corsFileServer)
 
 	requestRouter.HandleFunc("/api/assets/upload", plugin.handleAssetUpload)

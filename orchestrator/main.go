@@ -57,8 +57,8 @@ func main() {
 		playback.NewPlaybackApplicationService(musicAssistantClient),
 		display.NewDisplayApplicationService(),
 		mqtt.NewBrokerPlugin(),
-		webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin),
 		assetPlugin,
+		webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin),
 	}
 
 	applicationContext, cancelApplicationContext := context.WithCancel(context.Background())
