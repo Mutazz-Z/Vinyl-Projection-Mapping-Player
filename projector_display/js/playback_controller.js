@@ -226,7 +226,8 @@
                 if (tracklistContainer) tracklistContainer.classList.add('visible');
                 recordContainer.classList.add('visible');
                 if (tracklistContainer) tracklistContainer.classList.add('carousel');
-                updateArcCarousel(0);
+
+                updateArcCarousel(currentActiveTrackIndex);
 
                 recordSpinTimer = setTimeout(function () {
                     if (token !== playbackToken) return;
@@ -235,7 +236,7 @@
             }, TRACKLIST_FADE_MS);
         } else {
             if (tracklistContainer) tracklistContainer.classList.add('carousel');
-            updateArcCarousel(0);
+            updateArcCarousel(currentActiveTrackIndex);
         }
     }
 
@@ -626,15 +627,13 @@
             return;
         }
 
-        if (!payload.duration || payload.duration === 0) return;
+        if (!isPlayingState) return;
 
         const hijackErrorMsg = detectHijack(payload);
         if (hijackErrorMsg) {
             showPlaybackError(hijackErrorMsg);
             return;
         }
-
-        window.ProgressWidget.update(payload.position, payload.duration);
 
         var activeTrackIndex = resolveTrackIndexFromPayload(payload);
         if (activeTrackIndex === undefined) {
@@ -644,10 +643,15 @@
         if (currentTracks.length > 0 && activeTrackIndex !== undefined) {
             updateArcCarousel(activeTrackIndex);
         }
+
+        if (!payload.duration || payload.duration === 0) return;
+
+        window.ProgressWidget.update(payload.position, payload.duration);
     }
 
     function handlePlaybackEvent(payload) {
         if (!payload) return;
+        if (!isPlayingState && !awaitingMusicStart) return;
 
         const hijackErrorMsg = detectHijack(payload);
         if (hijackErrorMsg) {
@@ -658,8 +662,12 @@
         const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
         const stateName = typeof payload.state === 'string' ? payload.state.toLowerCase() : '';
 
-        if (eventName === 'track_changed' || payload.track_idx !== undefined) {
-            const incomingIndex = resolveTrackIndexFromPayload(payload);
+        if (eventName === 'track_changed' || payload.track_index !== undefined || payload.track_name) {
+            var incomingIndex = resolveTrackIndexFromPayload(payload);
+            if (incomingIndex === undefined) {
+                incomingIndex = resolveTrackIndexFromEventFallback(payload);
+            }
+
             if (incomingIndex !== undefined) {
                 updateArcCarousel(incomingIndex);
             }
@@ -675,6 +683,7 @@
             if (window.VisualizerWidget && window.VisualizerWidget.pause) window.VisualizerWidget.pause();
         }
     }
+
     window.ProjectorPlayback = {
         startPlayback: startPlayback,
         stopPlayback: stopPlayback,

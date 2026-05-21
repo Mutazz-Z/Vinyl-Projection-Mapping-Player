@@ -1,4 +1,4 @@
-(function() {
+(function () {
     var visualizerInterval = null;
 
     function start() {
@@ -9,8 +9,8 @@
         clearInterval(visualizerInterval);
 
         var bars = viz.querySelectorAll('.bar');
-        visualizerInterval = setInterval(function() {
-            bars.forEach(function(bar) {
+        visualizerInterval = setInterval(function () {
+            bars.forEach(function (bar) {
                 bar.style.height = (Math.random() * 80 + 20) + '%';
             });
         }, 140);
@@ -19,15 +19,16 @@
     function pause() {
         var viz = document.getElementById('visualizer');
         if (viz) {
-            viz.classList.add('paused');
-            viz.classList.remove('hidden');
-            
-            var bars = viz.querySelectorAll('.bar');
-            bars.forEach(function(bar) {
-                bar.style.height = '2%';
-            });
+            if (!viz.classList.contains('hidden')) {
+                viz.classList.add('paused');
+
+                var bars = viz.querySelectorAll('.bar');
+                bars.forEach(function (bar) {
+                    bar.style.height = '2%';
+                });
+            }
         }
-        
+
         clearInterval(visualizerInterval);
         visualizerInterval = null;
     }
@@ -37,13 +38,13 @@
         if (viz) {
             viz.classList.remove('paused');
             viz.classList.add('hidden');
-            
+
             var bars = viz.querySelectorAll('.bar');
-            bars.forEach(function(bar) {
-                bar.style.height = '20%'; 
+            bars.forEach(function (bar) {
+                bar.style.height = '0%';
             });
         }
-        
+
         clearInterval(visualizerInterval);
         visualizerInterval = null;
     }

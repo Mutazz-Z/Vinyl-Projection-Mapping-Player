@@ -12,8 +12,8 @@
             if (!p) return {};
             return {
                 effect: p.effect !== undefined ? p.effect : (p.Effect !== undefined ? p.Effect : ''),
-                artist: p.artist || p.ArtistName || '',
-                album: p.album || p.AlbumTitle || '',
+                artist: p.artist || p.ArtistName || p.media_artist || '',
+                album: p.album || p.AlbumTitle || p.media_album_name || '',
                 tracks: p.tracks || p.TrackList || '',
                 inner_record_color: p.inner_record_color || p.InnerRecordColor || '',
                 inner_record_image: p.inner_record_image || p.InnerRecordImage || '',
@@ -25,13 +25,19 @@
                 registration_url: p.registration_url || p.RegistrationURL || '',
                 message: p.message || p.ErrorMessage || p.ErrorMsg || '',
 
-                position: p.position !== undefined ? p.position : p.Position,
-                duration: p.duration !== undefined ? p.duration : p.Duration,
-                track_index: p.track_idx !== undefined ? p.track_idx : (p.TrackIndex !== undefined ? p.TrackIndex : p.track_index),
+                position: p.position !== undefined ? p.position : (p.Position !== undefined ? p.Position : p.media_position),
+                duration: p.duration !== undefined ? p.duration : (p.Duration !== undefined ? p.Duration : p.media_duration),
+
+                track_index: p.track_idx !== undefined ? p.track_idx :
+                    (p.TrackIndex !== undefined ? p.TrackIndex :
+                        (p.track_index !== undefined ? p.track_index :
+                            (p.track !== undefined ? p.track : p.media_track))),
+
                 event: p.event || p.Event || '',
                 state: p.state || p.State || '',
                 playing: p.playing !== undefined ? p.playing : p.Playing,
-                track_name: p.track_name || p.TrackName || ''
+
+                track_name: p.track_name || p.TrackName || p.title || p.Title || p.name || p.media_title || ''
             };
         }
 

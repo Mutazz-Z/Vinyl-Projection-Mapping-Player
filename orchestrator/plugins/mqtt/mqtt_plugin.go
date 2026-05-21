@@ -129,6 +129,17 @@ func (plugin *BrokerPlugin) handleIncomingTagMessage(client eclipseMqtt.Client, 
 		return
 	}
 
+	var currentStatus string
+	var currentActiveUID string
+
+	plugin.systemDataSource.Read("physical_shelf_status", &currentStatus)
+	plugin.systemDataSource.Read("active_record_unique_identifier", &currentActiveUID)
+
+	if currentStatus == "occupied" && currentActiveUID == normalizedUniqueIdentifier {
+		fmt.Printf("Hardware Event: Tag %s already active, ignoring duplicate scan\n", normalizedUniqueIdentifier)
+		return
+	}
+
 	fmt.Printf("Hardware Event: Scanned Tag %s\n", normalizedUniqueIdentifier)
 
 	plugin.systemDataSource.Write("physical_shelf_status", "occupied")

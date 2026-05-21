@@ -234,6 +234,8 @@ func (client *MusicAssistantClient) extractAndBroadcastState(rpcResponseData map
 	currentState := strings.ToLower(playerStateString)
 
 	var position, duration float64
+	var trackName string
+
 	if elapsed, ok := responseResultData["elapsed_time"].(float64); ok {
 		position = elapsed
 	}
@@ -242,12 +244,16 @@ func (client *MusicAssistantClient) extractAndBroadcastState(rpcResponseData map
 		if dur, ok := currentItem["duration"].(float64); ok {
 			duration = dur
 		}
+		if nameStr, ok := currentItem["name"].(string); ok {
+			trackName = nameStr
+		}
 	}
 
 	payload := map[string]interface{}{
-		"state":    currentState,
-		"position": position,
-		"duration": duration,
+		"state":      currentState,
+		"position":   position,
+		"duration":   duration,
+		"track_name": trackName,
 	}
 
 	client.systemDataSource.Publish("playback_state_changed", payload)
