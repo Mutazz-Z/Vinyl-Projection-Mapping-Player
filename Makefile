@@ -5,7 +5,7 @@ endif
 
 BINARY_MACOS = builds/app/vinyl-orchestrator-macos-arm64
 BINARY_RPI64 = builds/app/vinyl-orchestrator-linux-arm64
-DATABASE     = builds/data/vinyl.database
+DATABASE     = builds/data/vinyl.db
 
 .PHONY: \
 	build_all \

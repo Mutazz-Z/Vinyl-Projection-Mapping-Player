@@ -35,7 +35,7 @@ if [ -n "$PORT_PIDS" ]; then
     kill $PORT_PIDS >/dev/null 2>&1 || true
 fi
 
-export VINYL_DATABASE_PATH="$PWD/builds/vinyl.database"
+export VINYL_DATABASE_PATH="$PWD/builds/vinyl.db"
 ./"$BINARY_MACOS" &
 ORCH_PID=$!
 echo "Started orchestrator engine (pid $ORCH_PID)"

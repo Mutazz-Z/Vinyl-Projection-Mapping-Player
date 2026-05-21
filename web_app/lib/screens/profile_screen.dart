@@ -110,27 +110,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _executeManualSaveProcedure() async {
-    if (!_formValidationKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formValidationKey.currentState!.validate()) return;
 
     setState(() => _isSavingSettingsState = true);
     await _commitSettingsToBackendService();
 
-    final String currentHostAddressString = _mqttHostController.text.trim();
-    final int parsedPortNumber =
-        int.tryParse(_mqttPortController.text.trim()) ?? 9001;
+    systemDataSource.disconnect();
+    systemDataSource.connect();
 
-    mqttService.disconnect();
-    await mqttService.connect(currentHostAddressString, parsedPortNumber);
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() => _isSavingSettingsState = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settings saved & Stack updated.')),
+      const SnackBar(content: Text('Settings saved & System Link updated.')),
     );
   }
 

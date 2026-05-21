@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:web_app/services/mqtt_service.dart';
+import 'package:web_app/services/system_data_source.dart'; // NEW
 
 class InteractiveMapper extends StatefulWidget {
-  final MqttService mqttService;
+  final SystemDataSource systemDataSource;
   final String targetId;
   final double projectorWidth;
   final double projectorHeight;
@@ -14,7 +14,7 @@ class InteractiveMapper extends StatefulWidget {
 
   const InteractiveMapper({
     super.key,
-    required this.mqttService,
+    required this.systemDataSource,
     this.targetId = 'all',
     this.projectorWidth = 1920,
     this.projectorHeight = 1080,
@@ -75,7 +75,12 @@ class InteractiveMapperState extends State<InteractiveMapper> {
         },
       ];
 
-      widget.mqttService.updateMappingLayout(layout, targetId: widget.targetId);
+      widget.systemDataSource.write('projector_mapping_command', {
+        'action': 'layout',
+        'targetId': widget.targetId,
+        'data': layout,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      });
     });
   }
 

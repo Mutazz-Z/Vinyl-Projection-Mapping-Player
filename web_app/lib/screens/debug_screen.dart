@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/theme/app_theme.dart';
@@ -30,13 +29,8 @@ class _DebugScreenState extends State<DebugScreen> {
       return;
     }
 
-    final Map<String, dynamic> payload = {
-      'uid': uid,
-      'source': 'flutter_debug_panel',
-    };
-
     try {
-      mqttService.publishRaw('vinyl/shelf/tag', jsonEncode(payload));
+      systemDataSource.write('GLOBAL_LastScannedNfcTag', uid);
 
       ScaffoldMessenger.of(
         context,
@@ -44,13 +38,13 @@ class _DebugScreenState extends State<DebugScreen> {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('MQTT Publish Failed: $e')));
+      ).showSnackBar(SnackBar(content: Text('Publish Failed: $e')));
     }
   }
 
   void _mockRemoveTag() {
     try {
-      mqttService.publishRaw('vinyl/shelf/status', 'removed');
+      systemDataSource.write('GLOBAL_CurrentShelfStatus', 'empty');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mocked record removal status sent.')),
@@ -58,7 +52,7 @@ class _DebugScreenState extends State<DebugScreen> {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('MQTT Publish Failed: $e')));
+      ).showSnackBar(SnackBar(content: Text('Publish Failed: $e')));
     }
   }
 
@@ -76,12 +70,11 @@ class _DebugScreenState extends State<DebugScreen> {
             ),
             const SizedBox(height: AppSpacing.inlineElementGap),
             Text(
-              'Simulate physical interactions with the NFC reader shelf over MQTT.',
+              'Simulate physical interactions with the NFC reader shelf over the Web API.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.sectionGap),
 
-            // Layout Card for simulation tools
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),

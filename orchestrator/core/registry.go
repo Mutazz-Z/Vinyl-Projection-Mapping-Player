@@ -9,132 +9,47 @@ const (
 
 type SystemVariableDefinition struct {
 	StorageType      StorageMechanism
+	DataType         DataType
 	DefaultDataValue interface{}
 }
 
 var SystemRegistry = map[string]SystemVariableDefinition{
-	"music_assistant_url": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"music_assistant_token": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"music_assistant_player_id": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-
-	"mqtt_broker_host_address": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "127.0.0.1",
-	},
-	"mqtt_websocket_port": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: 9001,
-	},
-	"mqtt_tcp_port": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: 1883,
-	},
-
-	"active_record_unique_identifier": {
-		StorageType:      Volatile,
-		DefaultDataValue: "",
-	},
-	"active_track_name": {
-		StorageType:      Volatile,
-		DefaultDataValue: "Unknown",
-	},
-	"active_playback_state": {
-		StorageType:      Volatile,
-		DefaultDataValue: "idle",
-	},
-	"active_track_progress_seconds": {
-		StorageType:      Volatile,
-		DefaultDataValue: 0,
-	},
-	"active_track_duration_seconds": {
-		StorageType:      Volatile,
-		DefaultDataValue: 0,
-	},
-	"physical_shelf_status": {
-		StorageType:      Volatile,
-		DefaultDataValue: "removed",
-	},
-
-	"mapping_width": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "1920",
-	},
-	"mapping_height": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "1080",
-	},
-	"mapping_tlX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "0",
-	},
-	"mapping_tlY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "0",
-	},
-	"mapping_trX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "1920",
-	},
-	"mapping_trY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "0",
-	},
-	"mapping_brX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "1920",
-	},
-	"mapping_brY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "1080",
-	},
-	"mapping_blX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "0",
-	},
-	"mapping_blY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "1080",
-	},
-
-	"mapping_preset_tlX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_tlY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_trX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_trY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_brX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_brY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_blX": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
-	"mapping_preset_blY": {
-		StorageType:      NonVolatile,
-		DefaultDataValue: "",
-	},
+	"GLOBAL_MusicAssistantUrl":                 {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_MusicAssistantToken":               {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_MusicAssistantTargetPlayerId":      {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_FlutterWebUrl":                     {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "localhost"},
+	"GLOBAL_FlutterWebPort":                    {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "8080"},
+	"GLOBAL_LastScannedNfcTag":                 {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_LastUnknownNfcTag":                 {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_CurrentProjectorData":              {StorageType: Volatile, DataType: TypeJSON, DefaultDataValue: nil},
+	"GLOBAL_MqttBrokerHostAddress":             {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "127.0.0.1"},
+	"GLOBAL_MqttWebSocketPort":                 {StorageType: NonVolatile, DataType: TypeInt, DefaultDataValue: 9001},
+	"GLOBAL_MqttTcpPort":                       {StorageType: NonVolatile, DataType: TypeInt, DefaultDataValue: 1883},
+	"GLOBAL_ActiveRecordUid":                   {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_ActiveRecordTrackName":             {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "Unknown"},
+	"GLOBAL_ActiveRecordPlaybackState":         {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "idle"},
+	"GLOBAL_ActiveTrackProgressInSeconds":      {StorageType: Volatile, DataType: TypeFloat, DefaultDataValue: 0.0},
+	"GLOBAL_ActiveTrackTotalDurationInSeconds": {StorageType: Volatile, DataType: TypeFloat, DefaultDataValue: 0.0},
+	"GLOBAL_CurrentShelfStatus":                {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "empty"},
+	"mapping_width":                            {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "1920"},
+	"mapping_height":                           {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "1080"},
+	"mapping_tlX":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "0"},
+	"mapping_tlY":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "0"},
+	"mapping_trX":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "1920"},
+	"mapping_trY":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "0"},
+	"mapping_brX":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "1920"},
+	"mapping_brY":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "1080"},
+	"mapping_blX":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "0"},
+	"mapping_blY":                              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "1080"},
+	"mapping_preset_tlX":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_tlY":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_trX":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_trY":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_brX":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_brY":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_blX":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"mapping_preset_blY":                       {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
+	"projector_mapping_command":                {StorageType: Volatile, DataType: TypeJSON, DefaultDataValue: nil},
+	"last_projector_ping_response":             {StorageType: Volatile, DataType: TypeJSON, DefaultDataValue: nil},
+	"mapping_projector_layout":                 {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: ""},
 }

@@ -4,14 +4,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web_app/services/interactive_mapper.dart';
-import 'package:web_app/services/mqtt_service.dart';
+import 'package:web_app/services/system_data_source.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
-  final MqttService mqttService;
+  final SystemDataSource systemDataSource;
 
-  const HomeScreen({super.key, required this.mqttService});
+  const HomeScreen({super.key, required this.systemDataSource});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,7 +21,6 @@ String get _uiApiUrl {
   if (kDebugMode && Uri.base.host == 'localhost') {
     return 'http://localhost:8080/api/config/ui';
   }
-
   return '/api/config/ui';
 }
 
@@ -52,22 +51,33 @@ class _HomeScreenState extends State<HomeScreen> {
       GlobalKey<InteractiveMapperState>();
 
   Timer? _saveDebounceTimer;
+  StreamSubscription? _eventSub;
 
   @override
   void initState() {
     super.initState();
     _loadLastState();
 
-    widget.mqttService.onProjectorDiscovered = (id, width, height) {
-      if (mounted) {
-        setState(() {
-          _discoveredProjectors[id] = {'width': width, 'height': height};
-        });
+    _eventSub = widget.systemDataSource.onDataSourceChanged.listen((args) {
+      if (args.variable == 'last_projector_ping_response' &&
+          args.data != null) {
+        final data = args.data;
+        if (mounted && data['id'] != null) {
+          setState(() {
+            _discoveredProjectors[data['id']] = {
+              'width': (data['width'] as num).toDouble(),
+              'height': (data['height'] as num).toDouble(),
+            };
+          });
+        }
       }
-    };
+    });
 
     Future.delayed(const Duration(seconds: 1), () {
-      widget.mqttService.pingProjectors();
+      widget.systemDataSource.write('projector_mapping_command', {
+        'action': 'ping',
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      });
     });
   }
 
@@ -84,12 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _blX.dispose();
     _blY.dispose();
     _saveDebounceTimer?.cancel();
+    _eventSub?.cancel();
     super.dispose();
   }
 
   void _scheduleSave() {
     _saveDebounceTimer?.cancel();
-
     _saveDebounceTimer = Timer(const Duration(milliseconds: 500), () {
       _saveLastState();
     });
@@ -343,7 +353,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               _discoveredProjectors.clear();
                               _targetProjectorId = 'all';
                             });
-                            widget.mqttService.pingProjectors();
+                            widget.systemDataSource
+                                .write('projector_mapping_command', {
+                                  'action': 'ping',
+                                  'ts': DateTime.now().millisecondsSinceEpoch,
+                                });
                           },
                         ),
                       ],
@@ -384,9 +398,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.grid_on),
                       label: const Text('Toggle Projector Mapping UI'),
-                      onPressed: () => widget.mqttService.toggleMappingMode(
-                        targetId: _targetProjectorId,
-                      ),
+                      onPressed: () => widget.systemDataSource
+                          .write('projector_mapping_command', {
+                            'action': 'toggle',
+                            'targetId': _targetProjectorId,
+                            'ts': DateTime.now().millisecondsSinceEpoch,
+                          }),
                     ),
                     const SizedBox(height: 16),
 
@@ -454,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => FullscreenMapperScreen(
-                                  mqttService: widget.mqttService,
+                                  systemDataSource: widget.systemDataSource,
                                   targetId: _targetProjectorId,
                                   projectorWidth: _projectorWidth,
                                   projectorHeight: _projectorHeight,
@@ -511,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Center(
                         child: InteractiveMapper(
                           key: _mapperKey,
-                          mqttService: widget.mqttService,
+                          systemDataSource: widget.systemDataSource,
                           targetId: _targetProjectorId,
                           projectorWidth: _projectorWidth,
                           projectorHeight: _projectorHeight,
@@ -564,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class FullscreenMapperScreen extends StatelessWidget {
-  final MqttService mqttService;
+  final SystemDataSource systemDataSource;
   final String targetId;
   final double projectorWidth;
   final double projectorHeight;
@@ -573,7 +590,7 @@ class FullscreenMapperScreen extends StatelessWidget {
 
   const FullscreenMapperScreen({
     super.key,
-    required this.mqttService,
+    required this.systemDataSource,
     required this.targetId,
     required this.projectorWidth,
     required this.projectorHeight,
@@ -592,7 +609,7 @@ class FullscreenMapperScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: InteractiveMapper(
-                  mqttService: mqttService,
+                  systemDataSource: systemDataSource,
                   targetId: targetId,
                   projectorWidth: projectorWidth,
                   projectorHeight: projectorHeight,
@@ -606,7 +623,7 @@ class FullscreenMapperScreen extends StatelessWidget {
               top: 16,
               left: 16,
               child: Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),

@@ -21,7 +21,7 @@ type PlaybackServiceTestContext struct {
 	libraryRepository *mock_library.MockLibraryRepository
 }
 
-func setupPlaybackServiceTest(t *testing.T,  watchdogTimeoutInMsec int) PlaybackServiceTestContext {
+func setupPlaybackServiceTest(t *testing.T, watchdogTimeoutInMsec int) PlaybackServiceTestContext {
 
 	t.Helper()
 
@@ -137,7 +137,7 @@ func TestPlaybackService_ErrorsPlaybackAfterWatchdogTimeout(t *testing.T) {
 		t.Fatal("Watchdog timeout event was not published within the expected window.")
 	}
 
-	require.Equal(t, "error", playbackServiceTestContext.dataSource.Storage["active_playback_state"])
+	require.Equal(t, "error", playbackServiceTestContext.dataSource.Storage["GLOBAL_ActiveRecordPlaybackState"])
 }
 
 func TestPlaybackService_HandlesPlayerRejection(t *testing.T) {

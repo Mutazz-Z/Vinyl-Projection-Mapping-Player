@@ -7,6 +7,38 @@ type Event struct {
 	Payload interface{}
 }
 
+type DataType int
+
+const (
+	TypeString DataType = iota
+	TypeInt
+	TypeBool
+	TypeFloat
+	TypeJSON
+)
+
+func (dataType DataType) String() string {
+	switch dataType {
+	case TypeString:
+		return "string"
+	case TypeInt:
+		return "int"
+	case TypeBool:
+		return "bool"
+	case TypeFloat:
+		return "float"
+	case TypeJSON:
+		return "json"
+	default:
+		return "unknown"
+	}
+}
+
+type DataSourceChangedArgs struct {
+	Variable string      `json:"variable"`
+	Data     interface{} `json:"data"`
+}
+
 type DataSource interface {
 	Read(key string, destination interface{}) error
 	Write(key string, value interface{}) error
@@ -70,4 +102,14 @@ type VisualEffectPayload struct {
 	OverlayArt       string `json:"overlay_art,omitempty"`
 	AlbumCoverArt    string `json:"album_cover_art,omitempty"`
 	ErrorMessage     string `json:"message,omitempty"`
+}
+
+func ProcessDataSourceEvents(dsChannel <-chan Event, handler func(args DataSourceChangedArgs)) {
+	for incomingEvent := range dsChannel {
+		args, ok := incomingEvent.Payload.(DataSourceChangedArgs)
+		if !ok {
+			continue
+		}
+		handler(args)
+	}
 }

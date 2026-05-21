@@ -1,12 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/enums.dart';
 import '../screens/register_screen.dart';
-import 'mqtt_service.dart';
+import 'system_data_source.dart'; // NEW
 import 'music_assistant_service.dart';
 
 class AppCoordinator {
-  final MqttService mqttService;
+  final SystemDataSource dataSource;
   final MusicAssistantService musicAssistant;
   final GlobalKey<NavigatorState> navigatorKey;
 
@@ -14,42 +13,34 @@ class AppCoordinator {
   DateTime? _lastPlaybackEventAt;
 
   AppCoordinator({
-    required this.mqttService,
+    required this.dataSource,
     required this.musicAssistant,
     required this.navigatorKey,
   });
 
   void start() {
-    final messageStream = mqttService.updates;
-
-    messageStream.listen((List<dynamic> messages) {
-      if (messages.isEmpty) return;
-
-      final String topic = messages[0].topic;
-      final String payload = mqttService.decodePayload(messages[0].payload);
-
-      if (topic == 'vinyl/request_register') {
-        _handleRegistrationRequest(payload);
-      } else if (topic == 'vinyl/shelf/visuals') {
-        _handleVisualPlaybackEvent(payload);
+    dataSource.onDataSourceChanged.listen((args) {
+      if (args.variable == 'GLOBAL_LastUnknownNfcTag' && args.data != null) {
+        _handleRegistrationRequest(args.data.toString());
+      } else if (args.variable == 'GLOBAL_CurrentProjectorData' &&
+          args.data != null) {
+        _handleVisualPlaybackEvent(args.data);
       }
     });
 
-    mqttService.subscribe('vinyl/request_register');
-    mqttService.subscribe('vinyl/shelf/visuals');
-    debugPrint('AppCoordinator: Active background streams configured.');
+    debugPrint('AppCoordinator: Active DataSource stream configured.');
   }
 
   void _handleRegistrationRequest(String uid) {
+    if (uid.isEmpty) return;
     debugPrint('AppCoordinator: Registration trigger received for UID "$uid".');
     navigatorKey.currentState?.push(
       MaterialPageRoute(builder: (_) => RegisterScreen(uid: uid)),
     );
   }
 
-  void _handleVisualPlaybackEvent(String payload) {
+  void _handleVisualPlaybackEvent(dynamic decodedPayload) {
     try {
-      final dynamic decodedPayload = jsonDecode(payload);
       if (decodedPayload is! Map<String, dynamic>) return;
 
       final String effectStr = (decodedPayload['effect'] ?? '').toString();
@@ -60,11 +51,6 @@ class AppCoordinator {
 
       if (_isDuplicateEvent(effect, mediaUri)) return;
 
-      // if (effect == VisualEffect.play && mediaUri.isNotEmpty) {
-      //   _executePlayback(musicAssistant.playMediaUri(mediaUri), 'play');
-      // } else if (effect == VisualEffect.stop) {
-      //   _executePlayback(musicAssistant.stopPlayback(), 'stop');
-      // }
     } catch (error) {
       debugPrint('AppCoordinator: Failed to parse visual payload: $error');
     }
@@ -84,22 +70,4 @@ class AppCoordinator {
     _lastPlaybackEventAt = now;
     return false;
   }
-
-  // void _executePlayback(Future<void> action, String operationName) {
-  //   unawaited(
-  //     action.catchError((Object error) {
-  //       debugPrint(
-  //         'AppCoordinator: Music Assistant $operationName failed: ${_compactError(error)}',
-  //       );
-  //     }),
-  //   );
-  // }
-
-  // String _compactError(Object error) {
-  //   const int maxLength = 320;
-  //   final String fullError = error.toString().replaceAll('\n', ' ').trim();
-  //   return fullError.length <= maxLength
-  //       ? fullError
-  //       : '${fullError.substring(0, maxLength)}...';
-  // }
 }

@@ -1,12 +1,3 @@
-/*
- * mapping.js — Maptastic setup for the single #projection-group.
- *
- * Keys:
- * M   — toggle mapping mode (shows Maptastic corner handles)
- * 0   — reset all saved positions and reload
- *
- */
-
 const LAYOUT_KEY = 'vinylProjectionLayout';
 const LAYOUT_BACKUP_KEY = 'vinylProjectionLayoutBackup';
 let saveDbTimeout = null;
@@ -21,53 +12,47 @@ function readJSON(key) {
     }
 }
 
-function saveLayoutToDB(layoutStr) {
-    clearTimeout(saveDbTimeout);
-    saveDbTimeout = setTimeout(() => {
-        const piIp = window.PI_IP || window.location.hostname || '127.0.0.1';
-        fetch(`http://${piIp}:8100/api/config/ui`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 'mapping_projector_layout': layoutStr })
-        }).catch(e => console.warn('Could not save layout to global DB', e));
-    }, 800);
-}
-
 function saveLayout() {
     if (!maptastic || typeof maptastic.getLayout !== 'function') return;
     const layout = maptastic.getLayout();
-    if (layout) {
-        const data = JSON.stringify(layout);
-        localStorage.setItem(LAYOUT_KEY, data);
-        localStorage.setItem(LAYOUT_BACKUP_KEY, data);
-        saveLayoutToDB(data);
-    }
+    if (!layout) return;
+
+    const data = JSON.stringify(layout);
+    localStorage.setItem(LAYOUT_KEY, data);
+    localStorage.setItem(LAYOUT_BACKUP_KEY, data);
+
+    clearTimeout(saveDbTimeout);
+    saveDbTimeout = setTimeout(() => {
+        if (window.dataSource) {
+            window.dataSource.write('mapping_projector_layout', data);
+        }
+    }, 800);
 }
 
-function restoreLayout() {
+async function restoreLayout() {
     if (!maptastic || typeof maptastic.setLayout !== 'function') return;
 
-    const piIp = window.PI_IP || window.location.hostname || '127.0.0.1';
+    let layout = null;
 
-    fetch(`http://${piIp}:8100/api/config/ui`)
-        .then(res => res.json())
-        .then(data => {
-            let layout = null;
-            if (data['mapping_projector_layout']) {
-                layout = JSON.parse(data['mapping_projector_layout']);
-            } else {
-                layout = readJSON(LAYOUT_KEY) || readJSON(LAYOUT_BACKUP_KEY);
+    try {
+        if (window.dataSource) {
+            const stored = await window.dataSource.read('mapping_projector_layout');
+            if (stored) {
+                layout = typeof stored === 'string' ? JSON.parse(stored) : stored;
             }
+        }
+    } catch (e) {
+        console.warn('mapping.js: could not read layout from DataSource, falling back to localStorage', e);
+    }
 
-            if (layout) {
-                maptastic.setLayout(layout);
-                window.dispatchEvent(new Event('resize'));
-            }
-        })
-        .catch(e => {
-            const layout = readJSON(LAYOUT_KEY) || readJSON(LAYOUT_BACKUP_KEY);
-            if (layout) maptastic.setLayout(layout);
-        });
+    if (!layout) {
+        layout = readJSON(LAYOUT_KEY) || readJSON(LAYOUT_BACKUP_KEY);
+    }
+
+    if (layout) {
+        maptastic.setLayout(layout);
+        window.dispatchEvent(new Event('resize'));
+    }
 }
 
 window.addEventListener('keydown', (e) => {
@@ -89,7 +74,13 @@ window.addEventListener('keydown', (e) => {
 
 var maptastic = Maptastic('projection-group');
 
-restoreLayout();
+(function waitForDsAndRestore() {
+    if (window.dataSource) {
+        restoreLayout();
+    } else {
+        setTimeout(waitForDsAndRestore, 100);
+    }
+})();
 
 setInterval(() => {
     if (document.body.classList.contains('mapping-mode')) {
@@ -110,11 +101,9 @@ window.ProjectorMapping = {
         try {
             const currentLayout = maptastic.getLayout();
             if (currentLayout && currentLayout.length > 0 && layoutData && layoutData.length > 0) {
-
                 const newLayout = JSON.parse(JSON.stringify(currentLayout));
                 newLayout[0].targetPoints = layoutData[0].targetPoints;
                 maptastic.setLayout(newLayout);
-
             } else {
                 maptastic.setLayout(layoutData);
             }
@@ -123,7 +112,7 @@ window.ProjectorMapping = {
             saveLayout();
             console.log('Remote layout applied successfully.');
         } catch (err) {
-            console.error("Failed to apply remote layout", err);
+            console.error('Failed to apply remote layout', err);
         }
     }
 };

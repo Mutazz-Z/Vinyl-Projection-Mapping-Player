@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:web_app/services/media_asset_service.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:web_app/utils/register_utils.dart';
@@ -309,56 +311,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
     autofillField(_albumCoverArtController, data['album_cover_art']);
   }
 
+  String get _orchestratorHost {
+    final host = Uri.base.host;
+    return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSendingData = true);
     final String mediaUri = _uriController.text.trim();
-    final action = _isEditing
-        ? mqttService.updateVinyl
-        : mqttService.registerVinyl;
 
-    action(
-      uid: widget.uid,
-      artist: _artistController.text.trim(),
-      album: _albumController.text.trim(),
-      tracks: _tracksController.text.trim(),
-      mediaUri: mediaUri,
-      innerRecordColor: _innerMode == DesignMode.color
+    final Map<String, dynamic> recordPayload = {
+      'uid': widget.uid,
+      'artist': _artistController.text.trim(),
+      'album': _albumController.text.trim(),
+      'tracks': _tracksController.text.trim(),
+      'media_uri': mediaUri,
+      'inner_record_color': _innerMode == DesignMode.color
           ? _innerRecordColorController.text.trim()
           : '',
-      innerRecordImage: _innerMode == DesignMode.image
+      'inner_record_image': _innerMode == DesignMode.image
           ? _innerRecordImageController.text.trim()
           : '',
-      outerDesignColor: _outerMode == DesignMode.color
+      'outer_design_color': _outerMode == DesignMode.color
           ? _outerDesignColorController.text.trim()
           : '',
-      outerDesignImage: _outerMode == DesignMode.image
+      'outer_design_image': _outerMode == DesignMode.image
           ? _outerDesignImageController.text.trim()
           : '',
-      overlayArt: _selectedOverlayArt.trim(),
-      albumCoverArt: _albumCoverArtController.text.trim(),
-    );
+      'overlay_art': _selectedOverlayArt.trim(),
+      'album_cover_art': _albumCoverArtController.text.trim(),
+    };
 
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
+    try {
+      final response = await http.post(
+        Uri.parse('http://$_orchestratorHost:8080/api/library'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(recordPayload),
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isEditing ? 'Record updated.' : 'Registration sent to Pi.',
-        ),
-        action: !_isEditing
-            ? SnackBarAction(
-                label: 'Play Now',
-                onPressed: () => _playNow(mediaUri),
-              )
-            : null,
-      ),
-    );
-
-    Navigator.pop(context);
-    mqttService.requestLibrary();
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isEditing ? 'Record updated.' : 'Registration saved.',
+            ),
+            action: !_isEditing
+                ? SnackBarAction(
+                    label: 'Play Now',
+                    onPressed: () => _playNow(mediaUri),
+                  )
+                : null,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        throw Exception('Server rejected the save: ${response.body}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save record: $e')));
+    } finally {
+      if (mounted) setState(() => _isSendingData = false);
+    }
   }
 
   Future<void> _playNow(String mediaUri) async {

@@ -1,9 +1,8 @@
 import 'dart:convert';
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http; // NEW
 import 'package:web_app/theme/app_theme.dart';
-import '../main.dart';
 import 'register_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -16,47 +15,52 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   List<dynamic> _albums = [];
   bool _isLoading = true;
-  StreamSubscription<List<dynamic>>? _librarySubscription;
+
+  String get _orchestratorHost {
+    final host = Uri.base.host;
+    return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
+  }
 
   @override
   void initState() {
     super.initState();
-    _listenForLibraryUpdates();
-    mqttService.requestLibrary();
+    _fetchLibrary();
   }
 
-  void _listenForLibraryUpdates() {
-    final messageStream = mqttService.updates;
-
-    _librarySubscription?.cancel();
-    _librarySubscription = messageStream.listen((List<dynamic> messages) {
-      if (!mounted || messages.isEmpty) {
-        return;
-      }
-
-      final String topic = messages[0].topic;
-      if (topic == 'vinyl/shelf/library/data') {
-        final String rawPayload =
-            mqttService.decodePayload(messages[0].payload);
-        final dynamic decodedData = jsonDecode(rawPayload);
-        if (decodedData is! Map<String, dynamic>) {
-          return;
-        }
-
+  Future<void> _fetchLibrary() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse('http://$_orchestratorHost:8080/api/library'),
+      );
+      if (response.statusCode == 200) {
         setState(() {
-          _albums = decodedData['albums'] ?? [];
+          _albums = jsonDecode(response.body);
           _isLoading = false;
         });
       }
-    });
-
-    mqttService.subscribe('vinyl/shelf/library/data');
+    } catch (e) {
+      debugPrint('Failed to load library: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
-  @override
-  void dispose() {
-    _librarySubscription?.cancel();
-    super.dispose();
+  Future<void> _deleteRecord(String uid) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('http://$_orchestratorHost:8080/api/library/$uid'),
+      );
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Record deleted.')));
+        }
+        _fetchLibrary();
+      }
+    } catch (e) {
+      debugPrint('Failed to delete record: $e');
+    }
   }
 
   void _showDeleteConfirmation({
@@ -79,14 +83,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              mqttService.deleteVinyl(uid: uid);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Record deleted.')),
-              );
-              Future.delayed(
-                const Duration(milliseconds: 500),
-                mqttService.requestLibrary,
-              );
+              _deleteRecord(uid);
             },
             child: Text('Delete', style: AppTextStyles.destructiveLabel),
           ),
@@ -95,10 +92,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  void _navigateToEditScreen(
-    BuildContext context,
-    Map<String, dynamic> album,
-  ) {
+  void _navigateToEditScreen(BuildContext context, Map<String, dynamic> album) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -116,7 +110,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           initialAlbumCoverArt: album['album_cover_art'],
         ),
       ),
-    );
+    ).then((_) => _fetchLibrary());
   }
 
   @override
@@ -183,13 +177,10 @@ class _AlbumListTile extends StatelessWidget {
         width: 48,
         height: 48,
         fit: BoxFit.cover,
-        errorBuilder: (
-          BuildContext context,
-          Object error,
-          StackTrace? stackTrace,
-        ) {
-          return const Icon(Icons.album);
-        },
+        errorBuilder:
+            (BuildContext context, Object error, StackTrace? stackTrace) {
+              return const Icon(Icons.album);
+            },
       ),
     );
   }
@@ -199,7 +190,9 @@ class _AlbumListTile extends StatelessWidget {
     final String coverArt = (album['album_cover_art'] ?? '').toString().trim();
 
     return ListTile(
-      leading: coverArt.isNotEmpty ? _buildCoverArt(coverArt) : const Icon(Icons.album),
+      leading: coverArt.isNotEmpty
+          ? _buildCoverArt(coverArt)
+          : const Icon(Icons.album),
       title: Text(album['album'] ?? 'Unknown'),
       subtitle: Text(album['artist'] ?? 'Unknown'),
       onTap: onEdit,
@@ -226,7 +219,11 @@ class _AlbumListTile extends StatelessWidget {
             value: 'delete',
             child: Row(
               children: [
-                const Icon(Icons.delete, size: 18, color: AppColors.destructive),
+                const Icon(
+                  Icons.delete,
+                  size: 18,
+                  color: AppColors.destructive,
+                ),
                 const SizedBox(width: AppSpacing.inlineElementGap),
                 Text('Delete', style: AppTextStyles.destructiveLabel),
               ],

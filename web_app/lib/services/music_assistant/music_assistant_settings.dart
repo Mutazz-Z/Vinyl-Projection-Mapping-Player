@@ -46,15 +46,15 @@ class MusicAssistantSettings {
 
         musicAssistantUrlString = extractStringValueFromMap(
           decodedConfigurationDataMap,
-          'music_assistant_url',
+          'GLOBAL_MusicAssistantUrl',
         );
         musicAssistantTokenString = extractStringValueFromMap(
           decodedConfigurationDataMap,
-          'music_assistant_token',
+          'GLOBAL_MusicAssistantToken',
         );
         musicAssistantPlayerIdString = extractStringValueFromMap(
           decodedConfigurationDataMap,
-          'music_assistant_player_id',
+          'GLOBAL_MusicAssistantTargetPlayerId',
         );
 
         final String savedMqttHostAddressString = extractStringValueFromMap(
@@ -105,12 +105,12 @@ class MusicAssistantSettings {
         retrieveConfigurationApiEndpoint(),
       );
       final Map<String, String> configurationPayloadMap = {
-        'music_assistant_url': musicAssistantUrlString,
-        'music_assistant_token': musicAssistantTokenString,
-        'music_assistant_player_id': musicAssistantPlayerIdString,
+        'GLOBAL_MusicAssistantUrl': musicAssistantUrlString,
+        'GLOBAL_MusicAssistantToken': musicAssistantTokenString,
+        'GLOBAL_MusicAssistantTargetPlayerId': musicAssistantPlayerIdString,
         'mqtt_host': mqttHostAddressString,
         'mqtt_ws_port': mqttWebSocketPortNumber.toString(),
-        'mqtt_tcp_port': '1883',
+        'GLOBAL_MqttTcpPort': '1883',
       };
 
       await http

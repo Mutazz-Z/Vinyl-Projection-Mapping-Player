@@ -25,7 +25,7 @@ func resolvePrimaryDatabaseFilePath() string {
 	if environmentalPath != "" {
 		return environmentalPath
 	}
-	return "./builds/data/vinyl.database"
+	return "./builds/data/vinyl.db"
 }
 
 func main() {

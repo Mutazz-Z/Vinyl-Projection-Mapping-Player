@@ -54,9 +54,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Future<void> _executeSetupCompletionProcedure() async {
-    if (!_formValidationKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formValidationKey.currentState!.validate()) return;
 
     setState(() => _isSavingSettingsState = true);
 
@@ -72,19 +70,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       targetMqttWebSocketPort: parsedMqttPortNumber,
     );
 
-    final String currentHostAddressString = _mqttHostController.text.trim();
-    final bool didEstablishConnection = await mqttService.connect(
-      currentHostAddressString,
-      parsedMqttPortNumber,
-    );
+    systemDataSource.connect();
+    appCoordinator.start();
 
-    if (didEstablishConnection) {
-      appCoordinator.start();
-    }
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const AppShellScreen()),

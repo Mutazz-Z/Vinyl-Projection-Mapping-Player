@@ -405,7 +405,8 @@
     function stopPlayback(isError) {
         localStorage.removeItem('vinyl_projection_active_payload');
 
-        const wasPlaying = isPlayingState;
+        const isAnimatingOut = !!(idleStateRestoreTimer || recordHideCleanupTimer);
+        const wasPlaying = isPlayingState || isAnimatingOut;
 
         isPlayingState = false;
         currentPlayingAlbum = '';
@@ -481,11 +482,16 @@
         if (isError) return;
 
         if (window.LoadingWidget) {
-            if (wasPlaying && window.LoadingWidget.revealIdleFromOverlay) {
+            if (wasPlaying) {
                 idleStateRestoreTimer = setTimeout(function () {
                     if (token !== playbackToken) return;
-                    window.LoadingWidget.revealIdleFromOverlay();
-                }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
+
+                    if (window.LoadingWidget.revealIdleFromOverlay) {
+                        window.LoadingWidget.revealIdleFromOverlay();
+                    } else if (window.LoadingWidget.showIdle) {
+                        window.LoadingWidget.showIdle();
+                    }
+                }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS + 100);
             } else if (window.LoadingWidget.showIdle) {
                 window.LoadingWidget.showIdle();
             }

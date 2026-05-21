@@ -6,25 +6,38 @@ import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
 import 'services/app_coordinator.dart';
 import 'services/music_assistant_service.dart';
-import 'services/mqtt_service.dart';
+import 'services/system_data_source.dart'; // NEW
 import 'theme/app_theme.dart';
 import 'widgets/app_navigation_rail.dart';
 import 'screens/welcome_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-final MqttService mqttService = MqttService();
 final MusicAssistantService musicAssistant = MusicAssistantService();
 
-final AppCoordinator appCoordinator = AppCoordinator(
-  mqttService: mqttService,
-  musicAssistant: musicAssistant,
-  navigatorKey: navigatorKey,
-);
+late final SystemDataSource systemDataSource;
+late final AppCoordinator appCoordinator;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await musicAssistant.initializeService();
+
+  debugPrint('DEBUG: IsConfigured: ${musicAssistant.applicationSettings.isConfigured}');
+  debugPrint('DEBUG: URL: "${musicAssistant.applicationSettings.musicAssistantUrlString}"');
+
+  String orchestratorHost =
+      musicAssistant.applicationSettings.mqttHostAddressString;
+  if (orchestratorHost.isEmpty) {
+    orchestratorHost = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
+  }
+
+  systemDataSource = SystemDataSource(host: orchestratorHost, port: 8080);
+
+  appCoordinator = AppCoordinator(
+    dataSource: systemDataSource,
+    musicAssistant: musicAssistant,
+    navigatorKey: navigatorKey,
+  );
 
   final bool isFirstBoot = !musicAssistant.applicationSettings.isConfigured;
 
@@ -35,22 +48,14 @@ void main() async {
   runApp(VinylApp(isFirstBoot: isFirstBoot));
 }
 
-void _initializeBackgroundNetworkStack() async {
+void _initializeBackgroundNetworkStack() {
   try {
-    final String brokerAddress = musicAssistant.applicationSettings.mqttHostAddressString;
-    final int brokerPort = musicAssistant.applicationSettings.mqttWebSocketPortNumber;
-
-    final bool didConnect = await mqttService.connect(
-      brokerAddress,
-      brokerPort,
+    debugPrint(
+      'main: SystemDataSource online. Handing off processing stream...',
     );
 
-    if (didConnect) {
-      debugPrint(
-        'main: Core MQTT link online. Handing off processing stream...',
-      );
-      appCoordinator.start();
-    }
+    systemDataSource.connect();
+    appCoordinator.start();
   } catch (error) {
     debugPrint('main: Handshaking sequence failed unexpectedly: $error');
   }
@@ -101,11 +106,6 @@ class _AppShellScreenState extends State<AppShellScreen> {
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_titleForTab(_selectedTab))),
@@ -126,7 +126,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   Widget _pageForTab(AppPageTab selectedTab) {
     switch (selectedTab) {
       case AppPageTab.home:
-        return HomeScreen(mqttService: mqttService);
+        return HomeScreen(systemDataSource: systemDataSource);
       case AppPageTab.library:
         return const LibraryScreen();
       case AppPageTab.debug:

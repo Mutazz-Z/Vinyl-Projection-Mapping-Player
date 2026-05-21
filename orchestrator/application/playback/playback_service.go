@@ -23,69 +23,6 @@ type PlaybackApplicationService struct {
 	recordRemovedTimeout time.Duration
 }
 
-func NewPlaybackApplicationService(mediaPlayer core.MediaPlayer) *PlaybackApplicationService {
-	return &PlaybackApplicationService{
-		activeMediaPlayer:    mediaPlayer,
-		WatchdogTimeout:      30 * time.Second,
-		recordRemovedTimeout: 1 * time.Second,
-	}
-}
-
-func (service *PlaybackApplicationService) Name() string {
-	return "Application_Playback_Coordinator"
-}
-
-func (service *PlaybackApplicationService) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
-	service.systemDataSource = dataSource
-	service.libraryRepository = libraryRepository
-	return nil
-}
-
-func (service *PlaybackApplicationService) StartPlugin(applicationContext context.Context) error {
-	hardwareScannedChannel := service.systemDataSource.Subscribe("hardware_record_scanned")
-	hardwareRemovedChannel := service.systemDataSource.Subscribe("hardware_record_removed")
-
-	go service.listenForHardwareScanEvents(hardwareScannedChannel)
-	go service.listenForHardwareRemoveEvents(hardwareRemovedChannel)
-	go service.pollPlayerStateLoop(applicationContext)
-
-	return nil
-}
-
-func (service *PlaybackApplicationService) listenForHardwareScanEvents(scannedChannel <-chan core.Event) {
-	for incomingEvent := range scannedChannel {
-		service.cancelRecordRemovedTimeout()
-		scannedUniqueIdentifier, isString := incomingEvent.Payload.(string)
-		if !isString {
-			continue
-		}
-
-		retrievedAlbumRecord, retrievalError := service.libraryRepository.RetrieveAlbumByNfcIdentifier(scannedUniqueIdentifier)
-		if retrievalError != nil {
-			fmt.Printf("Playback Service: Unknown Tag %s, broadcasting for registration\n", scannedUniqueIdentifier)
-			service.systemDataSource.Publish("hardware_record_unknown", scannedUniqueIdentifier)
-			continue
-		}
-
-		fmt.Printf("Playback Service: Starting %s by %s\n", retrievedAlbumRecord.AlbumTitle, retrievedAlbumRecord.ArtistName)
-
-		playbackError := service.activeMediaPlayer.PlayMedia(retrievedAlbumRecord.MediaResourceUri)
-		if playbackError != nil {
-			fmt.Printf("Playback Service Error: Media player rejected play command. (%v)\n", playbackError)
-			continue
-		}
-
-		service.startPlaybackWatchdog()
-	}
-}
-
-func (service *PlaybackApplicationService) listenForHardwareRemoveEvents(removedChannel <-chan core.Event) {
-	for range removedChannel {
-		service.cancelPlaybackWatchdog()
-		service.startRecordRemovedWatchdog()
-	}
-}
-
 func (service *PlaybackApplicationService) startPlaybackWatchdog() {
 	service.watchdogMutex.Lock()
 	defer service.watchdogMutex.Unlock()
@@ -93,7 +30,6 @@ func (service *PlaybackApplicationService) startPlaybackWatchdog() {
 	if service.playbackWatchdogTimer != nil {
 		service.playbackWatchdogTimer.Stop()
 	}
-
 	service.playbackWatchdogTimer = time.AfterFunc(service.WatchdogTimeout, service.handleWatchdogTimeout)
 }
 
@@ -101,9 +37,9 @@ func (service *PlaybackApplicationService) handleWatchdogTimeout() {
 	service.watchdogMutex.Lock()
 	defer service.watchdogMutex.Unlock()
 
+	// TODO: Add visual error for communication failure
 	fmt.Println("Playback Service Error: Target device failed to respond within timeout window.")
-	service.systemDataSource.Write("active_playback_state", "error")
-	service.systemDataSource.Publish("playback_watchdog_timeout", nil)
+	service.systemDataSource.Write("GLOBAL_ActiveRecordPlaybackState", "error")
 }
 
 func (service *PlaybackApplicationService) cancelPlaybackWatchdog() {
@@ -145,17 +81,11 @@ func (service *PlaybackApplicationService) fetchAndPublishPlayerState() {
 	if fetchError != nil {
 		return
 	}
-
-	service.systemDataSource.Write("active_playback_state", playerStateString)
+	service.systemDataSource.Write("GLOBAL_ActiveRecordPlaybackState", playerStateString)
 
 	if playerStateString == "playing" || playerStateString == "paused" {
 		service.cancelPlaybackWatchdog()
 	}
-}
-
-func (service *PlaybackApplicationService) StopPlugin(applicationContext context.Context) error {
-	service.cancelPlaybackWatchdog()
-	return nil
 }
 
 func (service *PlaybackApplicationService) startRecordRemovedWatchdog() {
@@ -167,8 +97,78 @@ func (service *PlaybackApplicationService) startRecordRemovedWatchdog() {
 	}
 
 	fmt.Printf("Playback Service: Record removed, stopping playback in %v second(s)...\n", service.recordRemovedTimeout.Seconds())
-
 	service.recordRemovedTimer = time.AfterFunc(service.recordRemovedTimeout, func() {
 		service.activeMediaPlayer.StopMedia()
 	})
+}
+
+func (service *PlaybackApplicationService) processScannedNfcTag(uid string) {
+	service.cancelRecordRemovedTimeout()
+
+	retrievedAlbumRecord, error := service.libraryRepository.RetrieveAlbumByNfcIdentifier(uid)
+	if error != nil {
+		fmt.Printf("Playback Service: Unknown Tag %s, writing to registry for registration\n", uid)
+		service.systemDataSource.Write("GLOBAL_LastUnknownNfcTag", uid)
+		return
+	}
+
+	fmt.Printf("Playback Service: Starting %s by %s\n", retrievedAlbumRecord.AlbumTitle, retrievedAlbumRecord.ArtistName)
+
+	playbackError := service.activeMediaPlayer.PlayMedia(retrievedAlbumRecord.MediaResourceUri)
+	if playbackError != nil {
+		fmt.Printf("Playback Service Error: Media player rejected play command. (%v)\n", playbackError)
+		return
+	}
+	service.startPlaybackWatchdog()
+}
+
+func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged <-chan core.Event) {
+	go core.ProcessDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
+
+		switch args.Variable {
+		case "GLOBAL_LastScannedNfcTag":
+			uid, _ := args.Data.(string)
+			if uid == "" {
+				return
+			}
+			service.processScannedNfcTag(uid)
+
+		case "GLOBAL_CurrentShelfStatus":
+			status, _ := args.Data.(string)
+			if status == "empty" {
+				service.cancelPlaybackWatchdog()
+				service.startRecordRemovedWatchdog()
+			}
+		}
+	})
+}
+
+func NewPlaybackApplicationService(mediaPlayer core.MediaPlayer) *PlaybackApplicationService {
+	return &PlaybackApplicationService{
+		activeMediaPlayer:    mediaPlayer,
+		WatchdogTimeout:      30 * time.Second,
+		recordRemovedTimeout: 1 * time.Second,
+	}
+}
+
+func (service *PlaybackApplicationService) Name() string {
+	return "Application_Playback_Coordinator"
+}
+
+func (service *PlaybackApplicationService) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
+	service.systemDataSource = dataSource
+	service.libraryRepository = libraryRepository
+	return nil
+}
+
+func (service *PlaybackApplicationService) StartPlugin(applicationContext context.Context) error {
+	dsChannel := service.systemDataSource.Subscribe("datasource")
+	go service.onDataSourceChanged(dsChannel)
+	go service.pollPlayerStateLoop(applicationContext)
+	return nil
+}
+
+func (service *PlaybackApplicationService) StopPlugin(applicationContext context.Context) error {
+	service.cancelPlaybackWatchdog()
+	return nil
 }

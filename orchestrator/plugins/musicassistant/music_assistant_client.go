@@ -147,7 +147,6 @@ func (client *MusicAssistantClient) sendFireAndForgetCommand(procedureCommand st
 func (client *MusicAssistantClient) waitForProcedureResponseOrTimeout(responseChannel chan map[string]interface{}, procedureCommand string) (map[string]interface{}, error) {
 	select {
 	case responseData := <-responseChannel:
-		// MA uses "error_code" + "details" for errors, not a top-level "error" field.
 		if errorCode, hasErrorCode := responseData["error_code"]; hasErrorCode {
 			details, _ := responseData["details"].(string)
 			return nil, fmt.Errorf("music assistant error %v: %s", errorCode, details)
@@ -161,7 +160,7 @@ func (client *MusicAssistantClient) waitForProcedureResponseOrTimeout(responseCh
 
 func (client *MusicAssistantClient) retrieveTargetPlayerIdentifier() (string, error) {
 	var targetPlayerIdentifier string
-	client.systemDataSource.Read("music_assistant_player_id", &targetPlayerIdentifier)
+	client.systemDataSource.Read("GLOBAL_MusicAssistantTargetPlayerId", &targetPlayerIdentifier)
 
 	if targetPlayerIdentifier == "" {
 		return "", fmt.Errorf("player entity id not set")
@@ -249,15 +248,13 @@ func (client *MusicAssistantClient) extractAndBroadcastState(rpcResponseData map
 		}
 	}
 
-	payload := map[string]interface{}{
-		"state":      currentState,
-		"position":   position,
-		"duration":   duration,
-		"track_name": trackName,
-	}
+	client.systemDataSource.Write("GLOBAL_ActiveRecordPlaybackState", currentState)
+	client.systemDataSource.Write("GLOBAL_ActiveTrackProgressInSeconds", position)
+	client.systemDataSource.Write("GLOBAL_ActiveTrackTotalDurationInSeconds", duration)
 
-	client.systemDataSource.Publish("playback_state_changed", payload)
-	client.systemDataSource.Publish("playback_progress", payload)
+	if trackName != "" {
+		client.systemDataSource.Write("GLOBAL_ActiveRecordTrackName", trackName)
+	}
 
 	return currentState
 }
@@ -473,8 +470,8 @@ func (client *MusicAssistantClient) retrieveWebSocketCredentials() (string, stri
 	var musicAssistantUrlString string
 	var musicAssistantTokenString string
 
-	client.systemDataSource.Read("music_assistant_url", &musicAssistantUrlString)
-	client.systemDataSource.Read("music_assistant_token", &musicAssistantTokenString)
+	client.systemDataSource.Read("GLOBAL_MusicAssistantUrl", &musicAssistantUrlString)
+	client.systemDataSource.Read("GLOBAL_MusicAssistantToken", &musicAssistantTokenString)
 
 	areCredentialsValid := musicAssistantUrlString != "" && musicAssistantTokenString != ""
 	return musicAssistantUrlString, musicAssistantTokenString, areCredentialsValid

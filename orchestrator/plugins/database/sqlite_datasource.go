@@ -41,7 +41,9 @@ func (dataSource *SQLiteDataSource) initializeCacheFromRegistry() {
 
 		if definition.StorageType == core.NonVolatile {
 			var jsonString string
-			queryError := dataSource.connection.QueryRow("SELECT value FROM app_settings WHERE key = ?", registryKey).Scan(&jsonString)
+			queryError := dataSource.connection.QueryRow(
+				"SELECT value FROM app_settings WHERE key = ?", registryKey,
+			).Scan(&jsonString)
 
 			if queryError == nil {
 				var parsedValue interface{}
@@ -68,8 +70,7 @@ func (dataSource *SQLiteDataSource) Read(key string, destination interface{}) er
 		return encodeError
 	}
 
-	decodeError := json.Unmarshal(jsonBytes, destination)
-	return decodeError
+	return json.Unmarshal(jsonBytes, destination)
 }
 
 func (dataSource *SQLiteDataSource) Write(key string, value interface{}) error {
@@ -89,9 +90,15 @@ func (dataSource *SQLiteDataSource) Write(key string, value interface{}) error {
 		}
 
 		insertQuery := `INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)`
-		_, executionError := dataSource.connection.Exec(insertQuery, key, string(jsonBytes))
-		return executionError
+		if _, executionError := dataSource.connection.Exec(insertQuery, key, string(jsonBytes)); executionError != nil {
+			return executionError
+		}
 	}
+
+	go dataSource.Publish("datasource", core.DataSourceChangedArgs{
+		Variable: key,
+		Data:     value,
+	})
 
 	return nil
 }
@@ -101,14 +108,16 @@ func (dataSource *SQLiteDataSource) Publish(topic string, payload interface{}) {
 	defer dataSource.subscriberMutex.RUnlock()
 
 	subscriberChannels, topicExists := dataSource.eventSubscribers[topic]
-	if topicExists {
-		systemEvent := core.Event{
-			Topic:   topic,
-			Payload: payload,
-		}
-		for _, channel := range subscriberChannels {
-			go pushEvent(channel, systemEvent)
-		}
+	if !topicExists {
+		return
+	}
+
+	systemEvent := core.Event{
+		Topic:   topic,
+		Payload: payload,
+	}
+	for _, channel := range subscriberChannels {
+		go pushEvent(channel, systemEvent)
 	}
 }
 
