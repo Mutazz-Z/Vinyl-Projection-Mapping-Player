@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/enums.dart';
 import '../screens/register_screen.dart';
-import 'system_data_source.dart'; // NEW
-import 'music_assistant_service.dart';
+import 'system_data_source.dart';
+import 'music_assistant/music_assistant_service.dart';
 
 class AppCoordinator {
   final SystemDataSource dataSource;

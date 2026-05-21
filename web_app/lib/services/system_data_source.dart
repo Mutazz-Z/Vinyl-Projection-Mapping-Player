@@ -34,7 +34,6 @@ class SystemDataSource {
         try {
           final data = jsonDecode(message);
 
-          // Handle standard reactive broadcast (Go's Publish("datasource", ...))
           if (data['Topic'] == 'datasource' && data['Payload'] != null) {
             final payload = data['Payload'];
             _updatesController.add(
@@ -46,7 +45,6 @@ class SystemDataSource {
             return;
           }
 
-          // Handle Read Response
           if (data['action'] == 'read_response' ||
               data['action'] == 'read_error') {
             final reqId = data['req_id'];

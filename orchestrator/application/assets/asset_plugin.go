@@ -66,7 +66,7 @@ func (plugin *AssetPlugin) StartPlugin(applicationContext context.Context) error
 func (plugin *AssetPlugin) RegisterRoutes(requestRouter *http.ServeMux) {
 	absPath, err := filepath.Abs(plugin.assetRootPath)
 	if err != nil {
-		absPath = plugin.assetRootPath // fallback
+		absPath = plugin.assetRootPath
 	}
 
 	fileServerHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir(absPath)))

@@ -71,7 +71,7 @@
         outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
         outline.style.opacity = '1';
 
-        void outline.offsetWidth; // DOM Reflow
+        void outline.offsetWidth;
 
         outline.style.transform = 'translate(-50%, -50%) scale(1)';
 

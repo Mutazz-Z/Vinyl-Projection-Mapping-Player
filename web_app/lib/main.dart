@@ -5,8 +5,8 @@ import 'screens/library_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
 import 'services/app_coordinator.dart';
-import 'services/music_assistant_service.dart';
-import 'services/system_data_source.dart'; // NEW
+import 'services/music_assistant/music_assistant_service.dart';
+import 'services/system_data_source.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_navigation_rail.dart';
 import 'screens/welcome_screen.dart';
@@ -20,18 +20,17 @@ late final AppCoordinator appCoordinator;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await musicAssistant.initializeService();
-
-  debugPrint('DEBUG: IsConfigured: ${musicAssistant.applicationSettings.isConfigured}');
-  debugPrint('DEBUG: URL: "${musicAssistant.applicationSettings.musicAssistantUrlString}"');
-
-  String orchestratorHost =
-      musicAssistant.applicationSettings.mqttHostAddressString;
-  if (orchestratorHost.isEmpty) {
-    orchestratorHost = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
+  String orchestratorHost = Uri.base.host;
+  if (orchestratorHost.isEmpty || orchestratorHost == 'localhost') {
+    orchestratorHost = '127.0.0.1';
   }
 
   systemDataSource = SystemDataSource(host: orchestratorHost, port: 8080);
+  systemDataSource.connect();
+
+  await Future.delayed(const Duration(milliseconds: 100));
+
+  await musicAssistant.initializeService();
 
   appCoordinator = AppCoordinator(
     dataSource: systemDataSource,
@@ -42,23 +41,11 @@ void main() async {
   final bool isFirstBoot = !musicAssistant.applicationSettings.isConfigured;
 
   if (!isFirstBoot) {
-    _initializeBackgroundNetworkStack();
+    debugPrint('main: SystemDataSource online. Handing off processing stream...');
+    appCoordinator.start();
   }
 
   runApp(VinylApp(isFirstBoot: isFirstBoot));
-}
-
-void _initializeBackgroundNetworkStack() {
-  try {
-    debugPrint(
-      'main: SystemDataSource online. Handing off processing stream...',
-    );
-
-    systemDataSource.connect();
-    appCoordinator.start();
-  } catch (error) {
-    debugPrint('main: Handshaking sequence failed unexpectedly: $error');
-  }
 }
 
 class VinylApp extends StatelessWidget {

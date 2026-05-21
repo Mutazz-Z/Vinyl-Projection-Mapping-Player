@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:web_app/main.dart';
 
 class MusicAssistantSettings {
   String musicAssistantUrlString = '';
@@ -12,13 +11,6 @@ class MusicAssistantSettings {
   bool get isConfigured =>
       musicAssistantUrlString.isNotEmpty &&
       musicAssistantTokenString.isNotEmpty;
-
-  String retrieveConfigurationApiEndpoint() {
-    if (kDebugMode && Uri.base.host == 'localhost') {
-      return 'http://localhost:8080/api/config';
-    }
-    return '/api/config';
-  }
 
   String retrieveFallbackOrchestratorHostAddress() {
     final String baseHostAddressString = Uri.base.host;
@@ -32,59 +24,43 @@ class MusicAssistantSettings {
 
   Future<void> load() async {
     try {
-      final Uri configurationEndpointUri = Uri.parse(
-        retrieveConfigurationApiEndpoint(),
+      musicAssistantUrlString =
+          (await systemDataSource.read(
+            'GLOBAL_MusicAssistantUrl',
+          ))?.toString() ??
+          '';
+      musicAssistantTokenString =
+          (await systemDataSource.read(
+            'GLOBAL_MusicAssistantToken',
+          ))?.toString() ??
+          '';
+      musicAssistantPlayerIdString =
+          (await systemDataSource.read(
+            'GLOBAL_MusicAssistantTargetPlayerId',
+          ))?.toString() ??
+          '';
+
+      final String savedMqttHost =
+          (await systemDataSource.read(
+            'GLOBAL_MqttBrokerHostAddress',
+          ))?.toString() ??
+          '';
+      mqttHostAddressString = savedMqttHost.isNotEmpty
+          ? savedMqttHost
+          : retrieveFallbackOrchestratorHostAddress();
+
+      final dynamic savedMqttPort = await systemDataSource.read(
+        'GLOBAL_MqttWebSocketPort',
       );
-      final http.Response networkResponse = await http
-          .get(configurationEndpointUri)
-          .timeout(const Duration(seconds: 3));
-
-      if (networkResponse.statusCode == 200) {
-        final Map<String, dynamic> decodedConfigurationDataMap = jsonDecode(
-          networkResponse.body,
-        );
-
-        musicAssistantUrlString = extractStringValueFromMap(
-          decodedConfigurationDataMap,
-          'GLOBAL_MusicAssistantUrl',
-        );
-        musicAssistantTokenString = extractStringValueFromMap(
-          decodedConfigurationDataMap,
-          'GLOBAL_MusicAssistantToken',
-        );
-        musicAssistantPlayerIdString = extractStringValueFromMap(
-          decodedConfigurationDataMap,
-          'GLOBAL_MusicAssistantTargetPlayerId',
-        );
-
-        final String savedMqttHostAddressString = extractStringValueFromMap(
-          decodedConfigurationDataMap,
-          'mqtt_host',
-        );
-        mqttHostAddressString = savedMqttHostAddressString.isNotEmpty
-            ? savedMqttHostAddressString
-            : retrieveFallbackOrchestratorHostAddress();
-
-        final String savedMqttPortString = extractStringValueFromMap(
-          decodedConfigurationDataMap,
-          'mqtt_ws_port',
-        );
-        mqttWebSocketPortNumber = int.tryParse(savedMqttPortString) ?? 9001;
+      if (savedMqttPort is int) {
+        mqttWebSocketPortNumber = savedMqttPort;
+      } else if (savedMqttPort is String) {
+        mqttWebSocketPortNumber = int.tryParse(savedMqttPort) ?? 9001;
       }
-    } catch (networkException) {
+    } catch (error) {
+      debugPrint('CRITICAL: Failed to load settings from registry: $error');
       mqttHostAddressString = retrieveFallbackOrchestratorHostAddress();
     }
-  }
-
-  String extractStringValueFromMap(
-    Map<String, dynamic> configurationDataMap,
-    String targetKeyString,
-  ) {
-    final dynamic retrievedValue = configurationDataMap[targetKeyString];
-    if (retrievedValue is String) {
-      return retrievedValue;
-    }
-    return '';
   }
 
   Future<void> save({
@@ -101,27 +77,31 @@ class MusicAssistantSettings {
     mqttWebSocketPortNumber = targetMqttWebSocketPort;
 
     try {
-      final Uri configurationEndpointUri = Uri.parse(
-        retrieveConfigurationApiEndpoint(),
+      systemDataSource.write(
+        'GLOBAL_MusicAssistantUrl',
+        musicAssistantUrlString,
       );
-      final Map<String, String> configurationPayloadMap = {
-        'GLOBAL_MusicAssistantUrl': musicAssistantUrlString,
-        'GLOBAL_MusicAssistantToken': musicAssistantTokenString,
-        'GLOBAL_MusicAssistantTargetPlayerId': musicAssistantPlayerIdString,
-        'mqtt_host': mqttHostAddressString,
-        'mqtt_ws_port': mqttWebSocketPortNumber.toString(),
-        'GLOBAL_MqttTcpPort': '1883',
-      };
+      systemDataSource.write(
+        'GLOBAL_MusicAssistantToken',
+        musicAssistantTokenString,
+      );
+      systemDataSource.write(
+        'GLOBAL_MusicAssistantTargetPlayerId',
+        musicAssistantPlayerIdString,
+      );
+      systemDataSource.write(
+        'GLOBAL_MqttBrokerHostAddress',
+        mqttHostAddressString,
+      );
+      systemDataSource.write(
+        'GLOBAL_MqttWebSocketPort',
+        mqttWebSocketPortNumber,
+      );
+      systemDataSource.write('GLOBAL_MqttTcpPort', 1883);
 
-      await http
-          .post(
-            configurationEndpointUri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(configurationPayloadMap),
-          )
-          .timeout(const Duration(seconds: 3));
-    } catch (networkException) {
-      throw Exception('Failed to save settings to backend.');
+      await Future.delayed(const Duration(milliseconds: 150));
+    } catch (error) {
+      throw Exception('Failed to save settings via SystemDataSource: $error');
     }
   }
 

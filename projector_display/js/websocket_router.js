@@ -67,12 +67,21 @@
                         handleVisualUpdate(visPayload);
                         break;
 
-                    case 'projector_mapping_command':
+                    case 'GLOBAL_ProjectorHeartbeatSignal':
                         let mapCmd = args.data;
                         if (typeof mapCmd === 'string' && mapCmd.length > 0) {
                             try { mapCmd = JSON.parse(mapCmd); } catch (e) { }
                         }
-                        handleMappingCommand(mapCmd);
+
+                        if (mapCmd && mapCmd.action) {
+                            if (mapCmd.action === 'layout' && mapCmd.data && window.ProjectorMapping) {
+                                window.ProjectorMapping.updateLayout(mapCmd.data);
+                            } else if (mapCmd.action === 'toggle' && window.ProjectorMapping) {
+                                window.ProjectorMapping.toggleMode();
+                            } else if (mapCmd.action === 'ping') {
+                                announcePresence();
+                            }
+                        }
                         break;
                 }
             };
@@ -105,7 +114,7 @@
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 action: 'write',
-                key: 'last_projector_ping_response',
+                key: 'GLOBAL_ProjectorHeartbeat',
                 value: {
                     id: CLIENT_ID,
                     width: window.innerWidth,

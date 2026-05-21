@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web_app/services/interactive_mapper.dart';
 import 'package:web_app/services/system_data_source.dart';
 import 'package:web_app/theme/app_theme.dart';
-import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   final SystemDataSource systemDataSource;
@@ -15,13 +13,6 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
-}
-
-String get _uiApiUrl {
-  if (kDebugMode && Uri.base.host == 'localhost') {
-    return 'http://localhost:8080/api/config/ui';
-  }
-  return '/api/config/ui';
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -59,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadLastState();
 
     _eventSub = widget.systemDataSource.onDataSourceChanged.listen((args) {
-      if (args.variable == 'last_projector_ping_response' &&
+      if (args.variable == 'GLOBAL_ProjectorHeartbeat' &&
           args.data != null) {
         final data = args.data;
         if (mounted && data['id'] != null) {
@@ -74,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     Future.delayed(const Duration(seconds: 1), () {
-      widget.systemDataSource.write('projector_mapping_command', {
+      widget.systemDataSource.write('GLOBAL_ProjectorHeartbeatSignal', {
         'action': 'ping',
         'ts': DateTime.now().millisecondsSinceEpoch,
       });
@@ -107,30 +98,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadLastState() async {
     try {
-      final res = await http
-          .get(Uri.parse(_uiApiUrl))
-          .timeout(const Duration(seconds: 3));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final w = await widget.systemDataSource.read(
+        'GLOBAL_TargetDisplayWidthInPixels',
+      );
+      final h = await widget.systemDataSource.read(
+        'GLOBAL_TargetDisplayHeightInPixels',
+      );
 
-        setState(() {
-          _projectorWidth =
-              double.tryParse(data['mapping_width'] ?? '') ?? 1920;
-          _projectorHeight =
-              double.tryParse(data['mapping_height'] ?? '') ?? 1080;
+      setState(() {
+        _projectorWidth = double.tryParse(w?.toString() ?? '') ?? 1920;
+        _projectorHeight = double.tryParse(h?.toString() ?? '') ?? 1080;
+        _widthController.text = _projectorWidth.round().toString();
+        _heightController.text = _projectorHeight.round().toString();
+      });
 
-          _widthController.text = _projectorWidth.round().toString();
-          _heightController.text = _projectorHeight.round().toString();
+      final stored = await widget.systemDataSource.read(
+        'GLOBAL_CurrentMaptasticProjectorPositions',
+      );
+      if (stored != null && stored.toString().isNotEmpty) {
+        List<dynamic> layoutData = (stored is String)
+            ? jsonDecode(stored)
+            : stored;
 
-          _tlX.text = data['mapping_tlX'] ?? '0';
-          _tlY.text = data['mapping_tlY'] ?? '0';
-          _trX.text = data['mapping_trX'] ?? _projectorWidth.toString();
-          _trY.text = data['mapping_trY'] ?? '0';
-          _brX.text = data['mapping_brX'] ?? _projectorWidth.toString();
-          _brY.text = data['mapping_brY'] ?? _projectorHeight.toString();
-          _blX.text = data['mapping_blX'] ?? '0';
-          _blY.text = data['mapping_blY'] ?? _projectorHeight.toString();
-        });
+        if (layoutData.isNotEmpty && layoutData[0]['targetPoints'] != null) {
+          final pts = layoutData[0]['targetPoints'];
+          setState(() {
+            _tlX.text = pts[0][0].toString();
+            _tlY.text = pts[0][1].toString();
+            _trX.text = pts[1][0].toString();
+            _trY.text = pts[1][1].toString();
+            _brX.text = pts[2][0].toString();
+            _brY.text = pts[2][1].toString();
+            _blX.text = pts[3][0].toString();
+            _blY.text = pts[3][1].toString();
+          });
+        }
       }
     } catch (e) {
       debugPrint('Warning: Could not load global mapping state. ($e)');
@@ -142,84 +144,120 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _saveLastState() async {
-    try {
-      await http.post(
-        Uri.parse(_uiApiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'mapping_width': _projectorWidth.toString(),
-          'mapping_height': _projectorHeight.toString(),
-          'mapping_tlX': _tlX.text,
-          'mapping_tlY': _tlY.text,
-          'mapping_trX': _trX.text,
-          'mapping_trY': _trY.text,
-          'mapping_brX': _brX.text,
-          'mapping_brY': _brY.text,
-          'mapping_blX': _blX.text,
-          'mapping_blY': _blY.text,
-        }),
-      );
-    } catch (e) {
-      debugPrint('Warning: Could not save mapping state globally. ($e)');
-    }
+    widget.systemDataSource.write(
+      'GLOBAL_TargetDisplayWidthInPixels',
+      _projectorWidth.round().toString(),
+    );
+    widget.systemDataSource.write(
+      'GLOBAL_TargetDisplayHeightInPixels',
+      _projectorHeight.round().toString(),
+    );
+
+    final layout = [
+      {
+        "id": "projection-group",
+        "sourcePoints": [
+          [0, 0],
+          [500, 0],
+          [500, 500],
+          [0, 500],
+        ],
+        "targetPoints": [
+          [int.tryParse(_tlX.text) ?? 0, int.tryParse(_tlY.text) ?? 0],
+          [
+            int.tryParse(_trX.text) ?? _projectorWidth.round(),
+            int.tryParse(_trY.text) ?? 0,
+          ],
+          [
+            int.tryParse(_brX.text) ?? _projectorWidth.round(),
+            int.tryParse(_brY.text) ?? _projectorHeight.round(),
+          ],
+          [
+            int.tryParse(_blX.text) ?? 0,
+            int.tryParse(_blY.text) ?? _projectorHeight.round(),
+          ],
+        ],
+      },
+    ];
+
+    widget.systemDataSource.write(
+      'GLOBAL_CurrentMaptasticProjectorPositions',
+      jsonEncode(layout),
+    );
   }
 
   Future<void> _savePreset() async {
-    try {
-      await http.post(
-        Uri.parse(_uiApiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'mapping_preset_tlX': _tlX.text,
-          'mapping_preset_tlY': _tlY.text,
-          'mapping_preset_trX': _trX.text,
-          'mapping_preset_trY': _trY.text,
-          'mapping_preset_brX': _brX.text,
-          'mapping_preset_brY': _brY.text,
-          'mapping_preset_blX': _blX.text,
-          'mapping_preset_blY': _blY.text,
-        }),
+    final layout = [
+      {
+        "id": "projection-group",
+        "sourcePoints": [
+          [0, 0],
+          [500, 0],
+          [500, 500],
+          [0, 500],
+        ],
+        "targetPoints": [
+          [int.tryParse(_tlX.text) ?? 0, int.tryParse(_tlY.text) ?? 0],
+          [
+            int.tryParse(_trX.text) ?? _projectorWidth.round(),
+            int.tryParse(_trY.text) ?? 0,
+          ],
+          [
+            int.tryParse(_brX.text) ?? _projectorWidth.round(),
+            int.tryParse(_brY.text) ?? _projectorHeight.round(),
+          ],
+          [
+            int.tryParse(_blX.text) ?? 0,
+            int.tryParse(_blY.text) ?? _projectorHeight.round(),
+          ],
+        ],
+      },
+    ];
+
+    widget.systemDataSource.write(
+      'GLOBAL_SavedMaptasticProjectorPositions',
+      jsonEncode(layout),
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Custom preset saved to global database!'),
+        ),
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Custom preset saved to global database!'),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error saving preset globally: $e');
     }
   }
 
   Future<void> _loadPreset() async {
     try {
-      final res = await http.get(Uri.parse(_uiApiUrl));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-
-        if (!data.containsKey('mapping_preset_tlX')) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No global preset saved yet.')),
-            );
-          }
-          return;
+      final stored = await widget.systemDataSource.read(
+        'GLOBAL_SavedMaptasticProjectorPositions',
+      );
+      if (stored == null || stored.toString().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No global preset saved yet.')),
+          );
         }
+        return;
+      }
 
+      List<dynamic> layoutData = (stored is String)
+          ? jsonDecode(stored)
+          : stored;
+      if (layoutData.isNotEmpty && layoutData[0]['targetPoints'] != null) {
+        final pts = layoutData[0]['targetPoints'];
         setState(() {
-          _tlX.text = data['mapping_preset_tlX'] ?? '0';
-          _tlY.text = data['mapping_preset_tlY'] ?? '0';
-          _trX.text = data['mapping_preset_trX'] ?? '0';
-          _trY.text = data['mapping_preset_trY'] ?? '0';
-          _brX.text = data['mapping_preset_brX'] ?? '0';
-          _brY.text = data['mapping_preset_brY'] ?? '0';
-          _blX.text = data['mapping_preset_blX'] ?? '0';
-          _blY.text = data['mapping_preset_blY'] ?? '0';
+          _tlX.text = pts[0][0].toString();
+          _tlY.text = pts[0][1].toString();
+          _trX.text = pts[1][0].toString();
+          _trY.text = pts[1][1].toString();
+          _brX.text = pts[2][0].toString();
+          _brY.text = pts[2][1].toString();
+          _blX.text = pts[3][0].toString();
+          _blY.text = pts[3][1].toString();
         });
-
         _onManualCoordinateChanged();
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Global preset loaded!')),
@@ -354,7 +392,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               _targetProjectorId = 'all';
                             });
                             widget.systemDataSource
-                                .write('projector_mapping_command', {
+                                .write('GLOBAL_ProjectorHeartbeatSignal', {
                                   'action': 'ping',
                                   'ts': DateTime.now().millisecondsSinceEpoch,
                                 });
@@ -399,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: const Icon(Icons.grid_on),
                       label: const Text('Toggle Projector Mapping UI'),
                       onPressed: () => widget.systemDataSource
-                          .write('projector_mapping_command', {
+                          .write('GLOBAL_ProjectorHeartbeatSignal', {
                             'action': 'toggle',
                             'targetId': _targetProjectorId,
                             'ts': DateTime.now().millisecondsSinceEpoch,

@@ -57,7 +57,6 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	requestRouter.HandleFunc("/api/metadata/resolve", plugin.handleMetadataResolutionRequest)
 	requestRouter.HandleFunc("/api/system/test", plugin.handleConnectionTestRequest)
 	requestRouter.HandleFunc("/api/config", plugin.handleSystemConfigurationRequests)
-	requestRouter.HandleFunc("/api/config/ui", plugin.handleUiConfigurationRequests)
 	requestRouter.HandleFunc("/ws", plugin.handleWebSockets)
 
 	if plugin.assetRouter != nil {
@@ -158,7 +157,6 @@ func (plugin *WebServerPlugin) handleDataSourceMessage(
 		}()
 	}
 }
-
 
 func (plugin *WebServerPlugin) handleWebSockets(responseWriter http.ResponseWriter, httpRequest *http.Request) {
 	conn, upgradeError := websocketUpgrader.Upgrade(responseWriter, httpRequest, nil)
@@ -428,68 +426,4 @@ func (plugin *WebServerPlugin) handleConnectionTestRequest(responseWriter http.R
 	}
 	responseWriter.WriteHeader(http.StatusOK)
 	fmt.Fprint(responseWriter, "Authentication Successful")
-}
-
-var uiMappingKeys = []string{
-	"mapping_width", "mapping_height",
-	"mapping_tlX", "mapping_tlY",
-	"mapping_trX", "mapping_trY",
-	"mapping_brX", "mapping_brY",
-	"mapping_blX", "mapping_blY",
-	"mapping_preset_tlX", "mapping_preset_tlY",
-	"mapping_preset_trX", "mapping_preset_trY",
-	"mapping_preset_brX", "mapping_preset_brY",
-	"mapping_preset_blX", "mapping_preset_blY",
-}
-
-func (plugin *WebServerPlugin) handleUiConfigurationRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	switch httpRequest.Method {
-	case http.MethodGet:
-		plugin.executeReadUiConfigurationCommand(responseWriter)
-	case http.MethodPost:
-		plugin.executeWriteUiConfigurationCommand(responseWriter, httpRequest)
-	default:
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (plugin *WebServerPlugin) executeReadUiConfigurationCommand(responseWriter http.ResponseWriter) {
-	payload := make(map[string]string, len(uiMappingKeys))
-	for _, k := range uiMappingKeys {
-		var v string
-		plugin.systemDataSource.Read(k, &v)
-		payload[k] = v
-	}
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(payload)
-}
-
-func (plugin *WebServerPlugin) executeWriteUiConfigurationCommand(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	var incoming map[string]string
-	if err := json.NewDecoder(httpRequest.Body).Decode(&incoming); err != nil {
-		http.Error(responseWriter, "Bad Request: Invalid JSON Payload", http.StatusBadRequest)
-		return
-	}
-
-	validKeys := make(map[string]struct{}, len(uiMappingKeys))
-	for _, k := range uiMappingKeys {
-		validKeys[k] = struct{}{}
-	}
-
-	var errs []error
-	for k, v := range incoming {
-		if _, ok := validKeys[k]; !ok {
-			continue
-		}
-		if err := plugin.systemDataSource.Write(k, v); err != nil {
-			errs = append(errs, fmt.Errorf("failed to write %s: %v", k, err))
-		}
-	}
-
-	if len(errs) > 0 {
-		http.Error(responseWriter, fmt.Sprintf("Partial write failure: %v", errs), http.StatusInternalServerError)
-		return
-	}
-	responseWriter.WriteHeader(http.StatusOK)
-	fmt.Fprint(responseWriter, "UI configuration saved successfully")
 }

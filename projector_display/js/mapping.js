@@ -24,7 +24,7 @@ function saveLayout() {
     clearTimeout(saveDbTimeout);
     saveDbTimeout = setTimeout(() => {
         if (window.dataSource) {
-            window.dataSource.write('mapping_projector_layout', data);
+            window.dataSource.write('GLOBAL_CurrentMaptasticProjectorPositions', data);
         }
     }, 800);
 }
@@ -36,7 +36,7 @@ async function restoreLayout() {
 
     try {
         if (window.dataSource) {
-            const stored = await window.dataSource.read('mapping_projector_layout');
+            const stored = await window.dataSource.read('GLOBAL_CurrentMaptasticProjectorPositions');
             if (stored) {
                 layout = typeof stored === 'string' ? JSON.parse(stored) : stored;
             }

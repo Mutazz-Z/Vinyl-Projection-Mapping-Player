@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:web_app/main.dart';
-import 'package:web_app/services/music_assistant_service.dart';
+import 'package:web_app/services/music_assistant/music_assistant_service.dart';
 import 'package:web_app/theme/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
