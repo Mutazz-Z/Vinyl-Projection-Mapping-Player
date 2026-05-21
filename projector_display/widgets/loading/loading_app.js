@@ -51,7 +51,7 @@
         watchdogTimer = setTimeout(function () {
             console.error("Watchdog: Target device failed to respond in 10s.");
             showError();
-        }, 10000);
+        }, 30000);
 
         outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
         outline.style.opacity = '1';
