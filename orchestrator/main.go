@@ -13,11 +13,11 @@ import (
 	"vinyl-orchestrator/application/display"
 	"vinyl-orchestrator/application/playback"
 	"vinyl-orchestrator/core"
-	"vinyl-orchestrator/plugins/assets"
-	"vinyl-orchestrator/plugins/database"
-	"vinyl-orchestrator/plugins/mqtt"
-	"vinyl-orchestrator/plugins/musicassistant"
-	"vinyl-orchestrator/plugins/webapi"
+	"vinyl-orchestrator/application/assets"
+	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/application/mqtt"
+	"vinyl-orchestrator/application/musicassistant"
+	"vinyl-orchestrator/application/webapi"
 )
 
 func resolvePrimaryDatabaseFilePath() string {
@@ -48,7 +48,7 @@ func main() {
 		panic(fmt.Sprintf("Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
 	}
 
-	musicAssistantClient := musicassistant.NewMusicAssistantClient()
+	musicAssistantClient := musicassistant.NewMusicAssistantPlugin()
 
 	assetPlugin := assets.NewAssetPlugin()
 
