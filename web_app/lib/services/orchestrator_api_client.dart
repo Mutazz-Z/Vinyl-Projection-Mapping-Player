@@ -8,34 +8,30 @@ class OrchestratorApiClient {
   Future<VinylAlbumRecord> resolveMediaMetadata(
     String mediaResourceIdentifier,
   ) async {
-    final Uri targetResolutionUri = constructMetadataResolutionUri(
+    final Uri targetResolutionUri = buildMetadataResolutionUri(
       mediaResourceIdentifier,
     );
-    final http.Response networkResponse = await executeNetworkGetRequest(
+    final http.Response networkResponse = await executeGetRequest(
       targetResolutionUri,
     );
 
-    validateNetworkResponseStatus(networkResponse);
+    validateResponseStatusIsSuccess(networkResponse);
 
-    final Map<String, dynamic> decodedJsonPayload = decodeNetworkResponseBody(
+    final Map<String, dynamic> decodedResponseBody = decodeJsonResponseBody(
       networkResponse,
     );
-    return VinylAlbumRecord.fromJson(decodedJsonPayload);
+    return VinylAlbumRecord.fromJson(decodedResponseBody);
   }
 
-  Uri constructMetadataResolutionUri(String mediaResourceIdentifier) {
+  Uri buildMetadataResolutionUri(String mediaResourceIdentifier) {
     return Uri.parse(
-      'http://$globalOrchestratorHost:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',
+      '${systemDataSource.httpBaseUrl}/api/metadata/resolve?uri=$mediaResourceIdentifier',
     );
   }
 
-  Future<http.Response> executeNetworkGetRequest(
-    Uri targetResolutionUri,
-  ) async {
+  Future<http.Response> executeGetRequest(Uri targetUri) async {
     try {
-      return await http
-          .get(targetResolutionUri)
-          .timeout(const Duration(seconds: 10));
+      return await http.get(targetUri).timeout(const Duration(seconds: 10));
     } catch (networkException) {
       throw Exception(
         'Failed to connect to orchestrator web API: $networkException',
@@ -43,7 +39,7 @@ class OrchestratorApiClient {
     }
   }
 
-  void validateNetworkResponseStatus(http.Response networkResponse) {
+  void validateResponseStatusIsSuccess(http.Response networkResponse) {
     if (networkResponse.statusCode < 200 || networkResponse.statusCode >= 300) {
       throw Exception(
         'Orchestrator API rejected request: HTTP ${networkResponse.statusCode} - ${networkResponse.body}',
@@ -51,9 +47,7 @@ class OrchestratorApiClient {
     }
   }
 
-  Map<String, dynamic> decodeNetworkResponseBody(
-    http.Response networkResponse,
-  ) {
+  Map<String, dynamic> decodeJsonResponseBody(http.Response networkResponse) {
     try {
       final dynamic decodedData = jsonDecode(networkResponse.body);
       if (decodedData is Map<String, dynamic>) {
@@ -70,7 +64,7 @@ class OrchestratorApiClient {
   Future<ConnectionTestResult> executeSystemConnectionTest() async {
     try {
       final Uri targetTestUri = Uri.parse(
-        'http://$globalOrchestratorHost:8080/api/system/test',
+        '${systemDataSource.httpBaseUrl}/api/system/test',
       );
 
       final http.Response networkResponse = await http

@@ -15,7 +15,6 @@ import 'package:web_app/widgets/overlay_section_card.dart';
 import 'package:web_app/widgets/projection_preview.dart';
 import 'package:web_app/widgets/registration_text_fields.dart';
 import 'package:web_app/widgets/tag_id_banner.dart';
-
 import '../main.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -200,7 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final String url = await MediaAssetService.uploadAsset(
-        bytes: bytes,
+        fileBytes: bytes,
         fileName: uploadName,
         category: category,
       );

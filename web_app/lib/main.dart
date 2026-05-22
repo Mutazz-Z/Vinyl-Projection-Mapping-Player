@@ -17,15 +17,10 @@ final MusicAssistantService musicAssistant = MusicAssistantService();
 late final SystemDataSource systemDataSource;
 late final AppCoordinator appCoordinator;
 
-String get globalOrchestratorHost {
-  final String host = Uri.base.host;
-  return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  systemDataSource = SystemDataSource(host: globalOrchestratorHost, port: 8080);
+  systemDataSource = SystemDataSource.fromCurrentBrowserContext(port: 8080);
   systemDataSource.connect();
 
   await Future.delayed(const Duration(milliseconds: 100));
