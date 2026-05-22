@@ -1,27 +1,13 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  /// The primary brand seed color used to generate the full Material color scheme.
-  static const Color brandSeed = Color(0xFF607D8B); // Blue Grey 500
-
-  /// Background tint for the NFC tag ID banner on the register screen.
-  /// Blue Grey at 20% opacity.
-  static const Color tagBannerBackground = Color(0x33607D8B);
-
-  /// Icon and label color inside the NFC tag banner.
-  static const Color tagBannerIcon = Color(0xFF607D8B); // Blue Grey 500
-
-  /// Color used to indicate a live or connected status.
-  static const Color statusActive = Color(0xFF4CAF50); // Green 500
-
-  /// Color used for destructive actions such as delete buttons and labels.
-  static const Color destructive = Color(0xFFF44336); // Red 500
-
-  /// Accent color for the metadata auto-fill wand button.
-  static const Color autoFillAccent = Color(0xFF7C4DFF); // Deep Purple Accent 400
-
-  /// Muted text color for secondary or helper labels.
-  static const Color subtleText = Color(0xFF9E9E9E); // Grey 400
+  static const Color porcelain = Color.fromARGB(255, 253, 255, 252);
+  static const Color balticBlue = Color.fromARGB(255, 35, 87, 137);
+  static const Color flagRed = Color.fromARGB(255, 193, 41, 46);
+  static const Color brightGold = Color.fromARGB(255, 241, 211, 2);
+  static const Color green = Color.fromARGB(255, 19, 111, 99);
+  static const Color shadowGrey = Color.fromARGB(255, 22, 25, 37);
+  static const Color subtleText = Color(0xFF9E9E9E);
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +24,7 @@ abstract final class AppTextStyles {
 
   /// Secondary label on the home screen showing MQTT connection status.
   static const TextStyle homeStatusConnected = TextStyle(
-    color: AppColors.statusActive,
+    color: AppColors.green,
     fontWeight: FontWeight.w500,
   );
 
@@ -59,7 +45,7 @@ abstract final class AppTextStyles {
 
   /// Style for text labels that represent a destructive action (e.g. delete).
   static const TextStyle destructiveLabel = TextStyle(
-    color: AppColors.destructive,
+    color: AppColors.flagRed,
   );
 }
 
@@ -106,7 +92,7 @@ abstract final class AppTheme {
   /// The default dark theme used by the application.
   static ThemeData get darkTheme => ThemeData(
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.brandSeed,
+      seedColor: AppColors.balticBlue,
       brightness: Brightness.dark,
     ),
     useMaterial3: true,
