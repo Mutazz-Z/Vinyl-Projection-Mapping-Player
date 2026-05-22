@@ -30,6 +30,10 @@ func (plugin *MusicAssistantPlugin) Name() string {
 	return "Music_Assistant_Core_Client"
 }
 
+func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
+	return plugin.mediaPlayer.GetAvailablePlayers()
+}
+
 func (plugin *MusicAssistantPlugin) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
 	plugin.systemDataSource = dataSource
 	plugin.connectionManager.SetDataSource(dataSource)

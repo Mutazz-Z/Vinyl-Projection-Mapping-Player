@@ -11,12 +11,12 @@ class TagIdBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.containerPadding),
       decoration: BoxDecoration(
-        color: AppColors.tagBannerBackground,
+        color: AppColors.balticBlue,
         borderRadius: BorderRadius.circular(AppSpacing.containerRadius),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.nfc, color: AppColors.tagBannerIcon),
+          const Icon(Icons.nfc, color: AppColors.balticBlue),
           const SizedBox(width: AppSpacing.bannerIconGap),
           Text('Tag ID: $uid', style: AppTextStyles.tagIdentifier),
         ],

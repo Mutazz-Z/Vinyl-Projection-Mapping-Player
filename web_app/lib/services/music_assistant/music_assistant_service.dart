@@ -1,6 +1,7 @@
 export 'package:web_app/models/music_assistant_models.dart';
 export 'package:web_app/models/vinyl_album_record.dart';
 
+import 'package:flutter/material.dart';
 import 'package:web_app/models/music_assistant_models.dart';
 import 'package:web_app/models/vinyl_album_record.dart';
 import 'package:web_app/services/music_assistant/music_assistant_settings.dart';
@@ -48,6 +49,15 @@ class MusicAssistantService {
       sanitizedResourceIdentifier,
       fetchedAlbumRecord,
     );
+  }
+
+  Future<List<MediaPlayerInfo>> fetchAvailablePlayers() async {
+    try {
+      return await orchestratorApiClient.getAvailablePlayers();
+    } catch (e) {
+      debugPrint('Failed to fetch players: $e');
+      return [];
+    }
   }
 
   Future<VinylAlbumRecord> fetchCleanMetadataRecord(

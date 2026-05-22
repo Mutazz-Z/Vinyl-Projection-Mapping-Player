@@ -23,6 +23,27 @@ class OrchestratorApiClient {
     return VinylAlbumRecord.fromJson(decodedJsonPayload);
   }
 
+  Future<List<MediaPlayerInfo>> getAvailablePlayers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://$globalOrchestratorHost:8080/api/players'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decodedJson = jsonDecode(response.body);
+        return decodedJson
+            .map((json) => MediaPlayerInfo.fromJson(json))
+            .toList();
+      } else {
+        throw Exception(
+          'Orchestrator API rejected request: HTTP ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to communicate with Orchestrator API: $e');
+    }
+  }
+
   Uri constructMetadataResolutionUri(String mediaResourceIdentifier) {
     return Uri.parse(
       'http://$globalOrchestratorHost:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',

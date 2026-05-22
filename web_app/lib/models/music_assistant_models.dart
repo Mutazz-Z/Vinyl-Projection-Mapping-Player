@@ -22,6 +22,21 @@ class RegistrationResolutionResult {
   });
 }
 
+class MediaPlayerInfo {
+  final String playerId;
+  final String displayName;
+
+  const MediaPlayerInfo({required this.playerId, required this.displayName});
+
+  factory MediaPlayerInfo.fromJson(Map<String, dynamic> json) {
+    return MediaPlayerInfo(
+      playerId: json['player_id'] ?? '',
+      displayName:
+          json['display_name'] ?? json['player_id'] ?? 'Unknown Player',
+    );
+  }
+}
+
 enum MusicAssistantServiceDomain {
   musicAssistant,
   mass,

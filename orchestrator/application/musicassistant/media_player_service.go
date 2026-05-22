@@ -82,6 +82,44 @@ func (player *SystemMediaPlayer) GetState() (string, error) {
 	return player.extractAndBroadcastState(remoteProcedureCallResponseData), nil
 }
 
+type MediaPlayerInfo struct {
+	PlayerID    string `json:"player_id"`
+	DisplayName string `json:"display_name"`
+}
+
+func (player *SystemMediaPlayer) GetAvailablePlayers() (interface{}, error) {
+	responseData, executionError := player.messageRouter.ExecuteRemoteProcedureCall("players/all", nil)
+	if executionError != nil {
+		return nil, executionError
+	}
+
+	rawResultArray, isArrayValid := responseData["result"].([]interface{})
+	if !isArrayValid {
+		return nil, fmt.Errorf("unexpected result format from players/all")
+	}
+
+	var availablePlayers []MediaPlayerInfo
+	for _, rawItem := range rawResultArray {
+		if playerMap, isMapValid := rawItem.(map[string]interface{}); isMapValid {
+			playerID, _ := playerMap["player_id"].(string)
+			displayName, _ := playerMap["display_name"].(string)
+
+			if displayName == "" {
+				displayName, _ = playerMap["name"].(string)
+			}
+
+			if playerID != "" {
+				availablePlayers = append(availablePlayers, MediaPlayerInfo{
+					PlayerID:    playerID,
+					DisplayName: displayName,
+				})
+			}
+		}
+	}
+
+	return availablePlayers, nil
+}
+
 func (player *SystemMediaPlayer) extractAndBroadcastState(remoteProcedureCallResponseData map[string]interface{}) string {
 	responseResultData, isMapValid := remoteProcedureCallResponseData["result"].(map[string]interface{})
 	if !isMapValid {
