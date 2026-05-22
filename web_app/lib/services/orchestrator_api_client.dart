@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/music_assistant_models.dart';
 import '../models/vinyl_album_record.dart';
@@ -21,6 +22,66 @@ class OrchestratorApiClient {
       networkResponse,
     );
     return VinylAlbumRecord.fromJson(decodedJsonPayload);
+  }
+
+  Future<List<String>> fetchAlbumCoverUrls() async {
+    final Uri requestUri = Uri.parse(
+      'http://$globalOrchestratorHost:8080/api/albums',
+    );
+
+    try {
+      final response = await http.get(requestUri);
+
+      if (response.statusCode == 200) {
+        final dynamic decodedData = jsonDecode(response.body);
+        List<dynamic> items = [];
+
+        if (decodedData is Map<String, dynamic> &&
+            decodedData.containsKey('items')) {
+          items = decodedData['items'];
+        } else if (decodedData is List) {
+          items = decodedData;
+        }
+
+        List<String> urls = [];
+
+        for (var item in items) {
+          try {
+            final metadata = item['metadata'] as Map<String, dynamic>?;
+            if (metadata != null && metadata['images'] != null) {
+              final images = metadata['images'] as List<dynamic>;
+              if (images.isNotEmpty) {
+                final imageObj = images[0] as Map<String, dynamic>;
+
+                final imageUrl = imageObj['url'] as String?;
+                final imagePath = imageObj['path'] as String?;
+
+                final targetUrl = (imageUrl != null && imageUrl.isNotEmpty)
+                    ? imageUrl
+                    : imagePath;
+
+                if (targetUrl != null && targetUrl.isNotEmpty) {
+                  urls.add(targetUrl);
+                }
+              }
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+
+        debugPrint('Successfully parsed ${urls.length} album covers from MA');
+        return urls.toSet().toList();
+      } else {
+        debugPrint(
+          'HTTP Error fetching albums: ${response.statusCode} - ${response.body}',
+        );
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Network/Parsing Error fetching albums: $e');
+      return [];
+    }
   }
 
   Future<List<MediaPlayerInfo>> getAvailablePlayers() async {

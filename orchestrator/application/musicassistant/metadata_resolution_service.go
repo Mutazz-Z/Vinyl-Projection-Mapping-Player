@@ -55,6 +55,15 @@ func (resolver *SystemMetadataResolver) FetchCleanMetadata(mediaResourceIdentifi
 	return fetchedVinylRecord, nil
 }
 
+func (resolver *SystemMetadataResolver) GetAvailableAlbums() (interface{}, error) {
+	responseData, executionError := resolver.messageRouter.ExecuteRemoteProcedureCall("music/albums/library_items", nil)
+	if executionError != nil {
+		return nil, executionError
+	}
+
+	return responseData["result"], nil
+}
+
 func (resolver *SystemMetadataResolver) enrichRecordWithAlbumTracksIfApplicable(fetchedVinylRecord *core.VinylAlbumRecord, mediaResourceIdentifier string) {
 	uriPartsArray := strings.SplitN(mediaResourceIdentifier, "://", 2)
 	if len(uriPartsArray) != 2 {

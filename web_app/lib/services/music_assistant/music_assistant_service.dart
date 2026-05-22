@@ -60,6 +60,14 @@ class MusicAssistantService {
     }
   }
 
+  Future<List<String>> fetchAlbumCoverUrls() async {
+    try {
+      return await orchestratorApiClient.fetchAlbumCoverUrls();
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<VinylAlbumRecord> fetchCleanMetadataRecord(
     String mediaResourceIdentifier,
   ) async {

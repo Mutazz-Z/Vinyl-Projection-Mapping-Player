@@ -17,6 +17,7 @@ type MetadataResolver interface {
 	FetchCleanMetadata(mediaResourceIdentifier string) (*core.VinylAlbumRecord, error)
 	ValidateSystemCredentials() error
 	GetAvailablePlayers() (interface{}, error)
+	GetAvailableAlbums() (interface{}, error)
 }
 
 type AssetRouter interface {
@@ -57,6 +58,7 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	requestRouter.HandleFunc("/api/library/", plugin.handleSingleRecordRequests)
 	requestRouter.HandleFunc("/api/metadata/resolve", plugin.handleMetadataResolutionRequest)
 	requestRouter.HandleFunc("/api/system/test", plugin.handleConnectionTestRequest)
+	requestRouter.HandleFunc("/api/albums", plugin.handleAvailableAlbumsRequest)
 	requestRouter.HandleFunc("/api/players", plugin.handleAvailablePlayersRequest)
 	requestRouter.HandleFunc("/api/config", plugin.handleSystemConfigurationRequests)
 	requestRouter.HandleFunc("/ws", plugin.handleWebSockets)
@@ -99,6 +101,22 @@ func isDataSourceMessage(raw json.RawMessage) bool {
 		return false
 	}
 	return probe.Action == "read" || probe.Action == "write" || probe.Action == "subscribe"
+}
+
+func (plugin *WebServerPlugin) handleAvailableAlbumsRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method != http.MethodGet {
+		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	albums, err := plugin.metadataResolver.GetAvailableAlbums()
+	if err != nil {
+		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	responseWriter.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(responseWriter).Encode(albums)
 }
 
 func (plugin *WebServerPlugin) handleAvailablePlayersRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {

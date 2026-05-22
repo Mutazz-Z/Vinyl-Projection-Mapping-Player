@@ -42,6 +42,10 @@ func (plugin *MusicAssistantPlugin) Init(dataSource core.DataSource, libraryRepo
 	return nil
 }
 
+func (plugin *MusicAssistantPlugin) GetAvailableAlbums() (interface{}, error) {
+	return plugin.metadataResolver.GetAvailableAlbums()
+}
+
 func (plugin *MusicAssistantPlugin) StartPlugin(applicationContext context.Context) error {
 	go plugin.connectionManager.MaintainWebSocketConnection(applicationContext)
 	return nil

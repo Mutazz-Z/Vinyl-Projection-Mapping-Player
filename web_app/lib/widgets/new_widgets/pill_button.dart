@@ -6,6 +6,7 @@ class PillButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Color backgroundColor;
   final Color textColor;
+  final Widget? leading;
 
   const PillButton({
     super.key,
@@ -13,6 +14,7 @@ class PillButton extends StatelessWidget {
     required this.onPressed,
     required this.backgroundColor,
     this.textColor = AppColors.porcelain,
+    this.leading,
   });
 
   @override
@@ -22,15 +24,18 @@ class PillButton extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         foregroundColor: textColor,
-        iconColor: textColor,
-
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         shape: const StadiumBorder(),
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-        elevation: 0,
       ),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 12)],
+          Text(
+            text,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ],
       ),
     );
   }

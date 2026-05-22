@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:web_app/models/music_assistant_models.dart';
 import 'package:web_app/theme/app_theme.dart';
+import 'package:web_app/widgets/new_widgets/album_marquee.dart';
 import 'package:web_app/widgets/new_widgets/animated_waveform.dart';
 import 'package:web_app/widgets/new_widgets/pill_button.dart';
-import 'package:web_app/widgets/new_widgets/player_selection_tile.dart';
 import 'package:web_app/widgets/new_widgets/text_button.dart';
 import 'package:web_app/widgets/new_widgets/text_field.dart';
 import '../main.dart';
@@ -17,13 +17,19 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
+  int _currentPageIndex = 0;
+
   late final TextEditingController _musicAssistantUrlController;
   late final TextEditingController _musicAssistantTokenController;
+
   late final TextEditingController _mediaPlayerController;
-  bool _isTestingConnectionState = false;
-  bool _isSavingFinalState = false;
   List<MediaPlayerInfo> _availablePlayers = [];
   String? _selectedPlayerId;
+  List<String> _albumCovers = [];
+
+  bool _isTestingConnectionState = false;
+  bool _isFetchingAlbumsState = false;
+  bool _isSavingFinalState = false;
 
   @override
   void initState() {
@@ -39,6 +45,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     _mediaPlayerController = TextEditingController(
       text: applicationSettings.musicAssistantPlayerIdString,
     );
+
+    _pageController.addListener(() {
+      final index = _pageController.page?.round() ?? 0;
+      if (index != _currentPageIndex) {
+        setState(() => _currentPageIndex = index);
+      }
+    });
   }
 
   @override
@@ -84,6 +97,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
         if (_availablePlayers.length == 1) {
           _selectedPlayerId = _availablePlayers.first.playerId;
+          _mediaPlayerController.text = _selectedPlayerId!;
         } else if (_availablePlayers.any(
           (p) => p.playerId == _mediaPlayerController.text,
         )) {
@@ -103,22 +117,39 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
   }
 
-  Future<void> _executeFinalSetupProcedure() async {
-    final mediaPlayer = _mediaPlayerController.text.trim();
-
-    if (mediaPlayer.isEmpty) {
+  Future<void> _handlePlayerSelection() async {
+    if (_selectedPlayerId == null || _selectedPlayerId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a media player.')),
+        const SnackBar(content: Text('Please select a media player.')),
       );
       return;
     }
 
+    setState(() => _isFetchingAlbumsState = true);
+
+    final covers = await musicAssistant.fetchAlbumCoverUrls();
+    covers.shuffle();
+
+    if (!mounted) return;
+
+    setState(() {
+      _albumCovers = covers.take(20).toList();
+      _isFetchingAlbumsState = false;
+    });
+
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutCubic,
+    );
+  }
+
+  Future<void> _executeFinalSetupProcedure() async {
     setState(() => _isSavingFinalState = true);
 
     await musicAssistant.applicationSettings.save(
       targetMusicAssistantUrl: _musicAssistantUrlController.text.trim(),
       targetMusicAssistantToken: _musicAssistantTokenController.text.trim(),
-      targetMusicAssistantPlayerId: mediaPlayer,
+      targetMusicAssistantPlayerId: _mediaPlayerController.text.trim(),
       targetMqttHostAddress: '',
       targetMqttWebSocketPort: 9001,
     );
@@ -162,29 +193,38 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
           return Stack(
             children: [
-              // 1. Solid Background Colors
+              Positioned.fill(child: Container(color: AppColors.balticBlue)),
+
               Positioned.fill(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: Container(color: AppColors.shadowGrey),
+                    AnimatedOpacity(
+                      opacity: _currentPageIndex < 2 ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 600),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: seamX,
+                          child: const AnimatedWaveform(),
+                        ),
+                      ),
                     ),
-                    Expanded(
-                      flex: 1,
-                      child: Container(color: AppColors.balticBlue),
+                    AnimatedOpacity(
+                      opacity: _currentPageIndex == 2 ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 600),
+                      child: InfiniteAlbumMarquee(imageUrls: _albumCovers),
                     ),
                   ],
                 ),
               ),
 
               Positioned(
-                left: 0,
+                left: seamX,
                 top: 0,
                 bottom: 0,
-                width: seamX,
-                child: const AnimatedWaveform(),
+                right: 0,
+                child: Container(color: AppColors.shadowGrey),
               ),
 
               Positioned(
@@ -194,11 +234,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 width: cardWidth,
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 500),
+                    constraints: const BoxConstraints(maxHeight: 520),
                     child: PageView(
                       controller: _pageController,
                       physics: const NeverScrollableScrollPhysics(),
-                      children: [_buildStep1Card(), _buildStep2Card()],
+                      children: [
+                        _buildStep1Card(),
+                        _buildStep2Card(),
+                        _buildStep3Card(),
+                      ],
                     ),
                   ),
                 ),
@@ -222,46 +266,37 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.balticBlue,
+              color: AppColors.shadowGrey,
             ),
           ),
-
           const SizedBox(height: 32),
-
           PillTextField(
             controller: _musicAssistantUrlController,
             hintText: 'music assistant instance',
             prefixIcon: Icons.language,
             isHidden: false,
           ),
-
           const SizedBox(height: 16),
-
           PillTextField(
             controller: _musicAssistantTokenController,
             hintText: 'access token',
             prefixIcon: Icons.vpn_key_outlined,
             isHidden: true,
           ),
-
           const SizedBox(height: 8),
-
           Align(
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 12.0),
-              // TODO: Implement the actual help link
               child: TextLink(text: 'How to get this', onPressed: () {}),
             ),
           ),
-
           const SizedBox(height: 32),
-
           _isTestingConnectionState
               ? const Center(child: CircularProgressIndicator())
               : PillButton(
                   text: 'Get Connected',
-                  backgroundColor: AppColors.green,
+                  backgroundColor: const AppColors.green,
                   onPressed: _handleConnectionTest,
                 ),
         ],
@@ -281,13 +316,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.balticBlue,
+              color: AppColors.shadowGrey,
               height: 1.2,
             ),
           ),
-
           const SizedBox(height: 32),
-
           Flexible(
             child: _availablePlayers.isEmpty
                 ? _buildEmptyPlayerState()
@@ -300,7 +333,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     itemBuilder: (context, index) {
                       final player = _availablePlayers[index];
                       final isSelected = _selectedPlayerId == player.playerId;
-
                       return PlayerSelectionTile(
                         playerName: player.displayName,
                         isSelected: isSelected,
@@ -314,56 +346,118 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     },
                   ),
           ),
-
           const SizedBox(height: 32),
+          _isFetchingAlbumsState
+              ? const Center(child: CircularProgressIndicator())
+              : PillButton(
+                  text: 'Next →',
+                  backgroundColor: AppColors.balticBlue,
+                  onPressed: _handlePlayerSelection,
+                ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildStep3Card() {
+    return WizardCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  size: 20,
+                  color: AppColors.subtleText,
+                ),
+                onPressed: () {
+                  _pageController.previousPage(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOutCubic,
+                  );
+                },
+              ),
+              const Expanded(
+                child: Text(
+                  'Reader Set up',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.shadowGrey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'This project takes advantage of the home assistant tag reader by Adonno. '
+            'Follow their steps on wiring. For our purposes, we can ignore the buzzer and neopixel.',
+            style: TextStyle(
+              color: AppColors.shadowGrey,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 32),
+          PillButton(
+            text: "Adonno's Tag Reader",
+            backgroundColor: AppColors.shadowGrey,
+            leading: const Icon(Icons.code, color: AppColors.porcelain),
+            onPressed: () {
+              // TODO: URL Launcher logic
+            },
+          ),
+          const SizedBox(height: 16),
           _isSavingFinalState
               ? const Center(child: CircularProgressIndicator())
               : PillButton(
                   text: 'Finish Setup',
-                  backgroundColor: AppColors.balticBlue,
+                  backgroundColor: AppColors.shadowGrey,
                   onPressed: _executeFinalSetupProcedure,
                 ),
         ],
       ),
     );
   }
-}
 
-Widget _buildEmptyPlayerState() {
-  return Container(
-    padding: const EdgeInsets.all(24.0),
-    decoration: BoxDecoration(
-      color: AppColors.porcelain,
-      borderRadius: BorderRadius.circular(16.0),
-      border: Border.all(color: AppColors.porcelain, width: 2),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.speaker_notes_off, size: 48, color: AppColors.subtleText),
-        const SizedBox(height: 16),
-        const Text(
-          'No players found.',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppColors.balticBlue,
+  Widget _buildEmptyPlayerState() {
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: AppColors.shadowGrey,
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(color: AppColors.subtleText),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.speaker_notes_off, size: 48, color: AppColors.subtleText),
+          const SizedBox(height: 16),
+          const Text(
+            'No players found.',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.shadowGrey,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Set up a new media player source through Music Assistant and try again.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.subtleText),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 8),
+          const Text(
+            'Set up a new media player source through Music Assistant and try again.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.shadowGrey),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class WizardCard extends StatelessWidget {
   final Widget child;
-
   const WizardCard({super.key, required this.child});
 
   @override
@@ -385,6 +479,62 @@ class WizardCard extends StatelessWidget {
           ],
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+class PlayerSelectionTile extends StatelessWidget {
+  final String playerName;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const PlayerSelectionTile({
+    super.key,
+    required this.playerName,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const activeColor = AppColors.green;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.08)
+              : AppColors.porcelain,
+          borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(
+            color: isSelected ? activeColor : AppColors.subtleText,
+            width: 2.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.speaker,
+              color: isSelected ? activeColor : AppColors.subtleText,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                playerName,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? activeColor : AppColors.shadowGrey,
+                ),
+              ),
+            ),
+            if (isSelected) const Icon(Icons.check_circle, color: activeColor),
+          ],
+        ),
       ),
     );
   }
