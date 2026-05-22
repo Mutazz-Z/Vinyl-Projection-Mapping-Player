@@ -17,15 +17,15 @@ final MusicAssistantService musicAssistant = MusicAssistantService();
 late final SystemDataSource systemDataSource;
 late final AppCoordinator appCoordinator;
 
+String get globalOrchestratorHost {
+  final String host = Uri.base.host;
+  return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  String orchestratorHost = Uri.base.host;
-  if (orchestratorHost.isEmpty || orchestratorHost == 'localhost') {
-    orchestratorHost = '127.0.0.1';
-  }
-
-  systemDataSource = SystemDataSource(host: orchestratorHost, port: 8080);
+  systemDataSource = SystemDataSource(host: globalOrchestratorHost, port: 8080);
   systemDataSource.connect();
 
   await Future.delayed(const Duration(milliseconds: 100));
@@ -41,7 +41,9 @@ void main() async {
   final bool isFirstBoot = !musicAssistant.applicationSettings.isConfigured;
 
   if (!isFirstBoot) {
-    debugPrint('main: SystemDataSource online. Handing off processing stream...');
+    debugPrint(
+      'main: SystemDataSource online. Handing off processing stream...',
+    );
     appCoordinator.start();
   }
 

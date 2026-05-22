@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/music_assistant_models.dart';
 import '../models/vinyl_album_record.dart';
+import 'package:web_app/main.dart';
 
 class OrchestratorApiClient {
   Future<VinylAlbumRecord> resolveMediaMetadata(
@@ -23,20 +24,9 @@ class OrchestratorApiClient {
   }
 
   Uri constructMetadataResolutionUri(String mediaResourceIdentifier) {
-    final String orchestratorHostAddress = retrieveOrchestratorHostAddress();
     return Uri.parse(
-      'http://$orchestratorHostAddress:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',
+      'http://$globalOrchestratorHost:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',
     );
-  }
-
-  String retrieveOrchestratorHostAddress() {
-    final String hostAddress = Uri.base.host;
-    if (hostAddress.isNotEmpty &&
-        hostAddress != 'localhost' &&
-        hostAddress != '127.0.0.1') {
-      return hostAddress;
-    }
-    return '127.0.0.1';
   }
 
   Future<http.Response> executeNetworkGetRequest(
@@ -79,9 +69,8 @@ class OrchestratorApiClient {
 
   Future<ConnectionTestResult> executeSystemConnectionTest() async {
     try {
-      final String orchestratorHostAddress = retrieveOrchestratorHostAddress();
       final Uri targetTestUri = Uri.parse(
-        'http://$orchestratorHostAddress:8080/api/system/test',
+        'http://$globalOrchestratorHost:8080/api/system/test',
       );
 
       final http.Response networkResponse = await http

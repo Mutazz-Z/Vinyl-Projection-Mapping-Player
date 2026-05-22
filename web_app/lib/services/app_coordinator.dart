@@ -20,10 +20,9 @@ class AppCoordinator {
 
   void start() {
     dataSource.onDataSourceChanged.listen((args) {
-      if (args.variable == 'GLOBAL_LastUnknownNfcTag' && args.data != null) {
+      if (args.variable == 'GLOBAL_LastUnknownNfcTag') {
         _handleRegistrationRequest(args.data.toString());
-      } else if (args.variable == 'GLOBAL_CurrentProjectorData' &&
-          args.data != null) {
+      } else if (args.variable == 'GLOBAL_CurrentProjectorData') {
         _handleVisualPlaybackEvent(args.data);
       }
     });
@@ -34,9 +33,7 @@ class AppCoordinator {
   void _handleRegistrationRequest(String uid) {
     if (uid.isEmpty) return;
     debugPrint('AppCoordinator: Registration trigger received for UID "$uid".');
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => RegisterScreen(uid: uid)),
-    );
+    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => RegisterScreen(uid: uid)));
   }
 
   void _handleVisualPlaybackEvent(dynamic decodedPayload) {
@@ -50,7 +47,6 @@ class AppCoordinator {
           .trim();
 
       if (_isDuplicateEvent(effect, mediaUri)) return;
-
     } catch (error) {
       debugPrint('AppCoordinator: Failed to parse visual payload: $error');
     }

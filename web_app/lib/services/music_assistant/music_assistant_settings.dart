@@ -12,54 +12,16 @@ class MusicAssistantSettings {
       musicAssistantUrlString.isNotEmpty &&
       musicAssistantTokenString.isNotEmpty;
 
-  String retrieveFallbackOrchestratorHostAddress() {
-    final String baseHostAddressString = Uri.base.host;
-    if (baseHostAddressString.isNotEmpty &&
-        baseHostAddressString != 'localhost' &&
-        baseHostAddressString != '127.0.0.1') {
-      return baseHostAddressString;
-    }
-    return '127.0.0.1';
-  }
-
   Future<void> load() async {
     try {
-      musicAssistantUrlString =
-          (await systemDataSource.read(
-            'GLOBAL_MusicAssistantUrl',
-          ))?.toString() ??
-          '';
-      musicAssistantTokenString =
-          (await systemDataSource.read(
-            'GLOBAL_MusicAssistantToken',
-          ))?.toString() ??
-          '';
-      musicAssistantPlayerIdString =
-          (await systemDataSource.read(
-            'GLOBAL_MusicAssistantTargetPlayerId',
-          ))?.toString() ??
-          '';
-
-      final String savedMqttHost =
-          (await systemDataSource.read(
-            'GLOBAL_MqttBrokerHostAddress',
-          ))?.toString() ??
-          '';
-      mqttHostAddressString = savedMqttHost.isNotEmpty
-          ? savedMqttHost
-          : retrieveFallbackOrchestratorHostAddress();
-
-      final dynamic savedMqttPort = await systemDataSource.read(
-        'GLOBAL_MqttWebSocketPort',
-      );
-      if (savedMqttPort is int) {
-        mqttWebSocketPortNumber = savedMqttPort;
-      } else if (savedMqttPort is String) {
-        mqttWebSocketPortNumber = int.tryParse(savedMqttPort) ?? 9001;
-      }
+      musicAssistantUrlString = (await systemDataSource.read('GLOBAL_MusicAssistantUrl')).toString();
+      musicAssistantTokenString = (await systemDataSource.read('GLOBAL_MusicAssistantToken')).toString();
+      musicAssistantPlayerIdString = (await systemDataSource.read('GLOBAL_MusicAssistantTargetPlayerId')).toString();
+      mqttHostAddressString = (await systemDataSource.read('GLOBAL_MqttBrokerHostAddress')).toString();
+      mqttWebSocketPortNumber = await systemDataSource.read('GLOBAL_MqttWebSocketPort');
+ 
     } catch (error) {
       debugPrint('CRITICAL: Failed to load settings from registry: $error');
-      mqttHostAddressString = retrieveFallbackOrchestratorHostAddress();
     }
   }
 
@@ -77,26 +39,11 @@ class MusicAssistantSettings {
     mqttWebSocketPortNumber = targetMqttWebSocketPort;
 
     try {
-      systemDataSource.write(
-        'GLOBAL_MusicAssistantUrl',
-        musicAssistantUrlString,
-      );
-      systemDataSource.write(
-        'GLOBAL_MusicAssistantToken',
-        musicAssistantTokenString,
-      );
-      systemDataSource.write(
-        'GLOBAL_MusicAssistantTargetPlayerId',
-        musicAssistantPlayerIdString,
-      );
-      systemDataSource.write(
-        'GLOBAL_MqttBrokerHostAddress',
-        mqttHostAddressString,
-      );
-      systemDataSource.write(
-        'GLOBAL_MqttWebSocketPort',
-        mqttWebSocketPortNumber,
-      );
+      systemDataSource.write('GLOBAL_MusicAssistantUrl', musicAssistantUrlString);
+      systemDataSource.write('GLOBAL_MusicAssistantToken', musicAssistantTokenString);
+      systemDataSource.write('GLOBAL_MusicAssistantTargetPlayerId', musicAssistantPlayerIdString);
+      systemDataSource.write('GLOBAL_MqttBrokerHostAddress', mqttHostAddressString);
+      systemDataSource.write('GLOBAL_MqttWebSocketPort', mqttWebSocketPortNumber);
       systemDataSource.write('GLOBAL_MqttTcpPort', 1883);
 
       await Future.delayed(const Duration(milliseconds: 150));

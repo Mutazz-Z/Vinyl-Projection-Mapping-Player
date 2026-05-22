@@ -1,14 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:web_app/main.dart';
 
 class MediaAssetService {
-  static String get _goServerHost {
-    final String host = Uri.base.host.isEmpty ? 'localhost' : Uri.base.host;
-    return 'http://$host:8080';
-  }
-
-  static String get _baseApiUrl => '$_goServerHost/api/assets';
+  static String get _baseApiUrl =>
+      'http://$globalOrchestratorHost:8080/api/assets';
 
   static Future<String> uploadAsset({
     required Uint8List bytes,
@@ -41,7 +38,7 @@ class MediaAssetService {
       throw StateError('Asset upload response was empty.');
     }
 
-    return '$_goServerHost$rawPath';
+    return '$globalOrchestratorHost$rawPath';
   }
 
   static Future<List<String>> listAssets({required String category}) async {
@@ -58,7 +55,7 @@ class MediaAssetService {
     return decoded
         .map((item) => item.toString())
         .where((path) => path.startsWith(category))
-        .map((path) => '$_goServerHost/assets/$path')
+        .map((path) => '$globalOrchestratorHost/assets/$path')
         .toList();
   }
 }

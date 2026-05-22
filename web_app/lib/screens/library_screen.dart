@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_app/theme/app_theme.dart';
 import 'register_screen.dart';
+import 'package:web_app/main.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -16,11 +17,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<dynamic> _albums = [];
   bool _isLoading = true;
 
-  String get _orchestratorHost {
-    final host = Uri.base.host;
-    return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -31,7 +27,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await http.get(
-        Uri.parse('http://$_orchestratorHost:8080/api/library'),
+        Uri.parse('http://$globalOrchestratorHost:8080/api/library'),
       );
       if (response.statusCode == 200) {
         setState(() {
@@ -48,7 +44,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _deleteRecord(String uid) async {
     try {
       final response = await http.delete(
-        Uri.parse('http://$_orchestratorHost:8080/api/library/$uid'),
+        Uri.parse('http://$globalOrchestratorHost:8080/api/library/$uid'),
       );
       if (response.statusCode == 200) {
         if (mounted) {

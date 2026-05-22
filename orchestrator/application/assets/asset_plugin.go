@@ -19,21 +19,6 @@ type AssetPlugin struct {
 	assetRootPath     string
 }
 
-func NewAssetPlugin() *AssetPlugin {
-	return &AssetPlugin{}
-}
-
-func (plugin *AssetPlugin) Name() string {
-	return "Standard_Static_Asset_Manager"
-}
-
-func (plugin *AssetPlugin) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
-	plugin.systemDataSource = dataSource
-	plugin.libraryRepository = libraryRepository
-	plugin.assetRootPath = plugin.resolveAssetRoot()
-	return plugin.initializeFileSystem()
-}
-
 func (plugin *AssetPlugin) resolveAssetRoot() string {
 	configuredPath := os.Getenv("VINYL_ASSET_STORAGE_PATH")
 	if configuredPath != "" {
@@ -43,7 +28,7 @@ func (plugin *AssetPlugin) resolveAssetRoot() string {
 }
 
 func (plugin *AssetPlugin) initializeFileSystem() error {
-	requiredAssetCategories := []string{"overlays", "labels", "outer-rings", "covers", "utils", "ring-images", "album-covers"}
+	requiredAssetCategories := []string{"overlays", "labels", "outer-rings", "covers", "utils", "album-covers"}
 
 	if directoryCreationError := os.MkdirAll(plugin.assetRootPath, 0755); directoryCreationError != nil {
 		return directoryCreationError
@@ -56,40 +41,6 @@ func (plugin *AssetPlugin) initializeFileSystem() error {
 		}
 	}
 	return nil
-}
-
-func (plugin *AssetPlugin) StartPlugin(applicationContext context.Context) error {
-	fmt.Println("Asset Manager Online: Serving files from /assets")
-	return nil
-}
-
-func (plugin *AssetPlugin) RegisterRoutes(requestRouter *http.ServeMux) {
-	absPath, err := filepath.Abs(plugin.assetRootPath)
-	if err != nil {
-		absPath = plugin.assetRootPath
-	}
-
-	fileServerHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir(absPath)))
-
-	corsFileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		fileServerHandler.ServeHTTP(w, r)
-	})
-
-	requestRouter.Handle("/assets/", corsFileServer)
-
-	requestRouter.HandleFunc("/api/assets/upload", plugin.handleAssetUpload)
-	requestRouter.HandleFunc("/api/assets/upload/", plugin.handleAssetUpload)
-	requestRouter.HandleFunc("/api/assets/list", plugin.handleAssetList)
-	requestRouter.HandleFunc("/api/assets/list/", plugin.handleAssetList)
 }
 
 func (plugin *AssetPlugin) handleAssetUpload(responseWriter http.ResponseWriter, httpRequest *http.Request) {
@@ -184,6 +135,57 @@ func (plugin *AssetPlugin) handleAssetList(responseWriter http.ResponseWriter, h
 	responseWriter.Header().Set("Content-Type", "application/json")
 	jsonEncoder := json.NewEncoder(responseWriter)
 	jsonEncoder.Encode(foundAssetPaths)
+}
+
+// -- Plugin Interface --
+
+func NewAssetPlugin() *AssetPlugin {
+	return &AssetPlugin{}
+}
+
+func (plugin *AssetPlugin) Name() string {
+	return "Standard_Static_Asset_Manager"
+}
+
+func (plugin *AssetPlugin) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
+	plugin.systemDataSource = dataSource
+	plugin.libraryRepository = libraryRepository
+	plugin.assetRootPath = plugin.resolveAssetRoot()
+	return plugin.initializeFileSystem()
+}
+
+func (plugin *AssetPlugin) StartPlugin(applicationContext context.Context) error {
+	fmt.Println("Asset Manager Online: Serving files from /assets")
+	return nil
+}
+
+func (plugin *AssetPlugin) RegisterRoutes(requestRouter *http.ServeMux) {
+	absPath, err := filepath.Abs(plugin.assetRootPath)
+	if err != nil {
+		absPath = plugin.assetRootPath
+	}
+
+	fileServerHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir(absPath)))
+
+	corsFileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		fileServerHandler.ServeHTTP(w, r)
+	})
+
+	requestRouter.Handle("/assets/", corsFileServer)
+
+	requestRouter.HandleFunc("/api/assets/upload", plugin.handleAssetUpload)
+	requestRouter.HandleFunc("/api/assets/upload/", plugin.handleAssetUpload)
+	requestRouter.HandleFunc("/api/assets/list", plugin.handleAssetList)
+	requestRouter.HandleFunc("/api/assets/list/", plugin.handleAssetList)
 }
 
 func (plugin *AssetPlugin) StopPlugin(applicationContext context.Context) error {
