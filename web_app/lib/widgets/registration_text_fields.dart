@@ -46,7 +46,7 @@ class MediaUriField extends StatelessWidget {
                 padding: EdgeInsets.all(14),
                 child: CircularProgressIndicator(strokeWidth: 2.5),
               )
-            : const Icon(Icons.auto_fix_high, color: AppColors.textLight),
+            : const Icon(Icons.auto_fix_high, color: AppColors.autoFillAccent),
       ),
       validator: (String? value) =>
           value == null || value.trim().isEmpty ? 'Enter a media URI.' : null,

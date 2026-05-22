@@ -1,66 +1,65 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  /// Very dark background color
-  static const Color backgroundDark = Color(0xFF0C0D08);
+  /// The primary brand seed color used to generate the full Material color scheme.
+  static const Color brandSeed = Color(0xFF607D8B); // Blue Grey 500
 
-  /// Off-white for text and light elements
-  static const Color textLight = Color(0xFFF1FAEE);
+  /// Background tint for the NFC tag ID banner on the register screen.
+  /// Blue Grey at 20% opacity.
+  static const Color tagBannerBackground = Color(0x33607D8B);
 
-  /// Dark blue for cards and main containers
-  static const Color brandBlue = Color(0xFF0A2463);
+  /// Icon and label color inside the NFC tag banner.
+  static const Color tagBannerIcon = Color(0xFF607D8B); // Blue Grey 500
 
-  /// Orange for text inputs and accents
-  static const Color accentOrange = Color(0xFFD58936);
+  /// Color used to indicate a live or connected status.
+  static const Color statusActive = Color(0xFF4CAF50); // Green 500
 
-  /// Teal for primary buttons and success states
-  static const Color accentTeal = Color(0xFF136F63);
+  /// Color used for destructive actions such as delete buttons and labels.
+  static const Color destructive = Color(0xFFF44336); // Red 500
 
-  /// Dark red for destructive actions
-  static const Color destructiveRed = Color(0xFFA52422);
+  /// Accent color for the metadata auto-fill wand button.
+  static const Color autoFillAccent = Color(0xFF7C4DFF); // Deep Purple Accent 400
+
+  /// Muted text color for secondary or helper labels.
+  static const Color subtleText = Color(0xFF9E9E9E); // Grey 400
 }
 
 // ---------------------------------------------------------------------------
 // Text Styles
 // ---------------------------------------------------------------------------
 
+/// All reusable text styles used across the application.
 abstract final class AppTextStyles {
-  // Using San Francisco as the default font family for these styles
-  static const String _fontFamily = 'San Francisco';
-
+  /// Large headline on the home screen when the system is active.
   static const TextStyle homeStatusHeadline = TextStyle(
-    fontFamily: _fontFamily,
     fontSize: 24,
     fontWeight: FontWeight.bold,
-    color: AppColors.textLight,
   );
 
+  /// Secondary label on the home screen showing MQTT connection status.
   static const TextStyle homeStatusConnected = TextStyle(
-    fontFamily: _fontFamily,
-    color: AppColors.accentTeal,
+    color: AppColors.statusActive,
     fontWeight: FontWeight.w500,
   );
 
+  /// Small descriptive caption on the home screen.
   static const TextStyle homeStatusCaption = TextStyle(
-    fontFamily: _fontFamily,
-    color: Colors.grey, // Fallback subtle color
+    color: AppColors.subtleText,
     fontSize: 12,
   );
 
+  /// Monospace style used when displaying raw NFC tag UIDs.
   static const TextStyle tagIdentifier = TextStyle(
-    fontFamily: 'monospace', // Keep monospace for IDs
+    fontFamily: 'monospace',
     fontWeight: FontWeight.bold,
   );
 
-  static const TextStyle submitButton = TextStyle(
-    fontFamily: _fontFamily,
-    fontSize: 16,
-    color: AppColors.textLight,
-  );
+  /// Style applied to text inside the primary submit button.
+  static const TextStyle submitButton = TextStyle(fontSize: 16);
 
+  /// Style for text labels that represent a destructive action (e.g. delete).
   static const TextStyle destructiveLabel = TextStyle(
-    fontFamily: _fontFamily,
-    color: AppColors.destructiveRed,
+    color: AppColors.destructive,
   );
 }
 
@@ -68,15 +67,33 @@ abstract final class AppTextStyles {
 // Spacing
 // ---------------------------------------------------------------------------
 
+/// All layout spacing constants used across the application.
 abstract final class AppSpacing {
+  /// Standard horizontal and vertical padding applied to full-page content areas.
   static const double pagePadding = 24.0;
+
+  /// Vertical gap between major sections within a screen.
   static const double sectionGap = 32.0;
+
+  /// Vertical gap between adjacent form fields.
   static const double fieldGap = 20.0;
+
+  /// Small gap used for inline elements such as an icon next to a label.
   static const double inlineElementGap = 8.0;
+
+  /// Gap between an icon and its adjacent text inside a banner row.
   static const double bannerIconGap = 12.0;
+
+  /// Inner padding applied inside banner or card containers.
   static const double containerPadding = 12.0;
+
+  /// Border radius for rounded containers such as the tag ID banner.
   static const double containerRadius = 8.0;
+
+  /// Height of the primary submit button.
   static const double submitButtonHeight = 54.0;
+
+  /// Size of the hero icon displayed on the home screen.
   static const double heroIconSize = 80.0;
 }
 
@@ -84,14 +101,13 @@ abstract final class AppSpacing {
 // Theme
 // ---------------------------------------------------------------------------
 
+/// Constructs and provides the application's ThemeData objects.
 abstract final class AppTheme {
+  /// The default dark theme used by the application.
   static ThemeData get darkTheme => ThemeData(
-    fontFamily: 'San Francisco',
-    scaffoldBackgroundColor: AppColors.backgroundDark,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.brandBlue,
+      seedColor: AppColors.brandSeed,
       brightness: Brightness.dark,
-      error: AppColors.destructiveRed,
     ),
     useMaterial3: true,
   );
