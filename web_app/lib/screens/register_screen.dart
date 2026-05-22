@@ -418,7 +418,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _uriResolutionStatus!,
                   style: Theme.of(
                     context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.subtleText),
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.backgroundDark),
                 ),
               ],
               const SizedBox(height: AppSpacing.sectionGap),

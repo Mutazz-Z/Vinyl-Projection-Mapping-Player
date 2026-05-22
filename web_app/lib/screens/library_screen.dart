@@ -236,7 +236,7 @@ class _AlbumListTile extends StatelessWidget {
                 const Icon(
                   Icons.delete,
                   size: 18,
-                  color: AppColors.destructive,
+                  color: AppColors.destructiveRed,
                 ),
                 const SizedBox(width: AppSpacing.inlineElementGap),
                 Text('Delete', style: AppTextStyles.destructiveLabel),
