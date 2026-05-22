@@ -6,133 +6,101 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 class DataSourceChangedArgs {
   final String variable;
   final dynamic data;
-  const DataSourceChangedArgs({required this.variable, this.data});
+  DataSourceChangedArgs({required this.variable, this.data});
 }
 
 class SystemDataSource {
-  WebSocketChannel? _activeChannel;
+  WebSocketChannel? _channel;
+  final String host;
   final int port;
 
-  final String orchestratorHost;
+  int _reqIdCounter = 0;
+  final Map<String, Completer<dynamic>> _pendingReads = {};
 
-  int _requestIdCounter = 0;
-  final Map<String, Completer<dynamic>> _pendingReadRequests = {};
-
-  final StreamController<DataSourceChangedArgs> _changedArgsStreamController =
+  final StreamController<DataSourceChangedArgs> _updatesController =
       StreamController<DataSourceChangedArgs>.broadcast();
 
-  SystemDataSource({required this.orchestratorHost, this.port = 8080});
-
-  static SystemDataSource fromCurrentBrowserContext({int port = 8080}) {
-    final String detectedHost = Uri.base.host;
-    final String resolvedHost =
-        (detectedHost.isNotEmpty && detectedHost != 'localhost')
-        ? detectedHost
-        : '127.0.0.1';
-    return SystemDataSource(orchestratorHost: resolvedHost, port: port);
-  }
-
-  String get httpBaseUrl => 'http://$orchestratorHost:$port';
+  SystemDataSource({required this.host, this.port = 8080});
 
   Stream<DataSourceChangedArgs> get onDataSourceChanged =>
-      _changedArgsStreamController.stream;
+      _updatesController.stream;
 
   void connect() {
-    final Uri webSocketUri = Uri.parse('ws://$orchestratorHost:$port/ws');
-    _activeChannel = WebSocketChannel.connect(webSocketUri);
+    final wsUrl = Uri.parse('ws://$host:$port/ws');
+    _channel = WebSocketChannel.connect(wsUrl);
 
-    _activeChannel!.stream.listen(
-      _dispatchIncomingMessage,
-      onDone: _handleConnectionClosed,
-      onError: (Object connectionError) =>
-          debugPrint('SystemDataSource error: $connectionError'),
+    _channel!.stream.listen(
+      (message) {
+        try {
+          final data = jsonDecode(message);
+
+          if (data['Topic'] == 'datasource' && data['Payload'] != null) {
+            final payload = data['Payload'];
+            _updatesController.add(
+              DataSourceChangedArgs(
+                variable: payload['variable'],
+                data: payload['data'],
+              ),
+            );
+            return;
+          }
+
+          if (data['action'] == 'read_response' ||
+              data['action'] == 'read_error') {
+            final reqId = data['req_id'];
+            if (reqId != null && _pendingReads.containsKey(reqId)) {
+              if (data['action'] == 'read_error') {
+                _pendingReads[reqId]!.completeError(
+                  data['error'] ?? 'Unknown read error',
+                );
+              } else {
+                _pendingReads[reqId]!.complete(data['value']);
+              }
+              _pendingReads.remove(reqId);
+            }
+          }
+        } catch (e) {
+          debugPrint('DataSource parse error: $e');
+        }
+      },
+      onDone: () {
+        debugPrint('SystemDataSource disconnected. Reconnecting in 5s...');
+        Future.delayed(const Duration(seconds: 5), connect);
+      },
+      onError: (error) => debugPrint('SystemDataSource Error: $error'),
     );
   }
 
   void disconnect() {
-    _activeChannel?.sink.close();
-    _activeChannel = null;
+    _channel?.sink.close();
+    _channel = null;
   }
 
-  Future<dynamic> read(String registryKey) {
-    if (_activeChannel == null) {
-      return Future.error('SystemDataSource is not connected');
-    }
+  Future<dynamic> read(String key) {
+    if (_channel == null) return Future.error('Not connected');
 
-    final String requestId = 'req_${++_requestIdCounter}';
-    final Completer<dynamic> responseCompleter = Completer<dynamic>();
-    _pendingReadRequests[requestId] = responseCompleter;
+    final reqId = 'req_${++_reqIdCounter}';
+    final completer = Completer<dynamic>();
+    _pendingReads[reqId] = completer;
 
-    _activeChannel!.sink.add(
-      jsonEncode({'action': 'read', 'key': registryKey, 'req_id': requestId}),
+    _channel!.sink.add(
+      jsonEncode({'action': 'read', 'key': key, 'req_id': reqId}),
     );
 
-    return responseCompleter.future.timeout(
+    return completer.future.timeout(
       const Duration(seconds: 5),
       onTimeout: () {
-        _pendingReadRequests.remove(requestId);
-        throw TimeoutException('Read request timed out for key: $registryKey');
+        _pendingReads.remove(reqId);
+        throw TimeoutException('Read request timed out for key: $key');
       },
     );
   }
 
-  void write(String registryKey, dynamic value) {
-    if (_activeChannel == null) return;
+  void write(String key, dynamic value) {
+    if (_channel == null) return;
 
-    _activeChannel!.sink.add(
-      jsonEncode({'action': 'write', 'key': registryKey, 'value': value}),
+    _channel!.sink.add(
+      jsonEncode({'action': 'write', 'key': key, 'value': value}),
     );
-  }
-
-  void _dispatchIncomingMessage(dynamic rawMessage) {
-    try {
-      final dynamic decodedMessage = jsonDecode(rawMessage as String);
-
-      if (decodedMessage['Topic'] == 'datasource' &&
-          decodedMessage['Payload'] != null) {
-        _handleDataSourceChangedEvent(decodedMessage['Payload']);
-        return;
-      }
-
-      if (decodedMessage['action'] == 'read_response' ||
-          decodedMessage['action'] == 'read_error') {
-        _handleReadResponse(decodedMessage);
-      }
-    } catch (parseError) {
-      debugPrint('SystemDataSource message parse error: $parseError');
-    }
-  }
-
-  void _handleDataSourceChangedEvent(dynamic eventPayload) {
-    _changedArgsStreamController.add(
-      DataSourceChangedArgs(
-        variable: eventPayload['variable'] as String,
-        data: eventPayload['data'],
-      ),
-    );
-  }
-
-  void _handleReadResponse(dynamic decodedMessage) {
-    final String? requestId = decodedMessage['req_id'] as String?;
-    if (requestId == null || !_pendingReadRequests.containsKey(requestId)) {
-      return;
-    }
-
-    final Completer<dynamic> pendingCompleter = _pendingReadRequests.remove(
-      requestId,
-    )!;
-
-    if (decodedMessage['action'] == 'read_error') {
-      pendingCompleter.completeError(
-        decodedMessage['error'] ?? 'Unknown read error',
-      );
-    } else {
-      pendingCompleter.complete(decodedMessage['value']);
-    }
-  }
-
-  void _handleConnectionClosed() {
-    debugPrint('SystemDataSource disconnected. Reconnecting in 5s...');
-    Future.delayed(const Duration(seconds: 5), connect);
   }
 }
