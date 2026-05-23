@@ -60,6 +60,19 @@ class MusicAssistantService {
     }
   }
 
+  Future<bool> verifyReaderConnection() async {
+    return await orchestratorApiClient.verifyReaderConnection();
+  }
+
+  Future<String> fetchHostIp() async {
+    try {
+      final ip = await orchestratorApiClient.fetchHostIp();
+      return ip.isNotEmpty ? ip : 'YOUR_MQTT_BROKER_IP';
+    } catch (e) {
+      return 'YOUR_MQTT_BROKER_IP';
+    }
+  }
+
   Future<List<String>> fetchAlbumCoverUrls() async {
     try {
       return await orchestratorApiClient.fetchAlbumCoverUrls();

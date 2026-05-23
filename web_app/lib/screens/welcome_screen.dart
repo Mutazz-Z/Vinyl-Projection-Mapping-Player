@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:web_app/models/music_assistant_models.dart';
 import 'package:web_app/theme/app_theme.dart';
+import 'package:web_app/utils/generate_yaml.dart';
 import 'package:web_app/widgets/new_widgets/album_marquee.dart';
 import 'package:web_app/widgets/new_widgets/animated_waveform.dart';
 import 'package:web_app/widgets/new_widgets/pill_button.dart';
 import 'package:web_app/widgets/new_widgets/text_button.dart';
 import 'package:web_app/widgets/new_widgets/text_field.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -30,6 +32,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   bool _isTestingConnectionState = false;
   bool _isFetchingAlbumsState = false;
   bool _isSavingFinalState = false;
+  bool _isVerifyingReaderState = false;
 
   @override
   void initState() {
@@ -117,6 +120,26 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
   }
 
+  Future<void> _verifyReaderConnection() async {
+    setState(() => _isVerifyingReaderState = true);
+
+    final bool isOnline = await musicAssistant.verifyReaderConnection();
+
+    if (!mounted) return;
+    setState(() => _isVerifyingReaderState = false);
+
+    if (isOnline) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
+      );
+    } else {
+      _showErrorDialog(
+        'Could not reach the reader. Ensure it is powered on, flashed with the correct YAML, and connected to your Wi-Fi.',
+      );
+    }
+  }
+
   Future<void> _handlePlayerSelection() async {
     if (_selectedPlayerId == null || _selectedPlayerId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -162,6 +185,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const AppShellScreen()),
     );
+  }
+
+  Future<void> _handleYamlGeneration() async {
+    final String hostIp = await musicAssistant.fetchHostIp();
+    generateAndDownloadEspReaderYaml(hostIp);
   }
 
   void _showErrorDialog(String message) {
@@ -211,7 +239,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                     ),
                     AnimatedOpacity(
-                      opacity: _currentPageIndex == 2 ? 1.0 : 0.0,
+                      opacity: _currentPageIndex >= 2 ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 600),
                       child: InfiniteAlbumMarquee(imageUrls: _albumCovers),
                     ),
@@ -242,6 +270,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         _buildStep1Card(),
                         _buildStep2Card(),
                         _buildStep3Card(),
+                        _buildStep4Card(),
+                        _buildStep5Card(),
                       ],
                     ),
                   ),
@@ -296,7 +326,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ? const Center(child: CircularProgressIndicator())
               : PillButton(
                   text: 'Get Connected',
-                  backgroundColor: const AppColors.green,
+                  backgroundColor: AppColors.green,
                   onPressed: _handleConnectionTest,
                 ),
         ],
@@ -408,15 +438,159 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             backgroundColor: AppColors.shadowGrey,
             leading: const Icon(Icons.code, color: AppColors.porcelain),
             onPressed: () {
-              // TODO: URL Launcher logic
+              launchUrl(Uri.parse('https://github.com/adonno/tagreader'));
             },
           ),
           const SizedBox(height: 16),
           _isSavingFinalState
               ? const Center(child: CircularProgressIndicator())
               : PillButton(
-                  text: 'Finish Setup',
-                  backgroundColor: AppColors.shadowGrey,
+                  text: 'Next →',
+                  backgroundColor: AppColors.balticBlue,
+                  onPressed: () {
+                    _pageController.nextPage(
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeInOutCubic,
+                    );
+                  },
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep4Card() {
+    return WizardCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  size: 20,
+                  color: AppColors.subtleText,
+                ),
+                onPressed: () {
+                  _pageController.previousPage(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOutCubic,
+                  );
+                },
+              ),
+              const Expanded(
+                child: Text(
+                  'Reader Set up',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.shadowGrey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Once wired up correctly, generate your yaml to take to either the web version of esp home below or your own if you host it and flash your ESP device.',
+            style: TextStyle(
+              color: AppColors.shadowGrey,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          PillButton(
+            text: "Generate my YAML",
+            backgroundColor: AppColors.brightGold,
+            textColor: Colors.black,
+            onPressed: _handleYamlGeneration,
+          ),
+          const SizedBox(height: 16),
+
+          PillButton(
+            text: 'ESPHOME',
+            backgroundColor: const Color(0xFF5AB6DF),
+            leading: const Icon(Icons.home_filled, color: Colors.white70),
+            onPressed: () {
+              launchUrl(Uri.parse('https://web.esphome.io/'));
+            },
+          ),
+          const SizedBox(height: 16),
+
+          _isVerifyingReaderState
+              ? const Center(child: CircularProgressIndicator())
+              : PillButton(
+                  text: 'Verify Connection',
+                  backgroundColor: AppColors.green,
+                  onPressed: _verifyReaderConnection,
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep5Card() {
+    return WizardCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  size: 20,
+                  color: AppColors.subtleText,
+                ),
+                onPressed: () {
+                  _pageController.previousPage(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOutCubic,
+                  );
+                },
+              ),
+              const Expanded(
+                child: Text(
+                  'Projector set up',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.shadowGrey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Once your reader is configured and inside of your shelf, you can move on to setting up your projector mapping.',
+            style: TextStyle(
+              color: AppColors.shadowGrey,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          PillButton(
+            text: 'Map Projector',
+            backgroundColor: AppColors.green,
+            onPressed: _executeFinalSetupProcedure,
+          ),
+
+          const SizedBox(height: 16),
+
+          _isSavingFinalState
+              ? const Center(child: CircularProgressIndicator())
+              : PillButton(
+                  text: 'Skip for now',
+                  backgroundColor: AppColors.flagRed,
                   onPressed: _executeFinalSetupProcedure,
                 ),
         ],

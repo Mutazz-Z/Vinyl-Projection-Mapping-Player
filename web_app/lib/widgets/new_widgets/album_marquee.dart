@@ -128,7 +128,7 @@ class _MarqueeRowState extends State<_MarqueeRow>
                 vertical: 12.0,
               ),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(24.0),
                 image: url.isNotEmpty
                     ? DecorationImage(
@@ -138,7 +138,7 @@ class _MarqueeRowState extends State<_MarqueeRow>
                     : null,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(2, 4),
                   ),

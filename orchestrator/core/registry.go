@@ -20,6 +20,7 @@ var SystemRegistry = map[string]SystemVariableDefinition{
 	"GLOBAL_FlutterWebUrl":                      {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "localhost"},
 	"GLOBAL_FlutterWebPort":                     {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "8080"},
 	"GLOBAL_LastScannedNfcTag":                  {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_ReaderConnectionStatus":             {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "offline"},
 	"GLOBAL_LastUnknownNfcTag":                  {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
 	"GLOBAL_CurrentProjectorData":               {StorageType: Volatile, DataType: TypeJSON, DefaultDataValue: nil},
 	"GLOBAL_MqttBrokerHostAddress":              {StorageType: NonVolatile, DataType: TypeString, DefaultDataValue: "127.0.0.1"},

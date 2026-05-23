@@ -105,6 +105,36 @@ class OrchestratorApiClient {
     }
   }
 
+  Future<String> fetchHostIp() async {
+    final Uri requestUri = Uri.parse(
+      'http://$globalOrchestratorHost:8080/api/system/network',
+    );
+
+    try {
+      final response = await http.get(requestUri);
+
+      if (response.statusCode == 200) {
+        final decodedData = jsonDecode(response.body);
+        return decodedData['host_ip'] ?? '';
+      }
+      return '';
+    } catch (e) {
+      debugPrint('Failed to fetch host IP: $e');
+      return '';
+    }
+  }
+
+  Future<bool> verifyReaderConnection() async {
+    final Uri requestUri = Uri.parse('http://$globalOrchestratorHost:8080/api/system/verify_reader');
+    try {
+      final response = await http.get(requestUri);
+      return response.statusCode == 200; 
+    } catch (e) {
+      debugPrint('Failed to verify reader: $e');
+      return false;
+    }
+  }
+
   Uri constructMetadataResolutionUri(String mediaResourceIdentifier) {
     return Uri.parse(
       'http://$globalOrchestratorHost:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',

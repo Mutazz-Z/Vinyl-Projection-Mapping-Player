@@ -25,8 +25,18 @@ func (plugin *BrokerPlugin) handleSuccessfulConnection(connectedClient eclipseMq
 	fmt.Println("Hardware MQTT Broker Bridge Online")
 	connectedClient.Subscribe("vinyl/shelf/tag", 0, plugin.handleIncomingTagMessage).Wait()
 	connectedClient.Subscribe("vinyl/shelf/status", 0, plugin.handleIncomingStatusMessage).Wait()
-}
+	connectedClient.Subscribe("vinyl/shelf/pong", 0, func(c eclipseMqtt.Client, m eclipseMqtt.Message) {
+		plugin.systemDataSource.Write("GLOBAL_ReaderConnectionStatus", "online")
+	}).Wait()
 
+	commandChannel := plugin.systemDataSource.Subscribe("CMD_PingReader")
+	go func() {
+		for range commandChannel {
+			plugin.systemDataSource.Write("GLOBAL_ReaderConnectionStatus", "pending")
+			connectedClient.Publish("vinyl/shelf/command/ping", 0, false, "ping")
+		}
+	}()
+}
 func (plugin *BrokerPlugin) handleLostConnection(disconnectedClient eclipseMqtt.Client, connectionError error) {
 	fmt.Printf("Hardware MQTT Broker Bridge Offline: %v\n", connectionError)
 }

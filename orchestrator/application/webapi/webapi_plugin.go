@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"vinyl-orchestrator/core"
 
@@ -58,6 +60,8 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	requestRouter.HandleFunc("/api/library/", plugin.handleSingleRecordRequests)
 	requestRouter.HandleFunc("/api/metadata/resolve", plugin.handleMetadataResolutionRequest)
 	requestRouter.HandleFunc("/api/system/test", plugin.handleConnectionTestRequest)
+	requestRouter.HandleFunc("/api/system/verify_reader", plugin.handleVerifyReaderRequest)
+	requestRouter.HandleFunc("/api/system/network", plugin.handleNetworkInfoRequest)
 	requestRouter.HandleFunc("/api/albums", plugin.handleAvailableAlbumsRequest)
 	requestRouter.HandleFunc("/api/players", plugin.handleAvailablePlayersRequest)
 	requestRouter.HandleFunc("/api/config", plugin.handleSystemConfigurationRequests)
@@ -74,6 +78,57 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 
 	go plugin.startListeningForNetworkRequests()
 	return nil
+}
+
+func (plugin *WebServerPlugin) handleVerifyReaderRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method != http.MethodGet {
+		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	plugin.systemDataSource.Publish("CMD_PingReader", "ping")
+
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			http.Error(responseWriter, "Timeout waiting for reader response", http.StatusGatewayTimeout)
+			return
+		case <-ticker.C:
+			var status string
+			plugin.systemDataSource.Read("GLOBAL_ReaderConnectionStatus", &status)
+			if status == "online" {
+				responseWriter.WriteHeader(http.StatusOK)
+				fmt.Fprint(responseWriter, "Reader is online")
+				return
+			}
+		}
+	}
+}
+
+func (plugin *WebServerPlugin) handleNetworkInfoRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
+	if httpRequest.Method != http.MethodGet {
+		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	var hostIp string
+	if err != nil {
+		hostIp = "127.0.0.1"
+	} else {
+		defer conn.Close()
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+		hostIp = localAddr.IP.String()
+	}
+
+	responseWriter.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(responseWriter).Encode(map[string]string{
+		"host_ip": hostIp,
+	})
 }
 
 type DataSourceMessage struct {
