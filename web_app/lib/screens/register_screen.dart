@@ -135,48 +135,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _onAlbumSelected(Map<String, dynamic> selectedAlbum) {
+  Future<void> _onAlbumSelected(Map<String, dynamic> selectedAlbum) async {
+    final String albumName = (selectedAlbum['name'] as String?) ?? '';
+    final String mediaUri = (selectedAlbum['uri'] as String?) ?? '';
+    String artistName = 'Unknown Artist';
+
+    final dynamic artistsList = selectedAlbum['artists'];
+    if (artistsList is List && artistsList.isNotEmpty) {
+      artistName = (artistsList[0]['name'] as String?) ?? 'Unknown Artist';
+    }
+
+    String coverArtUrl = '';
+    try {
+      final List<dynamic>? imagesList =
+          selectedAlbum['metadata']?['images'] as List<dynamic>?;
+      if (imagesList != null && imagesList.isNotEmpty) {
+        final dynamic firstImage = imagesList[0];
+        coverArtUrl =
+            (firstImage['url'] as String?) ??
+            (firstImage['path'] as String?) ??
+            '';
+      }
+    } catch (_) {}
+
     setState(() {
-      _albumName = (selectedAlbum['name'] as String?) ?? '';
-      _mediaUri = (selectedAlbum['uri'] as String?) ?? '';
-      _artistName = 'Unknown Artist';
-
-      final dynamic artistsList = selectedAlbum['artists'];
-      if (artistsList is List && artistsList.isNotEmpty) {
-        _artistName = (artistsList[0]['name'] as String?) ?? 'Unknown Artist';
-      }
-
-      try {
-        final List<dynamic>? imagesList =
-            selectedAlbum['metadata']?['images'] as List<dynamic>?;
-        if (imagesList != null && imagesList.isNotEmpty) {
-          final dynamic firstImage = imagesList[0];
-          _coverArtUrl =
-              (firstImage['url'] as String?) ??
-              (firstImage['path'] as String?) ??
-              '';
-        }
-      } catch (_) {}
-
+      _albumName = albumName;
+      _mediaUri = mediaUri;
+      _artistName = artistName;
+      _coverArtUrl = coverArtUrl;
       _trackList = '';
-      try {
-        final dynamic tracksData =
-            selectedAlbum['tracks'] ?? selectedAlbum['items'];
-        if (tracksData is List && tracksData.isNotEmpty) {
-          final List<String> parsedTracks = [];
-          for (int i = 0; i < tracksData.length; i++) {
-            final track = tracksData[i];
-            final String trackName = track is Map
-                ? (track['name'] as String? ?? 'Track ${i + 1}')
-                : track.toString();
-            parsedTracks.add('${i + 1}. $trackName');
-          }
-          _trackList = parsedTracks.join('\n');
-        }
-      } catch (e) {
-        debugPrint('Could not parse tracks: $e');
-      }
     });
+
+    if (mediaUri.isEmpty) return;
+
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+          '${systemDataSource.httpBaseUrl}/api/metadata/resolve?uri=${Uri.encodeComponent(mediaUri)}',
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> resolved =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final String tracks =
+            (resolved['TrackList'] as String?) ??
+            (resolved['track_list'] as String?) ??
+            (resolved['tracks'] as String?) ??
+            '';
+        if (tracks.isNotEmpty && mounted) {
+          setState(() => _trackList = tracks);
+        }
+      } else {
+        debugPrint(
+          '_onAlbumSelected: metadata/resolve returned ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      debugPrint('_onAlbumSelected: failed to fetch track list: $e');
+    }
   }
 
   Future<void> _showAssetPickerPopup({
@@ -402,7 +419,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   })
                   .take(10);
             },
-            onSelected: _onAlbumSelected,
+            onSelected: (Map<String, dynamic> album) => _onAlbumSelected(album),
             fieldViewBuilder:
                 (
                   BuildContext fieldContext,
