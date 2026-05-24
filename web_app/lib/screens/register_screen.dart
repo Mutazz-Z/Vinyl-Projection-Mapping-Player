@@ -1,22 +1,14 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:web_app/services/media_asset_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:web_app/main.dart';
 import 'package:web_app/theme/app_theme.dart';
-import 'package:web_app/utils/register_utils.dart';
-import 'package:web_app/widgets/album_cover_card.dart';
-import 'package:web_app/widgets/color_picker_dialog.dart';
-import 'package:web_app/widgets/design_ring_card.dart';
-import 'package:web_app/widgets/overlay_section_card.dart';
+import 'package:web_app/services/media_asset_service.dart';
+import 'package:web_app/widgets/new_widgets/pill_button.dart';
 import 'package:web_app/widgets/projection_preview.dart';
-import 'package:web_app/widgets/registration_text_fields.dart';
-import 'package:web_app/widgets/tag_id_banner.dart';
-
-import '../main.dart';
+import 'package:web_app/utils/register_utils.dart';
+import 'package:web_app/widgets/color_picker_dialog.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String uid;
@@ -50,557 +42,761 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+enum DesignMode { color, image }
+
 class _RegisterScreenState extends State<RegisterScreen> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  late final TextEditingController _artistController;
-  late final TextEditingController _albumController;
-  late final TextEditingController _tracksController;
-  late final TextEditingController _uriController;
-  late final TextEditingController _innerRecordColorController;
-  late final TextEditingController _innerRecordImageController;
-  late final TextEditingController _outerDesignColorController;
-  late final TextEditingController _outerDesignImageController;
-  late final TextEditingController _albumCoverArtController;
-
-  late DesignMode _innerMode;
-  late DesignMode _outerMode;
-  final List<String> _overlayOptions = <String>[];
-  String _selectedOverlayArt = '';
-
-  bool _isLoadingOverlayOptions = false;
-  bool _isSendingData = false;
-  bool _isScrapingMetadata = false;
-  bool _isUploadingAsset = false;
-
-  Timer? _uriDebounceTimer;
-  bool _isApplyingResolvedUri = false;
-  int _uriResolutionRequestId = 0;
-  String? _uriResolutionStatus;
   late final bool _isEditing;
+  bool _isSaving = false;
+
+  String _albumName = '';
+  String _artistName = '';
+  String _trackList = '';
+  String _coverArtUrl = '';
+  String _mediaUri = '';
+
+  DesignMode _innerMode = DesignMode.color;
+  DesignMode _outerMode = DesignMode.color;
+
+  Color _innerColor = AppColors.porcelain;
+  Color _outerColor = const Color(0xFF111111);
+  String _innerImage = '';
+  String _outerImage = '';
+  String _overlayArt = '';
+
+  late final TextEditingController _innerColorController;
+  late final TextEditingController _outerColorController;
+
+  List<Map<String, dynamic>> _maAlbums = [];
+
+  static const double _columnBreakpoint = 800.0;
 
   @override
   void initState() {
     super.initState();
-    _initTextControllers();
-    _determineInitialDesignModes();
-
     _isEditing =
-        widget.initialArtist != null && widget.initialArtist!.trim().isNotEmpty;
-    _uriController.addListener(_onUriChanged);
+        widget.initialArtist != null && widget.initialArtist!.isNotEmpty;
 
-    if (!_isEditing && _uriController.text.trim().isNotEmpty) {
-      _scheduleUriResolution(immediate: true, showManualFallbackMessage: false);
-    }
+    _albumName = widget.initialAlbum ?? '';
+    _artistName = widget.initialArtist ?? '';
+    _trackList = widget.initialTracks ?? '';
+    _mediaUri = widget.initialUri ?? '';
+    _coverArtUrl = widget.initialAlbumCoverArt ?? '';
 
-    unawaited(_loadOverlayOptions());
+    _innerColor = RegisterUtils.parseHexColor(
+      widget.initialInnerRecordColor ?? '#FFFFFF',
+    );
+    _outerColor = RegisterUtils.parseHexColor(
+      widget.initialOuterDesignColor ?? '#111111',
+    );
+    _innerImage = widget.initialInnerRecordImage ?? '';
+    _outerImage = widget.initialOuterDesignImage ?? '';
+    _overlayArt = widget.initialOverlayArt ?? '';
+
+    _innerMode = _innerImage.isNotEmpty ? DesignMode.image : DesignMode.color;
+    _outerMode = _outerImage.isNotEmpty ? DesignMode.image : DesignMode.color;
+
+    _innerColorController = TextEditingController(
+      text: RegisterUtils.toHexColor(_innerColor),
+    );
+    _outerColorController = TextEditingController(
+      text: RegisterUtils.toHexColor(_outerColor),
+    );
+
+    _fetchMusicAssistantAlbums();
   }
 
   @override
   void dispose() {
-    _uriDebounceTimer?.cancel();
-    _disposeTextControllers();
+    _innerColorController.dispose();
+    _outerColorController.dispose();
     super.dispose();
   }
 
-  void _initTextControllers() {
-    _artistController = TextEditingController(text: widget.initialArtist ?? '');
-    _albumController = TextEditingController(text: widget.initialAlbum ?? '');
-    _tracksController = TextEditingController(text: widget.initialTracks ?? '');
-    _uriController = TextEditingController(text: widget.initialUri ?? '');
-    _innerRecordColorController = TextEditingController(
-      text: RegisterUtils.normalizeColorHex(widget.initialInnerRecordColor),
-    );
-    _innerRecordImageController = TextEditingController(
-      text: widget.initialInnerRecordImage ?? '',
-    );
-    _outerDesignColorController = TextEditingController(
-      text: RegisterUtils.normalizeColorHex(widget.initialOuterDesignColor),
-    );
-    _outerDesignImageController = TextEditingController(
-      text: widget.initialOuterDesignImage ?? '',
-    );
-    _albumCoverArtController = TextEditingController(
-      text: widget.initialAlbumCoverArt ?? '',
-    );
-  }
-
-  void _disposeTextControllers() {
-    _artistController.dispose();
-    _albumController.dispose();
-    _tracksController.dispose();
-    _uriController.dispose();
-    _innerRecordColorController.dispose();
-    _innerRecordImageController.dispose();
-    _outerDesignColorController.dispose();
-    _outerDesignImageController.dispose();
-    _albumCoverArtController.dispose();
-  }
-
-  void _determineInitialDesignModes() {
-    _innerMode = _innerRecordImageController.text.trim().isNotEmpty
-        ? DesignMode.image
-        : DesignMode.color;
-    _outerMode = _outerDesignImageController.text.trim().isNotEmpty
-        ? DesignMode.image
-        : DesignMode.color;
-    _selectedOverlayArt = (widget.initialOverlayArt ?? '').trim();
-  }
-
-  Future<void> _loadOverlayOptions() async {
-    setState(() => _isLoadingOverlayOptions = true);
+  Future<void> _fetchMusicAssistantAlbums() async {
     try {
-      final remoteOptions = await MediaAssetService.listAssets(
-        category: 'overlays',
+      final http.Response response = await http.get(
+        Uri.parse('${systemDataSource.httpBaseUrl}/api/albums'),
       );
-      if (!mounted) return;
-
-      setState(() {
-        _overlayOptions
-          ..clear()
-          ..add('')
-          ..addAll(remoteOptions);
-        if (_selectedOverlayArt.isNotEmpty &&
-            !_overlayOptions.contains(_selectedOverlayArt)) {
-          _overlayOptions.add(_selectedOverlayArt);
+      if (response.statusCode == 200) {
+        final dynamic decodedData = jsonDecode(response.body);
+        List<dynamic> albumItems = [];
+        if (decodedData is Map<String, dynamic> &&
+            decodedData.containsKey('items')) {
+          albumItems = decodedData['items'] as List<dynamic>;
+        } else if (decodedData is List) {
+          albumItems = decodedData;
         }
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(
-        () => _overlayOptions
-          ..clear()
-          ..add(''),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoadingOverlayOptions = false);
+        setState(() {
+          _maAlbums = albumItems.whereType<Map<String, dynamic>>().toList();
+        });
+      }
+    } catch (fetchError) {
+      debugPrint('Error fetching MA albums: $fetchError');
     }
   }
 
-  Future<void> _pickAndUploadAsset({
+  void _onAlbumSelected(Map<String, dynamic> selectedAlbum) {
+    setState(() {
+      _albumName = (selectedAlbum['name'] as String?) ?? '';
+      _mediaUri = (selectedAlbum['uri'] as String?) ?? '';
+      _artistName = 'Unknown Artist';
+
+      final dynamic artistsList = selectedAlbum['artists'];
+      if (artistsList is List && artistsList.isNotEmpty) {
+        _artistName = (artistsList[0]['name'] as String?) ?? 'Unknown Artist';
+      }
+
+      try {
+        final List<dynamic>? imagesList =
+            selectedAlbum['metadata']?['images'] as List<dynamic>?;
+        if (imagesList != null && imagesList.isNotEmpty) {
+          final dynamic firstImage = imagesList[0];
+          _coverArtUrl =
+              (firstImage['url'] as String?) ??
+              (firstImage['path'] as String?) ??
+              '';
+        }
+      } catch (_) {}
+
+      _trackList = '';
+      try {
+        final dynamic tracksData =
+            selectedAlbum['tracks'] ?? selectedAlbum['items'];
+        if (tracksData is List && tracksData.isNotEmpty) {
+          final List<String> parsedTracks = [];
+          for (int i = 0; i < tracksData.length; i++) {
+            final track = tracksData[i];
+            final String trackName = track is Map
+                ? (track['name'] as String? ?? 'Track ${i + 1}')
+                : track.toString();
+            parsedTracks.add('${i + 1}. $trackName');
+          }
+          _trackList = parsedTracks.join('\n');
+        }
+      } catch (e) {
+        debugPrint('Could not parse tracks: $e');
+      }
+    });
+  }
+
+  Future<void> _showAssetPickerPopup({
     required String category,
-    required List<String> extensions,
-    required void Function(String url) onUploaded,
+    required void Function(String) onSelect,
   }) async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: extensions,
-      withData: true,
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: _AssetPickerWidget(category: category, onSelect: onSelect),
+      ),
     );
-    if (result == null || result.files.isEmpty) return;
-
-    final PlatformFile pickedFile = result.files.first;
-    final Uint8List? bytes = pickedFile.bytes;
-    if (bytes == null || bytes.isEmpty) return;
-
-    final String uploadName = pickedFile.name.trim().isEmpty
-        ? 'asset.bin'
-        : pickedFile.name.trim();
-    setState(() => _isUploadingAsset = true);
-
-    try {
-      final String url = await MediaAssetService.uploadAsset(
-        bytes: bytes,
-        fileName: uploadName,
-        category: category,
-      );
-
-      if (!mounted) return;
-      setState(() => onUploaded(url));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Upload failed: $error')));
-    }
-    {
-      if (mounted) setState(() => _isUploadingAsset = false);
-    }
   }
 
-  void _onUriChanged() {
-    if (_isApplyingResolvedUri) return;
-    _scheduleUriResolution(immediate: false, showManualFallbackMessage: false);
-  }
-
-  void _scheduleUriResolution({
-    required bool immediate,
-    required bool showManualFallbackMessage,
-  }) {
-    _uriDebounceTimer?.cancel();
-    Future<void> action() => _resolveUriAndAutoFill(
-      showManualFallbackMessage: showManualFallbackMessage,
+  void _pickInnerColor() {
+    showColorPickerDialog(
+      context: context,
+      title: 'Pick Inner Color',
+      controller: _innerColorController,
+      onColorApplied: () {
+        setState(() {
+          _innerMode = DesignMode.color;
+          _innerColor = RegisterUtils.parseHexColor(_innerColorController.text);
+          _innerImage = '';
+        });
+      },
     );
-
-    if (immediate) {
-      unawaited(action());
-    } else {
-      _uriDebounceTimer = Timer(
-        const Duration(milliseconds: 700),
-        () => unawaited(action()),
-      );
-    }
   }
 
-  Future<void> _resolveUriAndAutoFill({
-    required bool showManualFallbackMessage,
-  }) async {
-    final String enteredInput = _uriController.text.trim();
-    if (enteredInput.isEmpty) {
-      if (mounted) setState(() => _uriResolutionStatus = null);
-      return;
-    }
-
-    final int requestId = ++_uriResolutionRequestId;
-    setState(() {
-      _isScrapingMetadata = true;
-      _uriResolutionStatus = 'Resolving link and fetching metadata...';
-    });
-
-    final resolution = await musicAssistant.resolveRegistrationInput(
-      enteredInput,
+  void _pickOuterColor() {
+    showColorPickerDialog(
+      context: context,
+      title: 'Pick Outer Color',
+      controller: _outerColorController,
+      onColorApplied: () {
+        setState(() {
+          _outerMode = DesignMode.color;
+          _outerColor = RegisterUtils.parseHexColor(_outerColorController.text);
+          _outerImage = '';
+        });
+      },
     );
-    if (!mounted || requestId != _uriResolutionRequestId) return;
-
-    setState(() {
-      _isScrapingMetadata = false;
-
-      if (resolution.resolvedUri != enteredInput) {
-        _isApplyingResolvedUri = true;
-        _uriController.text = resolution.resolvedUri;
-        _uriController.selection = TextSelection.fromPosition(
-          TextPosition(offset: _uriController.text.length),
-        );
-        _isApplyingResolvedUri = false;
-      }
-
-      final Map<String, String> scrapedData = resolution.metadata;
-      if (scrapedData.isNotEmpty) {
-        _applyScrapedFields(scrapedData);
-        _uriResolutionStatus =
-            'Resolved metadata from ${resolution.resolvedUri}.';
-      } else if (showManualFallbackMessage) {
-        _uriResolutionStatus =
-            'No metadata found for ${resolution.resolvedUri}. Fill the fields manually.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not auto-fill this record. Please complete details manually.',
-            ),
-          ),
-        );
-      } else {
-        _uriResolutionStatus =
-            'No metadata found for ${resolution.resolvedUri} yet.';
-      }
-    });
   }
 
-  void _applyScrapedFields(Map<String, String> data) {
-    void autofillField(TextEditingController controller, String? value) {
-      if (value != null &&
-          value.isNotEmpty &&
-          (!_isEditing || controller.text.trim().isEmpty)) {
-        controller.text = value;
-      }
-    }
-
-    autofillField(_artistController, data['artist']);
-    autofillField(_albumController, data['album']);
-    autofillField(_tracksController, data['tracks']);
-    autofillField(_albumCoverArtController, data['album_cover_art']);
-  }
-
-  String get _orchestratorHost {
-    final host = Uri.base.host;
-    return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
-  }
-
-  Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSendingData = true);
-    final String mediaUri = _uriController.text.trim();
+  Future<void> _saveRecord() async {
+    setState(() => _isSaving = true);
 
     final Map<String, dynamic> recordPayload = {
       'uid': widget.uid,
-      'artist': _artistController.text.trim(),
-      'album': _albumController.text.trim(),
-      'tracks': _tracksController.text.trim(),
-      'media_uri': mediaUri,
+      'artist': _artistName,
+      'album': _albumName,
+      'tracks': _trackList,
+      'media_uri': _mediaUri,
       'inner_record_color': _innerMode == DesignMode.color
-          ? _innerRecordColorController.text.trim()
+          ? RegisterUtils.toHexColor(_innerColor)
           : '',
-      'inner_record_image': _innerMode == DesignMode.image
-          ? _innerRecordImageController.text.trim()
-          : '',
+      'inner_record_image': _innerMode == DesignMode.image ? _innerImage : '',
       'outer_design_color': _outerMode == DesignMode.color
-          ? _outerDesignColorController.text.trim()
+          ? RegisterUtils.toHexColor(_outerColor)
           : '',
-      'outer_design_image': _outerMode == DesignMode.image
-          ? _outerDesignImageController.text.trim()
-          : '',
-      'overlay_art': _selectedOverlayArt.trim(),
-      'album_cover_art': _albumCoverArtController.text.trim(),
+      'outer_design_image': _outerMode == DesignMode.image ? _outerImage : '',
+      'overlay_art': _overlayArt,
+      'album_cover_art': _coverArtUrl,
     };
 
     try {
-      final response = await http.post(
-        Uri.parse('http://$_orchestratorHost:8080/api/library'),
+      await http.post(
+        Uri.parse('${systemDataSource.httpBaseUrl}/api/library'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(recordPayload),
       );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isEditing ? 'Record updated.' : 'Registration saved.',
-            ),
-            action: !_isEditing
-                ? SnackBarAction(
-                    label: 'Play Now',
-                    onPressed: () => _playNow(mediaUri),
-                  )
-                : null,
-          ),
-        );
-        Navigator.pop(context);
-      } else {
-        throw Exception('Server rejected the save: ${response.body}');
+      if (mounted) Navigator.pop(context);
+    } catch (saveError) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $saveError')));
       }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save record: $e')));
     } finally {
-      if (mounted) setState(() => _isSendingData = false);
-    }
-  }
-
-  Future<void> _playNow(String mediaUri) async {
-    try {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Playing on Music Assistant...')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Playback failed: $error')));
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Record' : 'New Vinyl Detected'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.pagePadding),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              TagIdBanner(uid: widget.uid),
-              const SizedBox(height: AppSpacing.sectionGap),
-              MediaUriField(
-                controller: _uriController,
-                isScrapingMetadata: _isScrapingMetadata,
-              ),
-              if (_uriResolutionStatus != null) ...[
-                const SizedBox(height: AppSpacing.inlineElementGap),
-                Text(
-                  _uriResolutionStatus!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.subtleText),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.sectionGap),
-              ArtistField(controller: _artistController),
-              const SizedBox(height: AppSpacing.fieldGap),
-              AlbumField(controller: _albumController),
-              const SizedBox(height: AppSpacing.fieldGap),
-              TracksField(controller: _tracksController),
-              const SizedBox(height: AppSpacing.sectionGap),
-              _buildDesignAndPreviewRow(),
-              const SizedBox(height: AppSpacing.sectionGap),
-              _buildSubmitButton(),
-            ],
-          ),
+      backgroundColor: const Color(0xFF285C83),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (BuildContext layoutContext, BoxConstraints constraints) {
+            final bool isWide = constraints.maxWidth >= _columnBreakpoint;
+            return isWide ? _buildWideLayout() : _buildNarrowLayout();
+          },
         ),
       ),
     );
   }
 
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: AppSpacing.submitButtonHeight,
-      child: ElevatedButton(
-        onPressed: _isSendingData || _isUploadingAsset ? null : _submitForm,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        ),
-        child: _isSendingData
-            ? const CircularProgressIndicator()
-            : Text(
-                _isEditing ? 'Update Database' : 'Save to Vinyl Database',
-                style: AppTextStyles.submitButton,
-              ),
-      ),
-    );
-  }
-
-  Widget _buildDesignAndPreviewRow() {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final bool useTwoColumns = constraints.maxWidth >= 980;
-
-        final Widget designFields = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildRingDesignSection(
-              title: 'Inner Ring Design',
-              assetCategory: 'labels',
-              mode: _innerMode,
-              colorController: _innerRecordColorController,
-              imageController: _innerRecordImageController,
-              onModeReset: (mode) => setState(() {
-                _innerMode = mode;
-                if (mode == DesignMode.color) {
-                  _innerRecordImageController.clear();
-                }
-              }),
-            ),
-            const SizedBox(height: AppSpacing.fieldGap),
-            _buildRingDesignSection(
-              title: 'Outer Ring Design',
-              assetCategory: 'outer-rings',
-              mode: _outerMode,
-              colorController: _outerDesignColorController,
-              imageController: _outerDesignImageController,
-              onModeReset: (mode) => setState(() {
-                _outerMode = mode;
-                if (mode == DesignMode.color) {
-                  _outerDesignImageController.clear();
-                }
-              }),
-            ),
-            const SizedBox(height: AppSpacing.fieldGap),
-            _buildMediaCardsSection(),
-          ],
-        );
-
-        final Widget preview = ProjectionPreview(
-          outerColor: RegisterUtils.parseHexColor(
-            _outerDesignColorController.text,
-          ),
-          innerColor: RegisterUtils.parseHexColor(
-            _innerRecordColorController.text,
-          ),
-          outerImage: _outerMode == DesignMode.image
-              ? _outerDesignImageController.text.trim()
-              : '',
-          innerImage: _innerMode == DesignMode.image
-              ? _innerRecordImageController.text.trim()
-              : '',
-          coverArt: _albumCoverArtController.text.trim(),
-          overlayArt: _selectedOverlayArt.trim(),
-        );
-
-        if (!useTwoColumns) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              designFields,
-              const SizedBox(height: AppSpacing.sectionGap),
-              preview,
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 5, child: designFields),
-            const SizedBox(width: AppSpacing.sectionGap),
-            Expanded(flex: 4, child: preview),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRingDesignSection({
-    required String title,
-    required String assetCategory,
-    required DesignMode mode,
-    required TextEditingController colorController,
-    required TextEditingController imageController,
-    required Function(DesignMode) onModeReset,
-  }) {
-    return DesignRingCard(
-      title: title,
-      mode: mode,
-      colorText: colorController.text,
-      imageText: imageController.text,
-      isUploading: _isUploadingAsset,
-      onSelectColorMode: () => onModeReset(DesignMode.color),
-      onSelectImageMode: () => _pickAndUploadAsset(
-        category: assetCategory,
-        extensions: <String>['png', 'jpg', 'jpeg', 'gif', 'webp'],
-        onUploaded: (url) {
-          imageController.text = url;
-          onModeReset(DesignMode.image);
-        },
-      ),
-      onPickColor: () => showColorPickerDialog(
-        context: context,
-        title: 'Pick $title Color',
-        controller: colorController,
-        onColorApplied: () => onModeReset(DesignMode.color),
-      ),
-    );
-  }
-
-  Widget _buildMediaCardsSection() {
-    return Column(
+  Widget _buildWideLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OverlaySectionCard(
-          selectedOverlayArt: _selectedOverlayArt,
-          overlayOptions: _overlayOptions,
-          isLoading: _isLoadingOverlayOptions,
-          isUploading: _isUploadingAsset,
-          onChanged: (value) =>
-              setState(() => _selectedOverlayArt = value ?? ''),
-          onUploadCustom: () => _pickAndUploadAsset(
-            category: 'overlays',
-            extensions: <String>['png', 'jpg', 'jpeg', 'gif', 'webp'],
-            onUploaded: (url) {
-              if (!_overlayOptions.contains(url)) _overlayOptions.add(url);
-              setState(() => _selectedOverlayArt = url);
-            },
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: _buildSettingsCard(),
           ),
-          onClear: () => setState(() => _selectedOverlayArt = ''),
         ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        AlbumCoverCard(
-          controller: _albumCoverArtController,
-          isUploading: _isUploadingAsset,
-          onUploadOverride: () => _pickAndUploadAsset(
-            category: 'album-covers',
-            extensions: <String>['png', 'jpg', 'jpeg', 'gif', 'webp'],
-            onUploaded: (url) => _albumCoverArtController.text = url,
+        Expanded(
+          flex: 6,
+          child: Padding(
+            padding: const EdgeInsets.only(
+              right: 32.0,
+              top: 32.0,
+              bottom: 32.0,
+            ),
+            child: Center(child: _buildPreview()),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildNarrowLayout() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            _buildSettingsCard(),
+            const SizedBox(height: 32),
+            _buildPreview(),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: ProjectionPreview(
+          outerColor: _outerColor,
+          innerColor: _innerColor,
+          outerImage: _outerImage,
+          innerImage: _innerImage,
+          coverArt: _coverArtUrl,
+          overlayArt: _overlayArt,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.porcelain,
+        borderRadius: BorderRadius.circular(24.0),
+      ),
+      padding: const EdgeInsets.all(32.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  color: AppColors.shadowGrey,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              Flexible(
+                child: Text(
+                  'UID: ${widget.uid}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.shadowGrey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          Autocomplete<Map<String, dynamic>>(
+            displayStringForOption: (Map<String, dynamic> option) {
+              final String title =
+                  (option['name'] as String?) ?? 'Unknown Album';
+              String artist = 'Unknown Artist';
+              final dynamic artistsList = option['artists'];
+              if (artistsList is List && artistsList.isNotEmpty) {
+                artist =
+                    (artistsList[0]['name'] as String?) ?? 'Unknown Artist';
+              }
+              return '$title — $artist';
+            },
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              if (textEditingValue.text.isEmpty) {
+                return const Iterable<Map<String, dynamic>>.empty();
+              }
+              final String query = textEditingValue.text.toLowerCase();
+              return _maAlbums
+                  .where((Map<String, dynamic> album) {
+                    final String title = ((album['name'] as String?) ?? '')
+                        .toLowerCase();
+                    String artist = '';
+                    final dynamic artistsList = album['artists'];
+                    if (artistsList is List && artistsList.isNotEmpty) {
+                      artist = ((artistsList[0]['name'] as String?) ?? '')
+                          .toLowerCase();
+                    }
+                    return title.contains(query) || artist.contains(query);
+                  })
+                  .take(10);
+            },
+            onSelected: _onAlbumSelected,
+            fieldViewBuilder:
+                (
+                  BuildContext fieldContext,
+                  TextEditingController fieldController,
+                  FocusNode focusNode,
+                  VoidCallback onEditingComplete,
+                ) {
+                  return TextField(
+                    controller: fieldController,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      hintText: 'Search Music Assistant Library...',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: AppColors.subtleText,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  );
+                },
+          ),
+          const SizedBox(height: 16),
+
+          if (_albumName.isNotEmpty) ...[
+            Text(
+              _albumName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.shadowGrey,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              _artistName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+
+            if (_trackList.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Tracklist',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.shadowGrey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 120),
+                width: double.infinity,
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12.0),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    child: Text(
+                      _trackList,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 20),
+          ],
+
+          const Text(
+            'Vinyl Design',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.shadowGrey,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildDesignRow(
+            label: 'Inner Label',
+            onColor: _pickInnerColor,
+            onImage: () => _showAssetPickerPopup(
+              category: 'labels',
+              onSelect: (String url) => setState(() {
+                _innerMode = DesignMode.image;
+                _innerImage = url;
+              }),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          _buildDesignRow(
+            label: 'Outer Sleeve',
+            onColor: _pickOuterColor,
+            onImage: () => _showAssetPickerPopup(
+              category: 'outer-rings',
+              onSelect: (String url) => setState(() {
+                _outerMode = DesignMode.image;
+                _outerImage = url;
+              }),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          Row(
+            children: [
+              const SizedBox(
+                width: 100,
+                child: Text(
+                  'Overlay FX',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.shadowGrey,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: PillButton(
+                  text: 'Choose',
+                  backgroundColor: AppColors.shadowGrey,
+                  onPressed: () => _showAssetPickerPopup(
+                    category: 'overlays',
+                    onSelect: (String url) => setState(() => _overlayArt = url),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: PillButton(
+                  text: 'Clear',
+                  backgroundColor: AppColors.flagRed,
+                  onPressed: () => setState(() => _overlayArt = ''),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          _isSaving
+              ? const Center(child: CircularProgressIndicator())
+              : PillButton(
+                  text: _isEditing ? 'Update Record' : 'Save Record',
+                  backgroundColor: AppColors.green,
+                  onPressed: _saveRecord,
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesignRow({
+    required String label,
+    required VoidCallback onColor,
+    required VoidCallback onImage,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: AppColors.shadowGrey,
+            ),
+          ),
+        ),
+        Expanded(
+          child: PillButton(
+            text: 'Color',
+            backgroundColor: AppColors.shadowGrey,
+            onPressed: onColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: PillButton(
+            text: 'Image',
+            backgroundColor: AppColors.shadowGrey,
+            onPressed: onImage,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AssetPickerWidget extends StatefulWidget {
+  final String category;
+  final void Function(String) onSelect;
+
+  const _AssetPickerWidget({required this.category, required this.onSelect});
+
+  @override
+  State<_AssetPickerWidget> createState() => _AssetPickerWidgetState();
+}
+
+class _AssetPickerWidgetState extends State<_AssetPickerWidget> {
+  List<String> _availableAssets = [];
+  bool _isLoading = true;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableAssets();
+  }
+
+  Future<void> _loadAvailableAssets() async {
+    try {
+      final List<String> assets = await MediaAssetService.listAssets(
+        category: widget.category,
+      );
+      if (mounted) {
+        setState(() {
+          _availableAssets = assets;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _uploadNewAsset() async {
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      withData: true,
+    );
+
+    if (result == null ||
+        result.files.isEmpty ||
+        result.files.first.bytes == null) {
+      return;
+    }
+
+    setState(() => _isUploading = true);
+    try {
+      final String uploadedUrl = await MediaAssetService.uploadAsset(
+        fileBytes: result.files.first.bytes!,
+        fileName: result.files.first.name.isEmpty
+            ? 'asset.png'
+            : result.files.first.name,
+        category: widget.category,
+      );
+      widget.onSelect(uploadedUrl);
+      if (mounted) Navigator.pop(context);
+    } catch (uploadError) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Upload failed: $uploadError')));
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 600,
+      height: 700,
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select or Upload Media',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.shadowGrey,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          _isUploading
+              ? const Center(child: CircularProgressIndicator())
+              : PillButton(
+                  text: 'Upload New Media',
+                  backgroundColor: AppColors.brightGold,
+                  textColor: Colors.black,
+                  leading: const Icon(Icons.upload_file, color: Colors.black),
+                  onPressed: _uploadNewAsset,
+                ),
+
+          const SizedBox(height: 32),
+          const Text(
+            'Previously Uploaded',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.shadowGrey,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _availableAssets.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No existing media found.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                    itemCount: _availableAssets.length,
+                    itemBuilder: (BuildContext gridContext, int assetIndex) {
+                      final String assetUrl = _availableAssets[assetIndex];
+
+                      final String displayUrl = assetUrl.startsWith('/')
+                          ? 'http://$globalOrchestratorHost:8080$assetUrl'
+                          : assetUrl;
+
+                      final bool isVideoAsset = displayUrl
+                          .toLowerCase()
+                          .endsWith('.mp4');
+
+                      return GestureDetector(
+                        onTap: () {
+                          widget.onSelect(assetUrl);
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade300),
+                            color: isVideoAsset ? Colors.black87 : Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(2, 4),
+                              ),
+                            ],
+                            image: isVideoAsset
+                                ? null
+                                : DecorationImage(
+                                    image: NetworkImage(displayUrl),
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
+                          child: isVideoAsset
+                              ? const Center(
+                                  child: Icon(
+                                    Icons.play_circle_fill,
+                                    color: Colors.white,
+                                    size: 48,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontSize: 16, color: AppColors.subtleText),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

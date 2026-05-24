@@ -4,25 +4,28 @@ import 'package:http/http.dart' as http;
 import 'package:web_app/main.dart';
 
 class MediaAssetService {
-  static String get _baseApiUrl =>
-      'http://$globalOrchestratorHost:8080/api/assets';
+  static const int _orchestratorPort = 8080;
+
+  static String get _assetApiBaseUrl =>
+      'http://${systemDataSource.orchestratorHost}:$_orchestratorPort/api/assets';
 
   static Future<String> uploadAsset({
-    required Uint8List bytes,
+    required Uint8List fileBytes,
     required String fileName,
     required String category,
   }) async {
-    final Uri uploadUri = Uri.parse('$_baseApiUrl/upload');
-    final http.MultipartRequest request = http.MultipartRequest(
+    final Uri uploadUri = Uri.parse('$_assetApiBaseUrl/upload');
+    final http.MultipartRequest multipartRequest = http.MultipartRequest(
       'POST',
       uploadUri,
     )..fields['category'] = category;
 
-    request.files.add(
-      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+    multipartRequest.files.add(
+      http.MultipartFile.fromBytes('file', fileBytes, filename: fileName),
     );
 
-    final http.StreamedResponse streamedResponse = await request.send();
+    final http.StreamedResponse streamedResponse = await multipartRequest
+        .send();
     final String responseBody = await streamedResponse.stream.bytesToString();
 
     if (streamedResponse.statusCode < 200 ||
@@ -32,30 +35,33 @@ class MediaAssetService {
       );
     }
 
-    final String rawPath = responseBody.trim();
+    final String returnedAssetPath = responseBody.trim();
 
-    if (rawPath.isEmpty) {
-      throw StateError('Asset upload response was empty.');
+    if (returnedAssetPath.isEmpty) {
+      throw StateError('Asset upload response contained no path.');
     }
 
-    return '$globalOrchestratorHost$rawPath';
+    return 'http://${systemDataSource.orchestratorHost}:$_orchestratorPort$returnedAssetPath';
   }
 
   static Future<List<String>> listAssets({required String category}) async {
-    final Uri listUri = Uri.parse('$_baseApiUrl/list');
+    final Uri listUri = Uri.parse('$_assetApiBaseUrl/list');
     final http.Response response = await http.get(listUri);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return <String>[];
     }
 
-    final dynamic decoded = jsonDecode(response.body);
-    if (decoded is! List) return <String>[];
+    final dynamic decodedBody = jsonDecode(response.body);
+    if (decodedBody is! List) return <String>[];
 
-    return decoded
-        .map((item) => item.toString())
-        .where((path) => path.startsWith(category))
-        .map((path) => '$globalOrchestratorHost/assets/$path')
+    return decodedBody
+        .map((dynamic item) => item.toString())
+        .where((String assetPath) => assetPath.startsWith(category))
+        .map(
+          (String assetPath) =>
+              'http://${systemDataSource.orchestratorHost}:$_orchestratorPort/assets/$assetPath',
+        )
         .toList();
   }
 }

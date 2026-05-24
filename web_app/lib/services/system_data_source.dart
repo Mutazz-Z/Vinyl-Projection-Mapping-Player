@@ -22,6 +22,9 @@ class SystemDataSource {
 
   SystemDataSource({required this.host, this.port = 8080});
 
+  String get orchestratorHost => host;
+  String get httpBaseUrl => 'http://$host:$port';
+
   Stream<DataSourceChangedArgs> get onDataSourceChanged =>
       _updatesController.stream;
 

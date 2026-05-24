@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:web_app/theme/app_theme.dart';
 
-enum AppPageTab { home, library, debug, profile }
+enum AppPageTab {
+  library,
+  settings,
+}
 
-class AppNavigationRail extends StatefulWidget {
+class AppNavigationRail extends StatelessWidget {
   final AppPageTab selectedTab;
-
   final ValueChanged<int> onTabSelected;
 
   const AppNavigationRail({
@@ -14,47 +17,29 @@ class AppNavigationRail extends StatefulWidget {
   });
 
   @override
-  State<AppNavigationRail> createState() => _AppNavigationRailState();
-}
-
-class _AppNavigationRailState extends State<AppNavigationRail> {
-  bool _isExpanded = false;
-
-  @override
   Widget build(BuildContext context) {
     return NavigationRail(
-      extended: _isExpanded,
-      selectedIndex: widget.selectedTab.index,
-      onDestinationSelected: widget.onTabSelected,
-      leading: _buildToggleButton(),
+      backgroundColor: const Color(0xFF1B1E26),
+      selectedIndex: selectedTab.index,
+      onDestinationSelected: onTabSelected,
+      labelType: NavigationRailLabelType.none,
+      indicatorColor: Colors.transparent,
+      selectedIconTheme: const IconThemeData(
+        color: AppColors.brightGold,
+        size: 28,
+      ),
+      unselectedIconTheme: const IconThemeData(color: Colors.white54, size: 28),
+      groupAlignment: 0.0,
       destinations: const [
-        NavigationRailDestination(icon: Icon(Icons.home), label: Text('Home')),
         NavigationRailDestination(
-          icon: Icon(Icons.album),
+          icon: Icon(Icons.music_note),
           label: Text('Library'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.bug_report),
-          label: Text('Debug'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.person),
-          label: Text('Profile'),
+          icon: Icon(Icons.settings),
+          label: Text('Settings'),
         ),
       ],
-    );
-  }
-
-  Widget _buildToggleButton() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: IconButton(
-        icon: Icon(_isExpanded ? Icons.menu_open : Icons.menu),
-        onPressed: () {
-          setState(() => _isExpanded = !_isExpanded);
-        },
-        tooltip: _isExpanded ? 'Collapse sidebar' : 'Expand sidebar',
-      ),
     );
   }
 }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/debug_screen.dart';
-import 'screens/home_screen.dart';
 import 'screens/library_screen.dart';
-import 'screens/profile_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/register_screen.dart';
 import 'services/app_coordinator.dart';
 import 'services/music_assistant/music_assistant_service.dart';
@@ -86,7 +84,8 @@ class AppShellScreen extends StatefulWidget {
 }
 
 class _AppShellScreenState extends State<AppShellScreen> {
-  AppPageTab _selectedTab = AppPageTab.home;
+  // Sets Library as the default view
+  AppPageTab _selectedTab = AppPageTab.library;
 
   @override
   void initState() {
@@ -97,7 +96,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titleForTab(_selectedTab))),
+      // The old AppBar logic is removed since the new design is edge-to-edge
       body: Row(
         children: [
           AppNavigationRail(
@@ -114,27 +113,10 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   Widget _pageForTab(AppPageTab selectedTab) {
     switch (selectedTab) {
-      case AppPageTab.home:
-        return HomeScreen(systemDataSource: systemDataSource);
       case AppPageTab.library:
         return const LibraryScreen();
-      case AppPageTab.debug:
-        return const DebugScreen();
-      case AppPageTab.profile:
-        return const ProfileScreen();
-    }
-  }
-
-  String _titleForTab(AppPageTab selectedTab) {
-    switch (selectedTab) {
-      case AppPageTab.home:
-        return 'Vinyl Orchestrator';
-      case AppPageTab.library:
-        return 'Library';
-      case AppPageTab.debug:
-        return 'Debug';
-      case AppPageTab.profile:
-        return 'Profile';
+      case AppPageTab.settings:
+        return const SettingsScreen();
     }
   }
 }

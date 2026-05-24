@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:web_app/theme/app_theme.dart';
+import 'package:video_player/video_player.dart';
+import 'package:web_app/main.dart';
 
 class ProjectionPreview extends StatefulWidget {
   final Color outerColor;
@@ -35,9 +35,7 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
   @override
   void initState() {
     super.initState();
-
     _sessionCacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
-
     _ringSpinController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 18),
@@ -57,25 +55,34 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
     const double innerRingDiameter = outerRingDiameter * 0.25;
     const double previewWidth = 360;
     const double previewHeight = 260;
-
     final double ringOffsetX = sleeveSize / 2;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.containerPadding),
+      padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppSpacing.containerRadius),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
+          const Text(
             'Projection Preview',
-            style: Theme.of(context).textTheme.titleMedium,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1B4066),
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
           Center(
             child: SizedBox(
               width: previewWidth,
@@ -105,42 +112,57 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
                     builder: (BuildContext context, Widget? child) {
                       final double spinAngle =
                           _ringSpinController.value * 2 * math.pi;
-
                       return Transform.translate(
                         offset: Offset(ringOffsetX, 0),
                         child: Transform.rotate(angle: spinAngle, child: child),
                       );
                     },
                   ),
+
                   Container(
                     width: sleeveSize,
                     height: sleeveSize,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          offset: const Offset(2, 4),
+                        ),
+                      ],
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: widget.coverArt.isEmpty
-                        ? const Center(child: Icon(Icons.album, size: 52))
-                        : _buildImageFromSource(
+                        ? const Center(
+                            child: Icon(
+                              Icons.album,
+                              size: 52,
+                              color: Colors.grey,
+                            ),
+                          )
+                        : _buildMediaFromSource(
                             widget.coverArt,
                             fit: BoxFit.cover,
-                            fallback: const Center(child: Icon(Icons.album)),
+                            fallback: const Center(
+                              child: Icon(Icons.album, color: Colors.grey),
+                            ),
                           ),
                   ),
+
                   if (widget.overlayArt.isNotEmpty)
                     SizedBox(
                       width: sleeveSize,
                       height: sleeveSize,
                       child: Opacity(
                         opacity: 0.8,
-                        child: _buildImageFromSource(
-                          widget.overlayArt,
-                          fit: BoxFit.cover,
-                          fallback: const SizedBox.shrink(),
+                        child: IgnorePointer(
+                          child: _buildMediaFromSource(
+                            widget.overlayArt,
+                            fit: BoxFit.cover,
+                            fallback: const SizedBox.shrink(),
+                          ),
                         ),
                       ),
                     ),
@@ -163,11 +185,11 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
       height: diameter,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: imageUrl.isEmpty ? color : Colors.black,
+        color: imageUrl.isEmpty ? color : Colors.transparent,
       ),
       child: imageUrl.isNotEmpty
           ? ClipOval(
-              child: _buildImageFromSource(
+              child: _buildMediaFromSource(
                 imageUrl,
                 fit: BoxFit.cover,
                 fallback: const SizedBox.shrink(),
@@ -177,7 +199,7 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
     );
   }
 
-  Widget _buildImageFromSource(
+  Widget _buildMediaFromSource(
     String source, {
     required BoxFit fit,
     required Widget fallback,
@@ -202,21 +224,80 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
       return fallback;
     }
 
-    final String urlWithBuster = source.contains('?')
-        ? '$source&v=$_sessionCacheBuster'
-        : '$source?v=$_sessionCacheBuster';
+    String normalizedSource = source;
+    if (normalizedSource.startsWith('/')) {
+      normalizedSource = 'http://$globalOrchestratorHost:8080$normalizedSource';
+    }
 
-    final String safeSource = Uri.encodeFull(urlWithBuster);
+    if (normalizedSource.toLowerCase().endsWith('.mp4')) {
+      return _LoopingVideoWidget(url: normalizedSource, fit: fit);
+    }
+
+    final String safeSource = Uri.encodeFull(
+      normalizedSource.contains('?')
+          ? '$normalizedSource&v=$_sessionCacheBuster'
+          : '$normalizedSource?v=$_sessionCacheBuster',
+    );
 
     return Image.network(
       safeSource,
       fit: fit,
       width: double.infinity,
       height: double.infinity,
-      errorBuilder:
-          (BuildContext context, Object error, StackTrace? stackTrace) {
-            return fallback;
-          },
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
+  }
+}
+
+class _LoopingVideoWidget extends StatefulWidget {
+  final String url;
+  final BoxFit fit;
+
+  const _LoopingVideoWidget({required this.url, required this.fit});
+
+  @override
+  State<_LoopingVideoWidget> createState() => _LoopingVideoWidgetState();
+}
+
+class _LoopingVideoWidgetState extends State<_LoopingVideoWidget> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        _controller.setVolume(0.0);
+        _controller.setLooping(true);
+        _controller.play();
+        if (mounted) {
+          setState(() => _isInitialized = true);
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: widget.fit,
+        child: SizedBox(
+          width: _controller.value.size.width,
+          height: _controller.value.size.height,
+          child: VideoPlayer(_controller),
+        ),
+      ),
     );
   }
 }
