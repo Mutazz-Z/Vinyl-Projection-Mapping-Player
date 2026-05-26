@@ -1,5 +1,32 @@
 package core
 
+type DataType int
+
+const (
+	TypeString DataType = iota
+	TypeInt
+	TypeBool
+	TypeFloat
+	TypeJSON
+)
+
+func (dataType DataType) String() string {
+	switch dataType {
+	case TypeString:
+		return "string"
+	case TypeInt:
+		return "int"
+	case TypeBool:
+		return "bool"
+	case TypeFloat:
+		return "float"
+	case TypeJSON:
+		return "json"
+	default:
+		return "unknown"
+	}
+}
+
 type StorageMechanism int
 
 const (
@@ -45,7 +72,7 @@ var SystemRegistry = map[string]SystemVariableDefinition{
 	// ── Active record shelf ──────────────────────────────────────────────────
 	"GLOBAL_ActiveRecordUid":    {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
 	"GLOBAL_CurrentShelfStatus": {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "empty"},
-	"GLOBAL_CurrentAlbumState": {StorageType: Volatile, DataType: TypeJSON, DefaultDataValue: nil},
+	"GLOBAL_CurrentAlbumState":  {StorageType: Volatile, DataType: TypeJSON, DefaultDataValue: nil},
 
 	"GLOBAL_ActiveRecordPlaybackState":         {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "idle"},
 	"GLOBAL_ActiveRecordTrackName":             {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "Unknown"},

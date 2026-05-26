@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 )
 
 type SystemMediaPlayer struct {
-	systemDataSource core.DataSource
+	systemDataSource database.DataSource
 	messageRouter    *RpcMessageRouter
 }
 
@@ -18,7 +18,7 @@ func NewSystemMediaPlayer(routerInstance *RpcMessageRouter) *SystemMediaPlayer {
 	}
 }
 
-func (player *SystemMediaPlayer) SetDataSource(dataSource core.DataSource) {
+func (player *SystemMediaPlayer) SetDataSource(dataSource database.DataSource) {
 	player.systemDataSource = dataSource
 }
 
@@ -158,4 +158,10 @@ func (player *SystemMediaPlayer) extractAndBroadcastState(remoteProcedureCallRes
 	}
 
 	return currentStateString
+}
+
+type MediaPlayer interface {
+	PlayMedia(mediaUri string) error
+	StopMedia() error
+	GetState() (string, error)
 }

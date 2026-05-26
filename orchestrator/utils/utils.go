@@ -5,15 +5,15 @@
 package utils
 
 import (
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 )
 
 /*
  * Continuously listens to a channel of DataSource change events
  */
-func ListenToDataSourceEvents(dsChannel <-chan core.Event, handler func(args core.DataSourceChangedArgs)) {
+func ListenToDataSourceEvents(dsChannel <-chan database.Event, handler func(args database.DataSourceChangedArgs)) {
 	for incomingEvent := range dsChannel {
-		args, ok := incomingEvent.Payload.(core.DataSourceChangedArgs)
+		args, ok := incomingEvent.Payload.(database.DataSourceChangedArgs)
 		if !ok {
 			continue
 		}

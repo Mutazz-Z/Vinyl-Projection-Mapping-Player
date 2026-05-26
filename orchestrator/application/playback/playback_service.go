@@ -6,14 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/application/musicassistant"
 	"vinyl-orchestrator/utils"
 )
 
 type PlaybackApplicationService struct {
-	systemDataSource  core.DataSource
-	AlbumLibrary      core.AlbumLibrary
-	activeMediaPlayer core.MediaPlayer
+	systemDataSource  database.DataSource
+	AlbumLibrary      database.AlbumLibrary
+	activeMediaPlayer musicassistant.MediaPlayer
 
 	playbackWatchdogTimer *time.Timer
 	watchdogMutex         sync.Mutex
@@ -123,8 +124,8 @@ func (service *PlaybackApplicationService) processScannedNfcTag(uid string) {
 	service.startPlaybackWatchdog()
 }
 
-func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged <-chan core.Event) {
-	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
+func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args database.DataSourceChangedArgs) {
 
 		switch args.Variable {
 		case "GLOBAL_LastScannedNfcTag":
@@ -144,7 +145,7 @@ func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged
 	})
 }
 
-func NewPlaybackApplicationService(mediaPlayer core.MediaPlayer) *PlaybackApplicationService {
+func NewPlaybackApplicationService(mediaPlayer musicassistant.MediaPlayer) *PlaybackApplicationService {
 	return &PlaybackApplicationService{
 		activeMediaPlayer:    mediaPlayer,
 		WatchdogTimeout:      30 * time.Second,
@@ -156,7 +157,7 @@ func (service *PlaybackApplicationService) Name() string {
 	return "Application_Playback_Coordinator"
 }
 
-func (service *PlaybackApplicationService) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+func (service *PlaybackApplicationService) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
 	service.systemDataSource = dataSource
 	service.AlbumLibrary = AlbumLibrary
 	return nil

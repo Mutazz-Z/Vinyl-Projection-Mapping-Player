@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"vinyl-orchestrator/application/assets"
+	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/application/musicassistant"
-	"vinyl-orchestrator/core"
 	typedefinitions "vinyl-orchestrator/type_definitions"
 
 	"github.com/gin-contrib/cors"
@@ -16,8 +16,8 @@ import (
 )
 
 type WebServerPlugin struct {
-	dataSource           core.DataSource
-	AlbumLibrary         core.AlbumLibrary
+	dataSource           database.DataSource
+	AlbumLibrary         database.AlbumLibrary
 	musicAssistantPlugin *musicassistant.MusicAssistantPlugin
 	assetPlugin          *assets.AssetPlugin
 	server               *http.Server
@@ -40,7 +40,7 @@ func (plugin *WebServerPlugin) StopPlugin(applicationContext context.Context) er
 	return plugin.server.Shutdown(shutdownContext)
 }
 
-func (plugin *WebServerPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+func (plugin *WebServerPlugin) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
 	plugin.dataSource = dataSource
 	plugin.AlbumLibrary = AlbumLibrary
 	return nil

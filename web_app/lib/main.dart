@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:web_app/screens/debug_screen.dart';
-import 'package:web_app/screens/settings_screen.dart';
 import 'package:web_app/services/orchestrator_api_client.dart';
 import 'screens/library_screen.dart';
 import 'screens/register_screen.dart';

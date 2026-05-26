@@ -8,11 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 )
 
 type RpcMessageRouter struct {
-	systemDataSource         core.DataSource
+	systemDataSource         database.DataSource
 	connectionManager        *WebSocketManager
 	messageIdentifierCounter uint64
 	pendingRequests          map[uint64]chan map[string]interface{}
@@ -29,7 +29,7 @@ func (router *RpcMessageRouter) BindConnectionManager(managerInstance *WebSocket
 	router.connectionManager = managerInstance
 }
 
-func (router *RpcMessageRouter) SetDataSource(dataSource core.DataSource) {
+func (router *RpcMessageRouter) SetDataSource(dataSource database.DataSource) {
 	router.systemDataSource = dataSource
 }
 

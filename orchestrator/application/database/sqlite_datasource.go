@@ -14,7 +14,7 @@ type SQLiteDataSource struct {
 	connection       *sql.DB
 	memoryCache      map[string]interface{}
 	cacheMutex       sync.RWMutex
-	eventSubscribers map[string][]chan core.Event
+	eventSubscribers map[string][]chan Event
 	subscriberMutex  sync.RWMutex
 }
 
@@ -27,7 +27,7 @@ func NewSQLiteDataSource(databaseConnection *sql.DB) (*SQLiteDataSource, error) 
 	dataSource := &SQLiteDataSource{
 		connection:       databaseConnection,
 		memoryCache:      make(map[string]interface{}),
-		eventSubscribers: make(map[string][]chan core.Event),
+		eventSubscribers: make(map[string][]chan Event),
 	}
 
 	dataSource.initializeCacheFromRegistry()
@@ -95,7 +95,7 @@ func (dataSource *SQLiteDataSource) Write(key string, value interface{}) error {
 		}
 	}
 
-	go dataSource.Publish("datasource", core.DataSourceChangedArgs{
+	go dataSource.Publish("datasource", DataSourceChangedArgs{
 		Variable: key,
 		Data:     value,
 	})
@@ -112,7 +112,7 @@ func (dataSource *SQLiteDataSource) Publish(topic string, payload interface{}) {
 		return
 	}
 
-	systemEvent := core.Event{
+	systemEvent := Event{
 		Topic:   topic,
 		Payload: payload,
 	}
@@ -121,16 +121,33 @@ func (dataSource *SQLiteDataSource) Publish(topic string, payload interface{}) {
 	}
 }
 
-func pushEvent(targetChannel chan core.Event, outgoingEvent core.Event) {
+func pushEvent(targetChannel chan Event, outgoingEvent Event) {
 	targetChannel <- outgoingEvent
 }
 
-func (dataSource *SQLiteDataSource) Subscribe(topic string) <-chan core.Event {
+func (dataSource *SQLiteDataSource) Subscribe(topic string) <-chan Event {
 	dataSource.subscriberMutex.Lock()
 	defer dataSource.subscriberMutex.Unlock()
 
-	newSubscriberChannel := make(chan core.Event, 100)
+	newSubscriberChannel := make(chan Event, 100)
 	dataSource.eventSubscribers[topic] = append(dataSource.eventSubscribers[topic], newSubscriberChannel)
 
 	return newSubscriberChannel
+}
+
+type Event struct {
+	Topic   string
+	Payload interface{}
+}
+
+type DataSourceChangedArgs struct {
+	Variable string      `json:"variable"`
+	Data     interface{} `json:"data"`
+}
+
+type DataSource interface {
+	Read(key string, destination interface{}) error
+	Write(key string, value interface{}) error
+	Publish(topic string, payload interface{})
+	Subscribe(topic string) <-chan Event
 }

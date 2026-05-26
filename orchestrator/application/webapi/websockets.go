@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +46,7 @@ func isDataSourceMessage(raw json.RawMessage) bool {
 
 func (plugin *WebServerPlugin) handleDataSourceMessage(
 	msg DataSourceMessage,
-	mergedEventChannel chan core.Event,
+	mergedEventChannel chan database.Event,
 	responseChan chan DataSourceResponse,
 	clientContext context.Context,
 ) {
@@ -113,11 +114,11 @@ func (plugin *WebServerPlugin) handleWebSockets(c *gin.Context) {
 	clientContext, cancelClient := context.WithCancel(context.Background())
 	defer cancelClient()
 
-	mergedEventChannel := make(chan core.Event, 100)
+	mergedEventChannel := make(chan database.Event, 100)
 	responseChan := make(chan DataSourceResponse, 20)
 
 	dsChan := plugin.dataSource.Subscribe("datasource")
-	go func(c <-chan core.Event) {
+	go func(c <-chan database.Event) {
 		for event := range c {
 			select {
 			case <-clientContext.Done():
@@ -143,7 +144,7 @@ func (plugin *WebServerPlugin) handleWebSockets(c *gin.Context) {
 				continue
 			}
 
-			var incomingEvent core.Event
+			var incomingEvent database.Event
 			if err := json.Unmarshal(rawBytes, &incomingEvent); err == nil {
 				if incomingEvent.Topic != "" {
 					plugin.dataSource.Publish(incomingEvent.Topic, incomingEvent.Payload)

@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketManager struct {
-	systemDataSource    core.DataSource
+	systemDataSource    database.DataSource
 	messageRouter       *RpcMessageRouter
 	webSocketConnection *websocket.Conn
 	isAuthenticated     bool
@@ -26,7 +26,7 @@ func NewWebSocketManager(routerInstance *RpcMessageRouter) *WebSocketManager {
 	}
 }
 
-func (manager *WebSocketManager) SetDataSource(dataSource core.DataSource) {
+func (manager *WebSocketManager) SetDataSource(dataSource database.DataSource) {
 	manager.systemDataSource = dataSource
 }
 

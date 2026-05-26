@@ -17,7 +17,7 @@ package tests
 // type DisplayServiceTestContext struct {
 // 	dataSource       *mock_datasource.MockDataSource
 // 	AlbumLibrary     *mock_library.MockAlbumLibrary
-// 	projectorChannel <-chan core.Event
+// 	projectorChannel <-chan database.Event
 // }
 
 // func setupDisplayServiceTest(t *testing.T) DisplayServiceTestContext {

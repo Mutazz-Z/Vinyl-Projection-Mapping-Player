@@ -2,11 +2,11 @@ package musicassistant
 
 import (
 	"context"
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 )
 
 type MusicAssistantPlugin struct {
-	systemDataSource  core.DataSource
+	systemDataSource  database.DataSource
 	connectionManager *WebSocketManager
 	messageRouter     *RpcMessageRouter
 	mediaPlayer       *SystemMediaPlayer
@@ -32,7 +32,7 @@ func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
 	return plugin.mediaPlayer.GetAvailablePlayers()
 }
 
-func (plugin *MusicAssistantPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+func (plugin *MusicAssistantPlugin) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
 	plugin.systemDataSource = dataSource
 	plugin.connectionManager.SetDataSource(dataSource)
 	plugin.messageRouter.SetDataSource(dataSource)

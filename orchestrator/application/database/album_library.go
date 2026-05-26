@@ -53,3 +53,10 @@ func (repository *SQLiteAlbumLibrary) SaveAlbumRecord(albumRecord typedefinition
 func (repository *SQLiteAlbumLibrary) DeleteAlbumRecord(uid string) error {
 	return repository.Database.Where("tag_uid = ?", uid).Delete(&typedefinitions.VinylRecordTagData{}).Error
 }
+
+type AlbumLibrary interface {
+	SaveAlbumRecord(albumRecord typedefinitions.VinylRecordTagData) error
+	RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (typedefinitions.VinylRecordTagData, error)
+	RetrieveAllSavedAlbums() ([]typedefinitions.VinylRecordTagData, error)
+	DeleteAlbumRecord(nfcUniqueIdentifier string) error
+}

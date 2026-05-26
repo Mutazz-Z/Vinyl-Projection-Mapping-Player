@@ -7,14 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AssetPlugin struct {
-	systemDataSource core.DataSource
-	AlbumLibrary     core.AlbumLibrary
+	systemDataSource database.DataSource
+	AlbumLibrary     database.AlbumLibrary
 	assetRootPath    string
 }
 
@@ -49,7 +49,7 @@ func (plugin *AssetPlugin) initializeFileSystem() error {
 	return nil
 }
 
-func (plugin *AssetPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+func (plugin *AssetPlugin) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
 	plugin.systemDataSource = dataSource
 	plugin.AlbumLibrary = AlbumLibrary
 	plugin.assetRootPath = plugin.resolveAssetRoot()

@@ -17,7 +17,7 @@ import (
 	"vinyl-orchestrator/application/musicassistant"
 	"vinyl-orchestrator/application/playback"
 	"vinyl-orchestrator/application/webapi"
-	"vinyl-orchestrator/core"
+	pluginInterface "vinyl-orchestrator/plugin"
 )
 
 func resolvePrimaryDatabaseFilePath() string {
@@ -52,7 +52,7 @@ func main() {
 
 	assetPlugin := assets.NewAssetPlugin()
 
-	orchestratorPlugins := []core.Plugin{
+	orchestratorPlugins := []pluginInterface.Plugin{
 		musicAssistantClient,
 		playback.NewPlaybackApplicationService(musicAssistantClient),
 		display.NewDisplayApplicationService(),

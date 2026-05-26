@@ -1,17 +1,15 @@
 package mock_datasource
 
-import (
-	"vinyl-orchestrator/core"
-)
+import "vinyl-orchestrator/application/database"
 
 type MockDataSource struct {
-	subscribers map[string][]chan core.Event
+	subscribers map[string][]chan database.Event
 	Storage     map[string]interface{}
 }
 
 func DataSourceMock() *MockDataSource {
 	return &MockDataSource{
-		subscribers: make(map[string][]chan core.Event),
+		subscribers: make(map[string][]chan database.Event),
 		Storage:     make(map[string]interface{}),
 	}
 }
@@ -44,14 +42,14 @@ func (m *MockDataSource) Write(key string, val interface{}) error {
 	return nil
 }
 
-func (m *MockDataSource) Subscribe(topic string) <-chan core.Event {
-	ch := make(chan core.Event, 1)
+func (m *MockDataSource) Subscribe(topic string) <-chan database.Event {
+	ch := make(chan database.Event, 1)
 	m.subscribers[topic] = append(m.subscribers[topic], ch)
 	return ch
 }
 
 func (m *MockDataSource) Publish(topic string, payload interface{}) {
 	for _, ch := range m.subscribers[topic] {
-		ch <- core.Event{Topic: topic, Payload: payload}
+		ch <- database.Event{Topic: topic, Payload: payload}
 	}
 }

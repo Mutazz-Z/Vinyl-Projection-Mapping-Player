@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 
 	eclipseMqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -16,8 +16,8 @@ type HardwareTagPayload struct {
 }
 
 type BrokerPlugin struct {
-	systemDataSource core.DataSource
-	AlbumLibrary     core.AlbumLibrary
+	systemDataSource database.DataSource
+	AlbumLibrary     database.AlbumLibrary
 	mqttClient       eclipseMqtt.Client
 }
 
@@ -84,7 +84,7 @@ func (plugin *BrokerPlugin) Name() string {
 	return "Hardware_MQTT_Broker_Bridge"
 }
 
-func (plugin *BrokerPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+func (plugin *BrokerPlugin) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
 	plugin.systemDataSource = dataSource
 	plugin.AlbumLibrary = AlbumLibrary
 	return nil

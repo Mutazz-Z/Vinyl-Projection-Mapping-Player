@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"net/url"
 
-	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/application/database"
 	typedefinitions "vinyl-orchestrator/type_definitions"
 	"vinyl-orchestrator/utils"
 )
 
 type DisplayApplicationService struct {
-	systemDataSource core.DataSource
-	AlbumLibrary     core.AlbumLibrary
+	systemDataSource database.DataSource
+	AlbumLibrary     database.AlbumLibrary
 }
 
 func (service *DisplayApplicationService) sendDataToProjectorForKnownTag(uid string) {
@@ -43,8 +43,8 @@ func (service *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid s
 	service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
 }
 
-func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan core.Event) {
-	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
+func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args database.DataSourceChangedArgs) {
 
 		switch args.Variable {
 		case "GLOBAL_LastScannedNfcTag":
@@ -89,7 +89,7 @@ func (service *DisplayApplicationService) Name() string {
 	return "Application_Display_Coordinator"
 }
 
-func (service *DisplayApplicationService) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+func (service *DisplayApplicationService) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
 	service.systemDataSource = dataSource
 	service.AlbumLibrary = AlbumLibrary
 	return nil
