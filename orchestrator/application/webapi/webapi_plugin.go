@@ -2,91 +2,133 @@ package webapi
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net"
 	"net/http"
-	"strconv"
-	"strings"
+	"path/filepath"
 	"time"
 
+	"vinyl-orchestrator/application/assets"
+	"vinyl-orchestrator/application/musicassistant"
 	"vinyl-orchestrator/core"
+	typedefinitions "vinyl-orchestrator/type_definitions"
 
-	"github.com/gorilla/websocket"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
-type MetadataResolver interface {
-	FetchCleanMetadata(mediaResourceIdentifier string) (*core.VinylAlbumRecord, error)
-	ValidateSystemCredentials() error
-	GetAvailablePlayers() (interface{}, error)
-	GetAvailableAlbums() (interface{}, error)
-}
-
-type AssetRouter interface {
-	RegisterRoutes(mux *http.ServeMux)
-}
-
 type WebServerPlugin struct {
-	systemDataSource  core.DataSource
-	libraryRepository core.LibraryRepository
-	httpServer        *http.Server
-	metadataResolver  MetadataResolver
-	assetRouter       AssetRouter
+	dataSource           core.DataSource
+	AlbumLibrary         core.AlbumLibrary
+	musicAssistantPlugin *musicassistant.MusicAssistantPlugin
+	assetPlugin          *assets.AssetPlugin
+	server               *http.Server
 }
 
-var websocketUpgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
-func NewWebServerPlugin(resolver MetadataResolver, assetRouter AssetRouter) *WebServerPlugin {
+func NewWebServerPlugin(musicAssistantPlugin *musicassistant.MusicAssistantPlugin, assetPlugin *assets.AssetPlugin) *WebServerPlugin {
 	return &WebServerPlugin{
-		metadataResolver: resolver,
-		assetRouter:      assetRouter,
+		musicAssistantPlugin: musicAssistantPlugin,
+		assetPlugin:          assetPlugin,
 	}
 }
 
-func (plugin *WebServerPlugin) Name() string { return "Standard_HTTP_Web_API" }
+func (plugin *WebServerPlugin) Name() string {
+	return "Web_API_Server"
+}
 
-func (plugin *WebServerPlugin) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
-	plugin.systemDataSource = dataSource
-	plugin.libraryRepository = libraryRepository
+func (plugin *WebServerPlugin) StopPlugin(applicationContext context.Context) error {
+	shutdownContext, cancel := context.WithTimeout(applicationContext, 5*time.Second)
+	defer cancel()
+	return plugin.server.Shutdown(shutdownContext)
+}
+
+func (plugin *WebServerPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
+	plugin.dataSource = dataSource
+	plugin.AlbumLibrary = AlbumLibrary
 	return nil
 }
 
 func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) error {
-	requestRouter := http.NewServeMux()
+	router := gin.Default()
 
-	requestRouter.HandleFunc("/api/library", plugin.handleLibraryCollectionRequests)
-	requestRouter.HandleFunc("/api/library/", plugin.handleSingleRecordRequests)
-	requestRouter.HandleFunc("/api/metadata/resolve", plugin.handleMetadataResolutionRequest)
-	requestRouter.HandleFunc("/api/system/test", plugin.handleConnectionTestRequest)
-	requestRouter.HandleFunc("/api/system/verify_reader", plugin.handleVerifyReaderRequest)
-	requestRouter.HandleFunc("/api/system/network", plugin.handleNetworkInfoRequest)
-	requestRouter.HandleFunc("/api/albums", plugin.handleAvailableAlbumsRequest)
-	requestRouter.HandleFunc("/api/players", plugin.handleAvailablePlayersRequest)
-	requestRouter.HandleFunc("/api/config", plugin.handleSystemConfigurationRequests)
-	requestRouter.HandleFunc("/ws", plugin.handleWebSockets)
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
-	if plugin.assetRouter != nil {
-		plugin.assetRouter.RegisterRoutes(requestRouter)
+	api := router.Group("/api")
+	{
+		library := api.Group("/library")
+		{
+			library.GET("/", plugin.getAllAlbumsInLibrary)
+			library.GET("/:provider/:itemId", plugin.GetAlbumTrackList)
+			library.GET("/savedTags", plugin.getSavedTags)
+			library.POST("/saveAlbum", plugin.saveNewAlbumRecord)
+			library.DELETE("/deleteAlbum/:id", plugin.deleteAlbumRecordGivenId)
+		}
+
+		system := api.Group("/system")
+		{
+			system.GET("/network", plugin.handleNetworkInfo)
+			system.GET("/test", plugin.handleConnectionTestRequest)
+			system.GET("/verify_reader", plugin.handleVerifyReaderRequest)
+		}
+
+		players := api.Group("/players")
+		{
+			players.GET("/", plugin.getAvailablePlayers)
+		}
+
+		assetsApi := api.Group("/assets")
+		{
+			assetsApi.POST("/upload", plugin.assetPlugin.HandleGinAssetUpload)
+			assetsApi.GET("/list", plugin.assetPlugin.HandleGinAssetList)
+		}
 	}
 
-	plugin.httpServer = &http.Server{
+	absPath, _ := filepath.Abs(plugin.assetPlugin.GetAssetRootPath())
+	assetsDir := router.Group("/assets")
+
+	assetsDir.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Cross-Origin-Resource-Policy", "cross-origin")
+		c.Next()
+	})
+
+	assetsDir.StaticFS("/", http.Dir(absPath))
+	router.GET("/ws", plugin.handleWebSockets)
+
+	plugin.server = &http.Server{
 		Addr:    ":8080",
-		Handler: plugin.enableCrossOriginRequests(requestRouter),
+		Handler: router,
 	}
 
-	go plugin.startListeningForNetworkRequests()
+	go func() {
+		if err := plugin.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		}
+	}()
+
 	return nil
 }
 
-func (plugin *WebServerPlugin) handleVerifyReaderRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	if httpRequest.Method != http.MethodGet {
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+func (plugin *WebServerPlugin) getSavedTags(c *gin.Context) {
+	albums, err := plugin.AlbumLibrary.RetrieveAllSavedAlbums()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, albums)
+}
+
+func (plugin *WebServerPlugin) handleVerifyReaderRequest(c *gin.Context) {
+	if c.Request.Method != http.MethodGet {
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "Method Not Allowed"})
 		return
 	}
 
-	plugin.systemDataSource.Publish("CMD_PingReader", "ping")
+	plugin.dataSource.Publish("CMD_PingReader", "ping")
 
 	timeout := time.After(5 * time.Second)
 	ticker := time.NewTicker(200 * time.Millisecond)
@@ -95,426 +137,103 @@ func (plugin *WebServerPlugin) handleVerifyReaderRequest(responseWriter http.Res
 	for {
 		select {
 		case <-timeout:
-			http.Error(responseWriter, "Timeout waiting for reader response", http.StatusGatewayTimeout)
+			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Timeout waiting for reader response"})
 			return
 		case <-ticker.C:
 			var status string
-			plugin.systemDataSource.Read("GLOBAL_ReaderConnectionStatus", &status)
+			plugin.dataSource.Read("GLOBAL_ReaderConnectionStatus", &status)
 			if status == "online" {
-				responseWriter.WriteHeader(http.StatusOK)
-				fmt.Fprint(responseWriter, "Reader is online")
+				c.JSON(http.StatusOK, gin.H{"message": "Reader is online"})
 				return
 			}
 		}
 	}
 }
 
-func (plugin *WebServerPlugin) handleNetworkInfoRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	if httpRequest.Method != http.MethodGet {
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
+func (plugin *WebServerPlugin) GetAlbumTrackList(c *gin.Context) {
+	itemId := c.Param("itemId")
+	if itemId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "item ID is required"})
+		return
+	}
+	provider := c.Param("provider")
+	if provider == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is required"})
 		return
 	}
 
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	var hostIp string
+	tracks, err := plugin.musicAssistantPlugin.GetAlbumTracklist(itemId, provider)
 	if err != nil {
-		hostIp = "127.0.0.1"
-	} else {
-		defer conn.Close()
-		localAddr := conn.LocalAddr().(*net.UDPAddr)
-		hostIp = localAddr.IP.String()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(map[string]string{
-		"host_ip": hostIp,
+	c.JSON(http.StatusOK, tracks)
+}
+
+func (plugin *WebServerPlugin) deleteAlbumRecordGivenId(c *gin.Context) {
+	albumID := c.Param("id")
+	if albumID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Album ID is required"})
+		return
+	}
+
+	err := plugin.AlbumLibrary.DeleteAlbumRecord(albumID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Album record deleted successfully"})
+}
+
+func (plugin *WebServerPlugin) saveNewAlbumRecord(c *gin.Context) {
+	var albumRecord typedefinitions.VinylRecordTagData
+	if err := c.ShouldBindJSON(&albumRecord); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := plugin.AlbumLibrary.SaveAlbumRecord(albumRecord)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Album record saved successfully"})
+}
+
+func (plugin *WebServerPlugin) getAvailablePlayers(c *gin.Context) {
+	players, err := plugin.musicAssistantPlugin.GetAvailablePlayers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, players)
+}
+
+func (plugin *WebServerPlugin) getAllAlbumsInLibrary(c *gin.Context) {
+	albums, err := plugin.musicAssistantPlugin.GetAllAlbumsInLibrary()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, albums)
+}
+
+func (plugin *WebServerPlugin) handleConnectionTestRequest(c *gin.Context) {
+	err := plugin.musicAssistantPlugin.ValidateSystemCredentials()
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Authentication Successful",
 	})
 }
 
-type DataSourceMessage struct {
-	Action string      `json:"action"`
-	Key    string      `json:"key,omitempty"`
-	Topic  string      `json:"topic,omitempty"`
-	Value  interface{} `json:"value,omitempty"`
-	ReqID  string      `json:"req_id,omitempty"`
-}
-
-type DataSourceResponse struct {
-	Action   string      `json:"action"`
-	Key      string      `json:"key,omitempty"`
-	Value    interface{} `json:"value,omitempty"`
-	DataType string      `json:"data_type,omitempty"`
-	Error    string      `json:"error,omitempty"`
-	ReqID    string      `json:"req_id,omitempty"`
-}
-
-func isDataSourceMessage(raw json.RawMessage) bool {
-	var probe struct {
-		Action string `json:"action"`
-	}
-	if err := json.Unmarshal(raw, &probe); err != nil {
-		return false
-	}
-	return probe.Action == "read" || probe.Action == "write" || probe.Action == "subscribe"
-}
-
-func (plugin *WebServerPlugin) handleAvailableAlbumsRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	if httpRequest.Method != http.MethodGet {
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	albums, err := plugin.metadataResolver.GetAvailableAlbums()
-	if err != nil {
-		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(albums)
-}
-
-func (plugin *WebServerPlugin) handleAvailablePlayersRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	if httpRequest.Method != http.MethodGet {
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	players, err := plugin.metadataResolver.GetAvailablePlayers()
-	if err != nil {
-		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(players)
-}
-
-func (plugin *WebServerPlugin) handleDataSourceMessage(
-	msg DataSourceMessage,
-	mergedEventChannel chan core.Event,
-	responseChan chan DataSourceResponse,
-	clientContext context.Context,
-) {
-	switch msg.Action {
-
-	case "read":
-		var value interface{}
-		err := plugin.systemDataSource.Read(msg.Key, &value)
-		if err != nil {
-			responseChan <- DataSourceResponse{
-				Action: "read_error",
-				Key:    msg.Key,
-				Error:  err.Error(),
-				ReqID:  msg.ReqID,
-			}
-			return
-		}
-		dataTypeStr := ""
-		if def, ok := core.SystemRegistry[msg.Key]; ok {
-			dataTypeStr = def.DataType.String()
-		}
-		responseChan <- DataSourceResponse{
-			Action:   "read_response",
-			Key:      msg.Key,
-			Value:    value,
-			DataType: dataTypeStr,
-			ReqID:    msg.ReqID,
-		}
-
-	case "write":
-		if err := plugin.systemDataSource.Write(msg.Key, msg.Value); err != nil {
-			fmt.Printf("DataSource bridge write error [%s]: %v\n", msg.Key, err)
-		}
-
-	case "subscribe":
-		subChan := plugin.systemDataSource.Subscribe(msg.Topic)
-		go func() {
-			for {
-				select {
-				case <-clientContext.Done():
-					return
-				case event, ok := <-subChan:
-					if !ok {
-						return
-					}
-					select {
-					case <-clientContext.Done():
-						return
-					case mergedEventChannel <- event:
-					}
-				}
-			}
-		}()
-	}
-}
-
-func (plugin *WebServerPlugin) handleWebSockets(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	conn, upgradeError := websocketUpgrader.Upgrade(responseWriter, httpRequest, nil)
-	if upgradeError != nil {
-		fmt.Printf("WebSocket Upgrade Error: %v\n", upgradeError)
-		return
-	}
-	defer conn.Close()
-
-	clientContext, cancelClient := context.WithCancel(context.Background())
-	defer cancelClient()
-
-	mergedEventChannel := make(chan core.Event, 100)
-	responseChan := make(chan DataSourceResponse, 20)
-
-	dsChan := plugin.systemDataSource.Subscribe("datasource")
-	go func(c <-chan core.Event) {
-		for event := range c {
-			select {
-			case <-clientContext.Done():
-				return
-			case mergedEventChannel <- event:
-			}
-		}
-	}(dsChan)
-
-	go func() {
-		for {
-			_, rawBytes, readErr := conn.ReadMessage()
-			if readErr != nil {
-				cancelClient()
-				return
-			}
-
-			if isDataSourceMessage(json.RawMessage(rawBytes)) {
-				var dsMsg DataSourceMessage
-				if err := json.Unmarshal(rawBytes, &dsMsg); err == nil {
-					plugin.handleDataSourceMessage(dsMsg, mergedEventChannel, responseChan, clientContext)
-				}
-				continue
-			}
-
-			var incomingEvent core.Event
-			if err := json.Unmarshal(rawBytes, &incomingEvent); err == nil {
-				if incomingEvent.Topic != "" {
-					plugin.systemDataSource.Publish(incomingEvent.Topic, incomingEvent.Payload)
-				}
-			}
-		}
-	}()
-
-	for {
-		select {
-		case <-clientContext.Done():
-			return
-		case response := <-responseChan:
-			if writeErr := conn.WriteJSON(response); writeErr != nil {
-				cancelClient()
-				return
-			}
-		case outgoingEvent := <-mergedEventChannel:
-			if writeErr := conn.WriteJSON(outgoingEvent); writeErr != nil {
-				cancelClient()
-				return
-			}
-		}
-	}
-}
-
-func (plugin *WebServerPlugin) startListeningForNetworkRequests() {
-	fmt.Println("Web Server API Online: Listening on port 8080")
-	if serveError := plugin.httpServer.ListenAndServe(); serveError != nil && serveError != http.ErrServerClosed {
-		fmt.Printf("Web Server API encountered a fatal error: %v\n", serveError)
-	}
-}
-
-func (plugin *WebServerPlugin) handleSystemConfigurationRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	switch httpRequest.Method {
-	case http.MethodGet:
-		plugin.executeReadSystemConfigurationCommand(responseWriter)
-	case http.MethodPost:
-		plugin.executeWriteSystemConfigurationCommand(responseWriter, httpRequest)
-	default:
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (plugin *WebServerPlugin) executeReadSystemConfigurationCommand(responseWriter http.ResponseWriter) {
-	var maUrl, maToken, maPlayerId, mqttHost string
-	var mqttWsPort int
-
-	plugin.systemDataSource.Read("GLOBAL_MusicAssistantUrl", &maUrl)
-	plugin.systemDataSource.Read("GLOBAL_MusicAssistantToken", &maToken)
-	plugin.systemDataSource.Read("GLOBAL_MusicAssistantTargetPlayerId", &maPlayerId)
-	plugin.systemDataSource.Read("GLOBAL_MqttBrokerHostAddress", &mqttHost)
-	plugin.systemDataSource.Read("GLOBAL_MqttWebSocketPort", &mqttWsPort)
-
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(map[string]string{
-		"GLOBAL_MusicAssistantUrl":            maUrl,
-		"GLOBAL_MusicAssistantToken":          maToken,
-		"GLOBAL_MusicAssistantTargetPlayerId": maPlayerId,
-		"mqtt_host":                           mqttHost,
-		"mqtt_ws_port":                        fmt.Sprintf("%d", mqttWsPort),
-	})
-}
-
-func (plugin *WebServerPlugin) executeWriteSystemConfigurationCommand(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	var payload map[string]string
-	if err := json.NewDecoder(httpRequest.Body).Decode(&payload); err != nil {
-		http.Error(responseWriter, "Bad Request: Invalid JSON Payload", http.StatusBadRequest)
-		return
-	}
-	if errs := plugin.persistConfigurationKeysToDataSource(payload); len(errs) > 0 {
-		http.Error(responseWriter, fmt.Sprintf("Partial write failure: %v", errs), http.StatusInternalServerError)
-		return
-	}
-	responseWriter.WriteHeader(http.StatusOK)
-	fmt.Fprint(responseWriter, "Configuration saved successfully")
-}
-
-func (plugin *WebServerPlugin) persistConfigurationKeysToDataSource(payload map[string]string) []error {
-	var errs []error
-
-	stringKeys := map[string]string{
-		"GLOBAL_MusicAssistantUrl":            "GLOBAL_MusicAssistantUrl",
-		"GLOBAL_MusicAssistantToken":          "GLOBAL_MusicAssistantToken",
-		"GLOBAL_MusicAssistantTargetPlayerId": "GLOBAL_MusicAssistantTargetPlayerId",
-		"mqtt_host":                           "GLOBAL_MqttBrokerHostAddress",
-	}
-	for inKey, regKey := range stringKeys {
-		if v, ok := payload[inKey]; ok {
-			if err := plugin.systemDataSource.Write(regKey, v); err != nil {
-				errs = append(errs, fmt.Errorf("failed to write %s: %v", regKey, err))
-			}
-		}
-	}
-
-	intKeys := map[string]string{
-		"mqtt_ws_port":       "GLOBAL_MqttWebSocketPort",
-		"GLOBAL_MqttTcpPort": "GLOBAL_MqttTcpPort",
-	}
-	for inKey, regKey := range intKeys {
-		if sv, ok := payload[inKey]; ok {
-			iv, err := strconv.Atoi(sv)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to parse %s as int: %v", inKey, err))
-				continue
-			}
-			if err := plugin.systemDataSource.Write(regKey, iv); err != nil {
-				errs = append(errs, fmt.Errorf("failed to write %s: %v", regKey, err))
-			}
-		}
-	}
-	return errs
-}
-
-func (plugin *WebServerPlugin) handleLibraryCollectionRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	switch httpRequest.Method {
-	case http.MethodGet:
-		plugin.executeFetchAllAlbumsCommand(responseWriter)
-	case http.MethodPost:
-		plugin.executeSaveNewAlbumCommand(responseWriter, httpRequest)
-	default:
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (plugin *WebServerPlugin) handleSingleRecordRequests(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	parts := strings.Split(httpRequest.URL.Path, "/")
-	if len(parts) < 4 {
-		http.Error(responseWriter, "Bad Request: Missing Unique Identifier", http.StatusBadRequest)
-		return
-	}
-	uid := parts[3]
-	if httpRequest.Method == http.MethodDelete {
-		plugin.executeDeleteAlbumCommand(responseWriter, uid)
-		return
-	}
-	http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-}
-
-func (plugin *WebServerPlugin) handleMetadataResolutionRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	if httpRequest.Method != http.MethodGet {
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	uri := httpRequest.URL.Query().Get("uri")
-	if strings.TrimSpace(uri) == "" {
-		http.Error(responseWriter, "Bad Request: Missing URI parameter", http.StatusBadRequest)
-		return
-	}
-	record, err := plugin.metadataResolver.FetchCleanMetadata(uri)
-	if err != nil {
-		http.Error(responseWriter, fmt.Sprintf("Failed to resolve metadata: %v", err), http.StatusInternalServerError)
-		return
-	}
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(record)
-}
-
-func (plugin *WebServerPlugin) executeFetchAllAlbumsCommand(responseWriter http.ResponseWriter) {
-	albums, err := plugin.libraryRepository.RetrieveAllSavedAlbums()
-	if err != nil {
-		http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	if albums == nil {
-		albums = []core.VinylAlbumRecord{}
-	}
-	responseWriter.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(responseWriter).Encode(albums)
-}
-
-func (plugin *WebServerPlugin) executeSaveNewAlbumCommand(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	var record core.VinylAlbumRecord
-	if err := json.NewDecoder(httpRequest.Body).Decode(&record); err != nil {
-		http.Error(responseWriter, "Bad Request: Invalid JSON Payload", http.StatusBadRequest)
-		return
-	}
-	if err := plugin.libraryRepository.SaveAlbumRecord(record); err != nil {
-		http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	responseWriter.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(responseWriter, "Successfully saved %s", record.AlbumTitle)
-}
-
-func (plugin *WebServerPlugin) executeDeleteAlbumCommand(responseWriter http.ResponseWriter, uid string) {
-	if err := plugin.libraryRepository.DeleteAlbumRecord(uid); err != nil {
-		http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	responseWriter.WriteHeader(http.StatusOK)
-	fmt.Fprintf(responseWriter, "Successfully deleted record %s", uid)
-}
-
-func (plugin *WebServerPlugin) enableCrossOriginRequests(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (plugin *WebServerPlugin) StopPlugin(applicationContext context.Context) error {
-	if plugin.httpServer != nil {
-		return plugin.httpServer.Shutdown(applicationContext)
-	}
-	return nil
-}
-
-func (plugin *WebServerPlugin) handleConnectionTestRequest(responseWriter http.ResponseWriter, httpRequest *http.Request) {
-	if httpRequest.Method != http.MethodGet {
-		http.Error(responseWriter, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if err := plugin.metadataResolver.ValidateSystemCredentials(); err != nil {
-		responseWriter.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(responseWriter, "%v", err)
-		return
-	}
-	responseWriter.WriteHeader(http.StatusOK)
-	fmt.Fprint(responseWriter, "Authentication Successful")
+func (plugin *WebServerPlugin) handleNetworkInfo(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"host_ip": "127.0.0.1"})
 }

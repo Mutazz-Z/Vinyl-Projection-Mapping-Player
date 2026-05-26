@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:web_app/factories/available_players.dart';
 import 'package:web_app/models/music_assistant_models.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:web_app/utils/generate_yaml.dart';
@@ -25,7 +26,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   late final TextEditingController _musicAssistantTokenController;
 
   late final TextEditingController _mediaPlayerController;
-  List<MediaPlayerInfo> _availablePlayers = [];
+  List<AvailablePlayers> _availablePlayers = [];
   String? _selectedPlayerId;
   List<String> _albumCovers = [];
 
@@ -92,7 +93,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (!mounted) return;
 
     if (connectionResult.success) {
-      final players = await musicAssistant.fetchAvailablePlayers();
+      final players = await orchestratorApiClient.getAvailablePlayers();
 
       setState(() {
         _isTestingConnectionState = false;
@@ -150,7 +151,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     setState(() => _isFetchingAlbumsState = true);
 
-    final covers = await musicAssistant.fetchAlbumCoverUrls();
+    final albumsInMusicAssistantLibrary = await orchestratorApiClient
+        .getAllAlbumsFromMusicAssistantLibrary();
+    final covers = albumsInMusicAssistantLibrary
+        .map((album) => album.coverImage)
+        .toList();
     covers.shuffle();
 
     if (!mounted) return;
@@ -364,7 +369,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       final player = _availablePlayers[index];
                       final isSelected = _selectedPlayerId == player.playerId;
                       return PlayerSelectionTile(
-                        playerName: player.displayName,
+                        playerName: player.friendlyName,
                         isSelected: isSelected,
                         onTap: () {
                           setState(() {

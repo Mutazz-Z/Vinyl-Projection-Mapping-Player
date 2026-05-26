@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:web_app/screens/debug_screen.dart';
+import 'package:web_app/screens/settings_screen.dart';
+import 'package:web_app/services/orchestrator_api_client.dart';
 import 'screens/library_screen.dart';
-import 'screens/settings_screen.dart';
 import 'screens/register_screen.dart';
 import 'services/app_coordinator.dart';
 import 'services/music_assistant/music_assistant_service.dart';
@@ -10,12 +12,13 @@ import 'widgets/app_navigation_rail.dart';
 import 'screens/welcome_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final OrchestratorApiClient orchestratorApiClient = OrchestratorApiClient();
 final MusicAssistantService musicAssistant = MusicAssistantService();
 
 late final SystemDataSource systemDataSource;
 late final AppCoordinator appCoordinator;
 
-String get globalOrchestratorHost {
+String get globalOrchestratorHostAddress {
   final String host = Uri.base.host;
   return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
 }
@@ -23,7 +26,10 @@ String get globalOrchestratorHost {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  systemDataSource = SystemDataSource(host: globalOrchestratorHost, port: 8080);
+  systemDataSource = SystemDataSource(
+    host: globalOrchestratorHostAddress,
+    port: 8080,
+  );
   systemDataSource.connect();
 
   await Future.delayed(const Duration(milliseconds: 100));
@@ -32,7 +38,6 @@ void main() async {
 
   appCoordinator = AppCoordinator(
     dataSource: systemDataSource,
-    musicAssistant: musicAssistant,
     navigatorKey: navigatorKey,
   );
 
@@ -84,7 +89,6 @@ class AppShellScreen extends StatefulWidget {
 }
 
 class _AppShellScreenState extends State<AppShellScreen> {
-  // Sets Library as the default view
   AppPageTab _selectedTab = AppPageTab.library;
 
   @override
@@ -96,7 +100,6 @@ class _AppShellScreenState extends State<AppShellScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The old AppBar logic is removed since the new design is edge-to-edge
       body: Row(
         children: [
           AppNavigationRail(
@@ -116,7 +119,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
       case AppPageTab.library:
         return const LibraryScreen();
       case AppPageTab.settings:
-        return const SettingsScreen();
+        return const DebugScreen();
     }
   }
 }

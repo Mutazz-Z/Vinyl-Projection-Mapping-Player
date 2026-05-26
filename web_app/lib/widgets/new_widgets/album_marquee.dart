@@ -9,8 +9,6 @@ class InfiniteAlbumMarquee extends StatelessWidget {
   Widget build(BuildContext context) {
     final validImages = imageUrls.where((url) => url.isNotEmpty).toList();
 
-    // We enforce a minimum list size of 20.
-    // This ensures the row is wide enough that the math for the seamless loop holds up on any screen size.
     List<String> baseList = List.from(validImages);
     if (baseList.isEmpty) {
       baseList = List.filled(20, '');
@@ -19,7 +17,6 @@ class InfiniteAlbumMarquee extends StatelessWidget {
         baseList.addAll(validImages);
       }
     }
-    // Cap exactly at 20 to keep the translation math perfectly predictable
     baseList = baseList.take(20).toList();
 
     return Column(
@@ -59,7 +56,7 @@ class InfiniteAlbumMarquee extends StatelessWidget {
 
 class _MarqueeRow extends StatefulWidget {
   final List<String> images;
-  final int direction; // 1 for right, -1 for left
+  final int direction;
   final int durationSeconds;
 
   const _MarqueeRow({
@@ -113,7 +110,6 @@ class _MarqueeRowState extends State<_MarqueeRow>
           child: child,
         );
       },
-      // 1. We wrap the Row in an OverflowBox
       child: OverflowBox(
         maxWidth: double.maxFinite,
         alignment: Alignment.centerLeft,

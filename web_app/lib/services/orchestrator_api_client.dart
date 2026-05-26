@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_app/factories/albums_in_library.dart';
+import 'package:web_app/factories/album_tracklist.dart';
+import 'package:web_app/factories/available_players.dart';
 import '../models/music_assistant_models.dart';
 import '../models/vinyl_album_record.dart';
 import 'package:web_app/main.dart';
@@ -24,76 +27,19 @@ class OrchestratorApiClient {
     return VinylAlbumRecord.fromJson(decodedJsonPayload);
   }
 
-  Future<List<String>> fetchAlbumCoverUrls() async {
-    final Uri requestUri = Uri.parse(
-      'http://$globalOrchestratorHost:8080/api/albums',
-    );
-
-    try {
-      final response = await http.get(requestUri);
-
-      if (response.statusCode == 200) {
-        final dynamic decodedData = jsonDecode(response.body);
-        List<dynamic> items = [];
-
-        if (decodedData is Map<String, dynamic> &&
-            decodedData.containsKey('items')) {
-          items = decodedData['items'];
-        } else if (decodedData is List) {
-          items = decodedData;
-        }
-
-        List<String> urls = [];
-
-        for (var item in items) {
-          try {
-            final metadata = item['metadata'] as Map<String, dynamic>?;
-            if (metadata != null && metadata['images'] != null) {
-              final images = metadata['images'] as List<dynamic>;
-              if (images.isNotEmpty) {
-                final imageObj = images[0] as Map<String, dynamic>;
-
-                final imageUrl = imageObj['url'] as String?;
-                final imagePath = imageObj['path'] as String?;
-
-                final targetUrl = (imageUrl != null && imageUrl.isNotEmpty)
-                    ? imageUrl
-                    : imagePath;
-
-                if (targetUrl != null && targetUrl.isNotEmpty) {
-                  urls.add(targetUrl);
-                }
-              }
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-
-        debugPrint('Successfully parsed ${urls.length} album covers from MA');
-        return urls.toSet().toList();
-      } else {
-        debugPrint(
-          'HTTP Error fetching albums: ${response.statusCode} - ${response.body}',
-        );
-        return [];
-      }
-    } catch (e) {
-      debugPrint('Network/Parsing Error fetching albums: $e');
-      return [];
-    }
-  }
-
-  Future<List<MediaPlayerInfo>> getAvailablePlayers() async {
+  /*
+   Grabs list of available players from Music Assistant
+  */
+  Future<List<AvailablePlayers>> getAvailablePlayers() async {
     try {
       final response = await http.get(
-        Uri.parse('http://$globalOrchestratorHost:8080/api/players'),
+        Uri.parse('http://$globalOrchestratorHostAddress:8080/api/players/'),
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> decodedJson = jsonDecode(response.body);
         return decodedJson
-            .map((json) => MediaPlayerInfo.fromJson(json))
+            .map((json) => AvailablePlayers.fromJson(json))
             .toList();
       } else {
         throw Exception(
@@ -105,9 +51,10 @@ class OrchestratorApiClient {
     }
   }
 
+  // TODO: Fix whatever this does, right now it just sends out 127.0.0.1... Do we even need this?
   Future<String> fetchHostIp() async {
     final Uri requestUri = Uri.parse(
-      'http://$globalOrchestratorHost:8080/api/system/network',
+      'http://$globalOrchestratorHostAddress:8080/api/system/network',
     );
 
     try {
@@ -125,10 +72,12 @@ class OrchestratorApiClient {
   }
 
   Future<bool> verifyReaderConnection() async {
-    final Uri requestUri = Uri.parse('http://$globalOrchestratorHost:8080/api/system/verify_reader');
+    final Uri requestUri = Uri.parse(
+      'http://$globalOrchestratorHostAddress:8080/api/system/verify_reader',
+    );
     try {
       final response = await http.get(requestUri);
-      return response.statusCode == 200; 
+      return response.statusCode == 200;
     } catch (e) {
       debugPrint('Failed to verify reader: $e');
       return false;
@@ -137,7 +86,7 @@ class OrchestratorApiClient {
 
   Uri constructMetadataResolutionUri(String mediaResourceIdentifier) {
     return Uri.parse(
-      'http://$globalOrchestratorHost:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',
+      'http://$globalOrchestratorHostAddress:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',
     );
   }
 
@@ -155,6 +104,10 @@ class OrchestratorApiClient {
     }
   }
 
+  /*
+    Utility method to check if the HTTP response from the Orchestrator API indicates a successful request.
+    Throws an exception with details if the response status code indicates an error.
+  */
   void validateNetworkResponseStatus(http.Response networkResponse) {
     if (networkResponse.statusCode < 200 || networkResponse.statusCode >= 300) {
       throw Exception(
@@ -179,10 +132,14 @@ class OrchestratorApiClient {
     }
   }
 
+  /*
+    Executes a simple connectivity and authentication test against the Orchestrator API.
+    This can be used to verify that the Go server is running and that Music Assistant credentials are valid.
+  */
   Future<ConnectionTestResult> executeSystemConnectionTest() async {
     try {
       final Uri targetTestUri = Uri.parse(
-        'http://$globalOrchestratorHost:8080/api/system/test',
+        'http://$globalOrchestratorHostAddress:8080/api/system/test',
       );
 
       final http.Response networkResponse = await http
@@ -210,5 +167,50 @@ class OrchestratorApiClient {
             'Failed to reach the Orchestrator API. Is the Go server running? Error: $networkException',
       );
     }
+  }
+
+  /*
+   Fetches all albums from our Music Assistant library
+  */
+  Future<List<AlbumsInLibrary>> getAllAlbumsFromMusicAssistantLibrary() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://$globalOrchestratorHostAddress:8080/api/library/'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decodedData = jsonDecode(response.body);
+        return decodedData
+            .map((json) => AlbumsInLibrary.fromJson(json))
+            .toList();
+      }
+    } catch (error) {
+      debugPrint('Network/Parsing Error fetching albums: $error');
+    }
+    return [];
+  }
+
+  /*
+   Fetches the tracklist and metadata for a given album in our Music Assistant library
+  */
+  Future<List<AlbumTrackList>> fetchAlbumTrackList(
+    String itemId,
+    String provider,
+  ) async {
+    try {
+      final http.Response response = await http.get(
+        Uri.parse(
+          'http://$globalOrchestratorHostAddress:8080/api/library/$provider/$itemId',
+        ),
+      );
+      if (response.statusCode == 200) {
+        List<dynamic> rawList = jsonDecode(response.body);
+        List<AlbumTrackList> tracks = AlbumTrackList.fromJsonList(rawList);
+        return tracks;
+      }
+    } catch (error) {
+      debugPrint('Error fetching album tracklist: $error');
+    }
+    return [];
   }
 }

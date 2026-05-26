@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_app/factories/album_tracklist.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:web_app/widgets/new_widgets/text_field.dart';
@@ -37,7 +38,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() => _isLoading = true);
     try {
       final http.Response response = await http.get(
-        Uri.parse('${systemDataSource.httpBaseUrl}/api/library'),
+        Uri.parse('${systemDataSource.httpBaseUrl}/api/library/savedTags'),
       );
       if (response.statusCode == 200) {
         final dynamic decodedData = jsonDecode(response.body);
@@ -59,7 +60,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final String searchQuery = _searchController.text.toLowerCase();
     setState(() {
       _filteredAlbums = _allAlbums.where((dynamic album) {
-        final String title = ((album as Map)['album'] as String? ?? '')
+        final String title = ((album as Map)['media_title'] as String? ?? '')
             .toLowerCase();
         final String artist = (album['artist'] as String? ?? '').toLowerCase();
         return title.contains(searchQuery) || artist.contains(searchQuery);
@@ -72,17 +73,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => RegisterScreen(
-          uid: albumRecord['uid'] as String,
+          uid: albumRecord['tag_uid'] as String,
           initialArtist: albumRecord['artist'] as String?,
-          initialAlbum: albumRecord['album'] as String?,
-          initialTracks: albumRecord['tracks'] as String?,
-          initialUri: albumRecord['media_uri'] as String?,
-          initialInnerRecordColor: albumRecord['inner_record_color'] as String?,
-          initialInnerRecordImage: albumRecord['inner_record_image'] as String?,
-          initialOuterDesignColor: albumRecord['outer_design_color'] as String?,
-          initialOuterDesignImage: albumRecord['outer_design_image'] as String?,
-          initialOverlayArt: albumRecord['overlay_art'] as String?,
-          initialAlbumCoverArt: albumRecord['album_cover_art'] as String?,
+          initialAlbum: albumRecord['media_title'] as String?,
+          initialTracks: (albumRecord['track_list'] as List<dynamic>?)
+              ?.map(
+                (track) =>
+                    AlbumTrackList.fromJson(track as Map<String, dynamic>),
+              )
+              .toList(),
+          itemId: albumRecord['item_id'] as String?,
+          provider: albumRecord['provider'] as String?,
+          initialInnerRecordColor: albumRecord['label_color'] as String?,
+          initialInnerRecordImage: albumRecord['label_image'] as String?,
+          initialOuterDesignColor: albumRecord['outer_ring_color'] as String?,
+          initialOuterDesignImage: albumRecord['outer_ring_image'] as String?,
+          initialOverlayArt: albumRecord['projection_overlay'] as String?,
+          initialAlbumCoverArt: albumRecord['cover_image'] as String?,
         ),
       ),
     ).then((_) => _fetchLibrary());
@@ -158,32 +165,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                           as Map<String, dynamic>;
                                   return VinylCard(
                                     albumName:
-                                        (albumRecord['album'] as String?) ??
+                                        (albumRecord['media_title']
+                                            as String?) ??
                                         'Unknown',
                                     coverArt:
-                                        (albumRecord['album_cover_art']
+                                        (albumRecord['cover_image']
                                             as String?) ??
                                         '',
                                     outerColor: _parseHexColor(
-                                      albumRecord['outer_design_color']
+                                      albumRecord['outer_ring_color']
                                           as String?,
                                       const Color(0xFF111111),
                                     ),
                                     innerColor: _parseHexColor(
-                                      albumRecord['inner_record_color']
-                                          as String?,
+                                      albumRecord['label_color'] as String?,
                                       AppColors.porcelain,
                                     ),
                                     outerImage:
-                                        (albumRecord['outer_design_image']
+                                        (albumRecord['outer_ring_image']
                                             as String?) ??
                                         '',
                                     innerImage:
-                                        (albumRecord['inner_record_image']
+                                        (albumRecord['label_image']
                                             as String?) ??
                                         '',
                                     overlayArt:
-                                        (albumRecord['overlay_art']
+                                        (albumRecord['projection_overlay']
                                             as String?) ??
                                         '',
                                     onTap: () =>

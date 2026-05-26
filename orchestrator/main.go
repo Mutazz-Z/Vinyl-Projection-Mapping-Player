@@ -10,14 +10,14 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"vinyl-orchestrator/application/display"
-	"vinyl-orchestrator/application/playback"
-	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/application/assets"
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/application/display"
 	"vinyl-orchestrator/application/mqtt"
 	"vinyl-orchestrator/application/musicassistant"
+	"vinyl-orchestrator/application/playback"
 	"vinyl-orchestrator/application/webapi"
+	"vinyl-orchestrator/core"
 )
 
 func resolvePrimaryDatabaseFilePath() string {
@@ -43,7 +43,7 @@ func main() {
 		panic(fmt.Sprintf("Fatal Error: Could not initialize data source: %v", dataSourceInitializationError))
 	}
 
-	libraryRepository, repositoryInitializationError := database.NewSQLiteLibraryRepository(sharedDatabaseConnection)
+	AlbumLibrary, repositoryInitializationError := database.NewSQLiteAlbumLibrary(databaseFilePath)
 	if repositoryInitializationError != nil {
 		panic(fmt.Sprintf("Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
 	}
@@ -67,7 +67,7 @@ func main() {
 	for _, currentPlugin := range orchestratorPlugins {
 		fmt.Printf("Initializing Module: %s\n", currentPlugin.Name())
 
-		initializationError := currentPlugin.Init(systemDataSource, libraryRepository)
+		initializationError := currentPlugin.Init(systemDataSource, AlbumLibrary)
 		if initializationError != nil {
 			panic(fmt.Sprintf("Fatal Error: %s failed to initialize: %v", currentPlugin.Name(), initializationError))
 		}

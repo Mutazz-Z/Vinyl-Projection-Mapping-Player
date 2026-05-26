@@ -1,6 +1,9 @@
 package core
 
-import "context"
+import (
+	"context"
+	typedefinitions "vinyl-orchestrator/type_definitions"
+)
 
 type Event struct {
 	Topic   string
@@ -46,70 +49,22 @@ type DataSource interface {
 	Subscribe(topic string) <-chan Event
 }
 
-type VinylAlbumRecord struct {
-	NfcUniqueIdentifier string `json:"uid"`
-	ArtistName          string `json:"artist"`
-	AlbumTitle          string `json:"album"`
-	TrackList           string `json:"tracks"`
-	MediaResourceUri    string `json:"media_uri"`
-	InnerRecordColor    string `json:"inner_record_color"`
-	InnerRecordImage    string `json:"inner_record_image"`
-	OuterDesignColor    string `json:"outer_design_color"`
-	OuterDesignImage    string `json:"outer_design_image"`
-	OverlayArt          string `json:"overlay_art"`
-	AlbumCoverArt       string `json:"album_cover_art"`
-}
-
-type LibraryRepository interface {
-	SaveAlbumRecord(albumRecord VinylAlbumRecord) error
-	RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (VinylAlbumRecord, error)
-	RetrieveAllSavedAlbums() ([]VinylAlbumRecord, error)
-	DeleteAlbumRecord(nfcUniqueIdentifier string) error
-}
-
 type MediaPlayer interface {
 	PlayMedia(mediaUri string) error
 	StopMedia() error
 	GetState() (string, error)
 }
 
+type AlbumLibrary interface {
+	SaveAlbumRecord(albumRecord typedefinitions.VinylRecordTagData) error
+	RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (typedefinitions.VinylRecordTagData, error)
+	RetrieveAllSavedAlbums() ([]typedefinitions.VinylRecordTagData, error)
+	DeleteAlbumRecord(nfcUniqueIdentifier string) error
+}
+
 type Plugin interface {
 	Name() string
-	Init(dataSource DataSource, libraryRepository LibraryRepository) error
+	Init(dataSource DataSource, AlbumLibrary AlbumLibrary) error
 	StartPlugin(context context.Context) error
 	StopPlugin(context context.Context) error
-}
-
-const (
-	VisualEffectPlay    = "play"
-	VisualEffectUnknown = "unknown"
-	VisualEffectStop    = "stop"
-	VisualEffectError   = "error"
-)
-
-type VisualEffectPayload struct {
-	Effect           string `json:"effect"`
-	UniqueIdentifier string `json:"uid,omitempty"`
-	RegistrationURL  string `json:"registration_url,omitempty"`
-	ArtistName       string `json:"artist,omitempty"`
-	AlbumTitle       string `json:"album,omitempty"`
-	TrackList        string `json:"tracks,omitempty"`
-	MediaResourceUri string `json:"media_uri,omitempty"`
-	InnerRecordColor string `json:"inner_record_color,omitempty"`
-	InnerRecordImage string `json:"inner_record_image,omitempty"`
-	OuterDesignColor string `json:"outer_design_color,omitempty"`
-	OuterDesignImage string `json:"outer_design_image,omitempty"`
-	OverlayArt       string `json:"overlay_art,omitempty"`
-	AlbumCoverArt    string `json:"album_cover_art,omitempty"`
-	ErrorMessage     string `json:"message,omitempty"`
-}
-
-func ProcessDataSourceEvents(dsChannel <-chan Event, handler func(args DataSourceChangedArgs)) {
-	for incomingEvent := range dsChannel {
-		args, ok := incomingEvent.Payload.(DataSourceChangedArgs)
-		if !ok {
-			continue
-		}
-		handler(args)
-	}
 }

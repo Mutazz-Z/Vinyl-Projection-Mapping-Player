@@ -16,9 +16,9 @@ type HardwareTagPayload struct {
 }
 
 type BrokerPlugin struct {
-	systemDataSource  core.DataSource
-	libraryRepository core.LibraryRepository
-	mqttClient        eclipseMqtt.Client
+	systemDataSource core.DataSource
+	AlbumLibrary     core.AlbumLibrary
+	mqttClient       eclipseMqtt.Client
 }
 
 func (plugin *BrokerPlugin) handleSuccessfulConnection(connectedClient eclipseMqtt.Client) {
@@ -84,9 +84,9 @@ func (plugin *BrokerPlugin) Name() string {
 	return "Hardware_MQTT_Broker_Bridge"
 }
 
-func (plugin *BrokerPlugin) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
+func (plugin *BrokerPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
 	plugin.systemDataSource = dataSource
-	plugin.libraryRepository = libraryRepository
+	plugin.AlbumLibrary = AlbumLibrary
 	return nil
 }
 

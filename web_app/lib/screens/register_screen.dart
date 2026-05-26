@@ -2,7 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:web_app/factories/album_tracklist.dart';
+import 'package:web_app/factories/albums_in_library.dart';
+import 'package:web_app/factories/saved_tag.dart';
 import 'package:web_app/main.dart';
+import 'package:web_app/services/orchestrator_api_client.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:web_app/services/media_asset_service.dart';
 import 'package:web_app/widgets/new_widgets/pill_button.dart';
@@ -14,8 +18,9 @@ class RegisterScreen extends StatefulWidget {
   final String uid;
   final String? initialArtist;
   final String? initialAlbum;
-  final String? initialTracks;
-  final String? initialUri;
+  final List<AlbumTrackList>? initialTracks;
+  final String? itemId;
+  final String? provider;
   final String? initialInnerRecordColor;
   final String? initialInnerRecordImage;
   final String? initialOuterDesignColor;
@@ -29,7 +34,8 @@ class RegisterScreen extends StatefulWidget {
     this.initialArtist,
     this.initialAlbum,
     this.initialTracks,
-    this.initialUri,
+    this.itemId,
+    this.provider,
     this.initialInnerRecordColor,
     this.initialInnerRecordImage,
     this.initialOuterDesignColor,
@@ -50,9 +56,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String _albumName = '';
   String _artistName = '';
-  String _trackList = '';
+  List<AlbumTrackList> _trackList = [];
   String _coverArtUrl = '';
-  String _mediaUri = '';
+  String _tagUid = '';
+  String _itemId = '';
+  String _provider = '';
 
   DesignMode _innerMode = DesignMode.color;
   DesignMode _outerMode = DesignMode.color;
@@ -66,7 +74,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late final TextEditingController _innerColorController;
   late final TextEditingController _outerColorController;
 
-  List<Map<String, dynamic>> _maAlbums = [];
+  final OrchestratorApiClient _apiClient = OrchestratorApiClient();
+
+  List<AlbumsInLibrary> _maAlbums = [];
+  bool _isLoadingDetails = false;
 
   static const double _columnBreakpoint = 800.0;
 
@@ -78,8 +89,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     _albumName = widget.initialAlbum ?? '';
     _artistName = widget.initialArtist ?? '';
-    _trackList = widget.initialTracks ?? '';
-    _mediaUri = widget.initialUri ?? '';
+    _trackList = widget.initialTracks ?? [];
+    _tagUid = widget.uid;
+    _itemId = widget.itemId ?? '';
+    _provider = widget.provider ?? '';
     _coverArtUrl = widget.initialAlbumCoverArt ?? '';
 
     _innerColor = RegisterUtils.parseHexColor(
@@ -113,86 +126,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _fetchMusicAssistantAlbums() async {
-    try {
-      final http.Response response = await http.get(
-        Uri.parse('${systemDataSource.httpBaseUrl}/api/albums'),
-      );
-      if (response.statusCode == 200) {
-        final dynamic decodedData = jsonDecode(response.body);
-        List<dynamic> albumItems = [];
-        if (decodedData is Map<String, dynamic> &&
-            decodedData.containsKey('items')) {
-          albumItems = decodedData['items'] as List<dynamic>;
-        } else if (decodedData is List) {
-          albumItems = decodedData;
-        }
-        setState(() {
-          _maAlbums = albumItems.whereType<Map<String, dynamic>>().toList();
-        });
-      }
-    } catch (fetchError) {
-      debugPrint('Error fetching MA albums: $fetchError');
+    final albums = await _apiClient.getAllAlbumsFromMusicAssistantLibrary();
+
+    if (mounted) {
+      setState(() {
+        _maAlbums = albums;
+      });
     }
   }
 
-  Future<void> _onAlbumSelected(Map<String, dynamic> selectedAlbum) async {
-    final String albumName = (selectedAlbum['name'] as String?) ?? '';
-    final String mediaUri = (selectedAlbum['uri'] as String?) ?? '';
-    String artistName = 'Unknown Artist';
-
-    final dynamic artistsList = selectedAlbum['artists'];
-    if (artistsList is List && artistsList.isNotEmpty) {
-      artistName = (artistsList[0]['name'] as String?) ?? 'Unknown Artist';
-    }
-
-    String coverArtUrl = '';
-    try {
-      final List<dynamic>? imagesList =
-          selectedAlbum['metadata']?['images'] as List<dynamic>?;
-      if (imagesList != null && imagesList.isNotEmpty) {
-        final dynamic firstImage = imagesList[0];
-        coverArtUrl =
-            (firstImage['url'] as String?) ??
-            (firstImage['path'] as String?) ??
-            '';
-      }
-    } catch (_) {}
-
+  Future<void> _onAlbumSelected(AlbumsInLibrary selectedAlbum) async {
     setState(() {
-      _albumName = albumName;
-      _mediaUri = mediaUri;
-      _artistName = artistName;
-      _coverArtUrl = coverArtUrl;
-      _trackList = '';
+      _albumName = selectedAlbum.mediaTitle;
+      _artistName = selectedAlbum.artist;
+      _coverArtUrl = selectedAlbum.coverImage;
+      _trackList = [];
+      _isLoadingDetails = true;
+      _itemId = selectedAlbum.itemId;
+      _provider = selectedAlbum.provider;
     });
 
-    if (mediaUri.isEmpty) return;
+    final trackList = await _apiClient.fetchAlbumTrackList(
+      selectedAlbum.itemId,
+      selectedAlbum.provider,
+    );
 
-    try {
-      final http.Response response = await http.get(
-        Uri.parse(
-          '${systemDataSource.httpBaseUrl}/api/metadata/resolve?uri=${Uri.encodeComponent(mediaUri)}',
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> resolved =
-            jsonDecode(response.body) as Map<String, dynamic>;
-        final String tracks =
-            (resolved['TrackList'] as String?) ??
-            (resolved['track_list'] as String?) ??
-            (resolved['tracks'] as String?) ??
-            '';
-        if (tracks.isNotEmpty && mounted) {
-          setState(() => _trackList = tracks);
+    if (mounted) {
+      setState(() {
+        _isLoadingDetails = false;
+        if (trackList.isNotEmpty) {
+          _trackList = trackList;
         }
-      } else {
-        debugPrint(
-          '_onAlbumSelected: metadata/resolve returned ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      debugPrint('_onAlbumSelected: failed to fetch track list: $e');
+      });
     }
   }
 
@@ -242,27 +207,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _saveRecord() async {
     setState(() => _isSaving = true);
 
-    final Map<String, dynamic> recordPayload = {
-      'uid': widget.uid,
-      'artist': _artistName,
-      'album': _albumName,
-      'tracks': _trackList,
-      'media_uri': _mediaUri,
-      'inner_record_color': _innerMode == DesignMode.color
+    final VinylRecordTagData recordPayload = VinylRecordTagData(
+      tagUid: widget.uid,
+      artist: _artistName,
+      mediaTitle: _albumName,
+      trackList: _trackList,
+      itemId: _itemId,
+      provider: _provider,
+      labelColor: _innerMode == DesignMode.color
           ? RegisterUtils.toHexColor(_innerColor)
           : '',
-      'inner_record_image': _innerMode == DesignMode.image ? _innerImage : '',
-      'outer_design_color': _outerMode == DesignMode.color
+      labelImage: _innerMode == DesignMode.image ? _innerImage : '',
+      outerRingColor: _outerMode == DesignMode.color
           ? RegisterUtils.toHexColor(_outerColor)
           : '',
-      'outer_design_image': _outerMode == DesignMode.image ? _outerImage : '',
-      'overlay_art': _overlayArt,
-      'album_cover_art': _coverArtUrl,
-    };
+      outerRingImage: _outerMode == DesignMode.image ? _outerImage : '',
+      projectionOverlay: _overlayArt,
+      coverImage: _coverArtUrl,
+    );
 
     try {
       await http.post(
-        Uri.parse('${systemDataSource.httpBaseUrl}/api/library'),
+        Uri.parse('${systemDataSource.httpBaseUrl}/api/library/saveAlbum'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(recordPayload),
       );
@@ -335,6 +301,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  String _formatDuration(int totalSeconds) {
+    final int minutes = totalSeconds ~/ 60;
+    final int seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildFallbackCover() {
+    return Container(
+      width: 40,
+      height: 40,
+      color: Colors.grey.shade300,
+      child: const Icon(Icons.music_note, color: Colors.white, size: 20),
+    );
+  }
+
   Widget _buildPreview() {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
@@ -388,38 +369,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 24),
 
-          Autocomplete<Map<String, dynamic>>(
-            displayStringForOption: (Map<String, dynamic> option) {
-              final String title =
-                  (option['name'] as String?) ?? 'Unknown Album';
-              String artist = 'Unknown Artist';
-              final dynamic artistsList = option['artists'];
-              if (artistsList is List && artistsList.isNotEmpty) {
-                artist =
-                    (artistsList[0]['name'] as String?) ?? 'Unknown Artist';
-              }
-              return '$title — $artist';
-            },
+          Autocomplete<AlbumsInLibrary>(
+            displayStringForOption: (AlbumsInLibrary option) =>
+                option.mediaTitle,
+
             optionsBuilder: (TextEditingValue textEditingValue) {
               if (textEditingValue.text.isEmpty) {
-                return const Iterable<Map<String, dynamic>>.empty();
+                return const Iterable<AlbumsInLibrary>.empty();
               }
               final String query = textEditingValue.text.toLowerCase();
+
               return _maAlbums
-                  .where((Map<String, dynamic> album) {
-                    final String title = ((album['name'] as String?) ?? '')
-                        .toLowerCase();
-                    String artist = '';
-                    final dynamic artistsList = album['artists'];
-                    if (artistsList is List && artistsList.isNotEmpty) {
-                      artist = ((artistsList[0]['name'] as String?) ?? '')
-                          .toLowerCase();
-                    }
-                    return title.contains(query) || artist.contains(query);
-                  })
+                  .where(
+                    (AlbumsInLibrary album) =>
+                        album.mediaTitle.toLowerCase().contains(query),
+                  )
                   .take(10);
             },
-            onSelected: (Map<String, dynamic> album) => _onAlbumSelected(album),
+
+            onSelected: _onAlbumSelected,
+
             fieldViewBuilder:
                 (
                   BuildContext fieldContext,
@@ -476,26 +445,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 8),
               Container(
-                constraints: const BoxConstraints(maxHeight: 120),
+                constraints: const BoxConstraints(maxHeight: 250),
                 width: double.infinity,
-                padding: const EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12.0),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    child: Text(
-                      _trackList,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                        height: 1.5,
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(8.0),
+                  shrinkWrap: true,
+                  itemCount: _trackList.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, color: Colors.black12),
+                  itemBuilder: (context, index) {
+                    final trackInfo = _trackList[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8.0,
+                        horizontal: 4.0,
                       ),
-                    ),
-                  ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: trackInfo.coverImage.isNotEmpty
+                                ? Image.network(
+                                    trackInfo.coverImage,
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) =>
+                                        _buildFallbackCover(),
+                                  )
+                                : _buildFallbackCover(),
+                          ),
+                          const SizedBox(width: 12),
+
+                          Expanded(
+                            child: Text(
+                              trackInfo.track,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.shadowGrey,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          Text(
+                            _formatDuration(trackInfo.duration),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors
+                                  .subtleText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -756,7 +769,7 @@ class _AssetPickerWidgetState extends State<_AssetPickerWidget> {
                       final String assetUrl = _availableAssets[assetIndex];
 
                       final String displayUrl = assetUrl.startsWith('/')
-                          ? 'http://$globalOrchestratorHost:8080$assetUrl'
+                          ? 'http://$globalOrchestratorHostAddress:8080$assetUrl'
                           : assetUrl;
 
                       final bool isVideoAsset = displayUrl

@@ -10,7 +10,6 @@ type MusicAssistantPlugin struct {
 	connectionManager *WebSocketManager
 	messageRouter     *RpcMessageRouter
 	mediaPlayer       *SystemMediaPlayer
-	metadataResolver  *SystemMetadataResolver
 }
 
 func NewMusicAssistantPlugin() *MusicAssistantPlugin {
@@ -22,7 +21,6 @@ func NewMusicAssistantPlugin() *MusicAssistantPlugin {
 		connectionManager: connectionManagerInstance,
 		messageRouter:     messageRouterInstance,
 		mediaPlayer:       NewSystemMediaPlayer(messageRouterInstance),
-		metadataResolver:  NewSystemMetadataResolver(messageRouterInstance, connectionManagerInstance),
 	}
 }
 
@@ -34,16 +32,12 @@ func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
 	return plugin.mediaPlayer.GetAvailablePlayers()
 }
 
-func (plugin *MusicAssistantPlugin) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
+func (plugin *MusicAssistantPlugin) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
 	plugin.systemDataSource = dataSource
 	plugin.connectionManager.SetDataSource(dataSource)
 	plugin.messageRouter.SetDataSource(dataSource)
 	plugin.mediaPlayer.SetDataSource(dataSource)
 	return nil
-}
-
-func (plugin *MusicAssistantPlugin) GetAvailableAlbums() (interface{}, error) {
-	return plugin.metadataResolver.GetAvailableAlbums()
 }
 
 func (plugin *MusicAssistantPlugin) StartPlugin(applicationContext context.Context) error {
@@ -68,10 +62,14 @@ func (plugin *MusicAssistantPlugin) GetState() (string, error) {
 	return plugin.mediaPlayer.GetState()
 }
 
-func (plugin *MusicAssistantPlugin) FetchCleanMetadata(mediaResourceIdentifier string) (*core.VinylAlbumRecord, error) {
-	return plugin.metadataResolver.FetchCleanMetadata(mediaResourceIdentifier)
+func (plugin *MusicAssistantPlugin) GetAllAlbumsInLibrary() (interface{}, error) {
+	return plugin.getAllAlbumsFromMusicAssistantLibrary()
+}
+
+func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider string) ([]AlbumTrackList, error) {
+	return plugin.getAlbumTrackList(itemId, provider)
 }
 
 func (plugin *MusicAssistantPlugin) ValidateSystemCredentials() error {
-	return plugin.metadataResolver.ValidateSystemCredentials()
+	return plugin.validateCredentials()
 }

@@ -226,7 +226,7 @@ class _ProjectionPreviewState extends State<ProjectionPreview>
 
     String normalizedSource = source;
     if (normalizedSource.startsWith('/')) {
-      normalizedSource = 'http://$globalOrchestratorHost:8080$normalizedSource';
+      normalizedSource = 'http://$globalOrchestratorHostAddress:8080$normalizedSource';
     }
 
     if (normalizedSource.toLowerCase().endsWith('.mp4')) {

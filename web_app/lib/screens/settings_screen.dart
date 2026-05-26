@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:web_app/factories/available_players.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/models/music_assistant_models.dart';
 import 'package:web_app/widgets/new_widgets/pill_dropdown.dart';
@@ -23,7 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _mqttPortController;
   late final TextEditingController _siteUrlController;
 
-  List<MediaPlayerInfo> _availablePlayers = [];
+  List<AvailablePlayers> _availablePlayers = [];
   String? _selectedPlayerId;
 
   bool _isLoading = true;
@@ -133,7 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _selectedPlayerId = applicationSettings.musicAssistantPlayerIdString;
     _siteUrlController.text = '';
 
-    final players = await musicAssistant.fetchAvailablePlayers();
+    final players = await orchestratorApiClient.getAvailablePlayers();
 
     try {
       final w = await systemDataSource.read(
@@ -591,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     items: _availablePlayers.map((player) {
                       return DropdownMenuItem<String>(
                         value: player.playerId,
-                        child: Text(player.displayName),
+                        child: Text(player.friendlyName),
                       );
                     }).toList(),
                     onChanged: (val) {

@@ -6,31 +6,24 @@ import (
 	"net/url"
 
 	"vinyl-orchestrator/core"
+	typedefinitions "vinyl-orchestrator/type_definitions"
+	"vinyl-orchestrator/utils"
 )
 
 type DisplayApplicationService struct {
-	systemDataSource  core.DataSource
-	libraryRepository core.LibraryRepository
+	systemDataSource core.DataSource
+	AlbumLibrary     core.AlbumLibrary
 }
 
 func (service *DisplayApplicationService) sendDataToProjectorForKnownTag(uid string) {
-	retrievedAlbumRecord, err := service.libraryRepository.RetrieveAlbumByNfcIdentifier(uid)
+	retrievedAlbumRecord, err := service.AlbumLibrary.RetrieveAlbumByNfcIdentifier(uid)
 	if err != nil {
 		return
 	}
 
-	payload := core.VisualEffectPayload{
-		Effect:           core.VisualEffectPlay,
-		ArtistName:       retrievedAlbumRecord.ArtistName,
-		AlbumTitle:       retrievedAlbumRecord.AlbumTitle,
-		TrackList:        retrievedAlbumRecord.TrackList,
-		MediaResourceUri: retrievedAlbumRecord.MediaResourceUri,
-		InnerRecordColor: retrievedAlbumRecord.InnerRecordColor,
-		InnerRecordImage: retrievedAlbumRecord.InnerRecordImage,
-		OuterDesignColor: retrievedAlbumRecord.OuterDesignColor,
-		OuterDesignImage: retrievedAlbumRecord.OuterDesignImage,
-		OverlayArt:       retrievedAlbumRecord.OverlayArt,
-		AlbumCoverArt:    retrievedAlbumRecord.AlbumCoverArt,
+	payload := typedefinitions.ProjectorData{
+		TagData:     retrievedAlbumRecord,
+		PlayerState: typedefinitions.PlayerState_Playing,
 	}
 	service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
 }
@@ -42,16 +35,16 @@ func (service *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid s
 	service.systemDataSource.Read("GLOBAL_FlutterWebPort", &port)
 
 	formattedUrl := fmt.Sprintf("http://%s:%s/?uid=%s", host, port, url.QueryEscape(uid))
-	payload := core.VisualEffectPayload{
-		Effect:           core.VisualEffectUnknown,
-		UniqueIdentifier: uid,
-		RegistrationURL:  formattedUrl,
+	payload := typedefinitions.ProjectorData{
+		PlayerState:    typedefinitions.PlayerState_Unknown,
+		TagData:        typedefinitions.VinylRecordTagData{TagUid: uid},
+		RegisterTagUrl: formattedUrl,
 	}
 	service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
 }
 
 func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan core.Event) {
-	go core.ProcessDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
 
 		switch args.Variable {
 		case "GLOBAL_LastScannedNfcTag":
@@ -72,17 +65,17 @@ func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged 
 		case "GLOBAL_CurrentShelfStatus":
 			status, _ := args.Data.(string)
 			if status == "empty" {
-				service.systemDataSource.Write("GLOBAL_CurrentProjectorData", core.VisualEffectPayload{Effect: core.VisualEffectStop})
+				service.systemDataSource.Write("GLOBAL_CurrentProjectorData", typedefinitions.ProjectorData{PlayerState: typedefinitions.PlayerState_Stopped})
 			}
 
 		case "GLOBAL_ActiveRecordPlaybackState":
 			state, _ := args.Data.(string)
 			if state == "error" {
-				payload := core.VisualEffectPayload{
-					Effect:       core.VisualEffectError,
+				dataToSend := typedefinitions.ProjectorData{
+					PlayerState:  typedefinitions.PlayerState_Error,
 					ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
 				}
-				service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
+				service.systemDataSource.Write("GLOBAL_CurrentProjectorData", dataToSend)
 			}
 		}
 	})
@@ -96,9 +89,9 @@ func (service *DisplayApplicationService) Name() string {
 	return "Application_Display_Coordinator"
 }
 
-func (service *DisplayApplicationService) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
+func (service *DisplayApplicationService) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
 	service.systemDataSource = dataSource
-	service.libraryRepository = libraryRepository
+	service.AlbumLibrary = AlbumLibrary
 	return nil
 }
 

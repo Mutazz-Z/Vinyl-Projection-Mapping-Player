@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/utils"
 )
 
 type PlaybackApplicationService struct {
 	systemDataSource  core.DataSource
-	libraryRepository core.LibraryRepository
+	AlbumLibrary      core.AlbumLibrary
 	activeMediaPlayer core.MediaPlayer
 
 	playbackWatchdogTimer *time.Timer
@@ -105,16 +106,16 @@ func (service *PlaybackApplicationService) startRecordRemovedWatchdog() {
 func (service *PlaybackApplicationService) processScannedNfcTag(uid string) {
 	service.cancelRecordRemovedTimeout()
 
-	retrievedAlbumRecord, error := service.libraryRepository.RetrieveAlbumByNfcIdentifier(uid)
+	retrievedAlbumRecord, error := service.AlbumLibrary.RetrieveAlbumByNfcIdentifier(uid)
 	if error != nil {
 		fmt.Printf("Playback Service: Unknown Tag %s, writing to registry for registration\n", uid)
 		service.systemDataSource.Write("GLOBAL_LastUnknownNfcTag", uid)
 		return
 	}
 
-	fmt.Printf("Playback Service: Starting %s by %s\n", retrievedAlbumRecord.AlbumTitle, retrievedAlbumRecord.ArtistName)
+	fmt.Printf("Playback Service: Starting %s by %s\n", retrievedAlbumRecord.MediaTitle, retrievedAlbumRecord.Artist)
 
-	playbackError := service.activeMediaPlayer.PlayMedia(retrievedAlbumRecord.MediaResourceUri)
+	playbackError := service.activeMediaPlayer.PlayMedia(utils.GenerateUriForMedia(retrievedAlbumRecord.ItemId, retrievedAlbumRecord.Provider))
 	if playbackError != nil {
 		fmt.Printf("Playback Service Error: Media player rejected play command. (%v)\n", playbackError)
 		return
@@ -123,7 +124,7 @@ func (service *PlaybackApplicationService) processScannedNfcTag(uid string) {
 }
 
 func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged <-chan core.Event) {
-	go core.ProcessDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.DataSourceChangedArgs) {
 
 		switch args.Variable {
 		case "GLOBAL_LastScannedNfcTag":
@@ -155,9 +156,9 @@ func (service *PlaybackApplicationService) Name() string {
 	return "Application_Playback_Coordinator"
 }
 
-func (service *PlaybackApplicationService) Init(dataSource core.DataSource, libraryRepository core.LibraryRepository) error {
+func (service *PlaybackApplicationService) Init(dataSource core.DataSource, AlbumLibrary core.AlbumLibrary) error {
 	service.systemDataSource = dataSource
-	service.libraryRepository = libraryRepository
+	service.AlbumLibrary = AlbumLibrary
 	return nil
 }
 

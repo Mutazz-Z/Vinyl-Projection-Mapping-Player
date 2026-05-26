@@ -56,11 +56,14 @@ class DataSource {
         if (!topic) return;
 
         if (topic === 'datasource') {
-            if (payload && payload.variable !== undefined) {
+            const varName = payload?.variable ?? payload?.key ?? payload?.Key;
+            const varData = payload?.data !== undefined ? payload.data : (payload?.value !== undefined ? payload.value : payload?.Value);
+
+            if (varName !== undefined && varData !== undefined) {
                 try {
                     this.OnDataSourceChanged(this, {
-                        variable: payload.variable,
-                        data: payload.data,
+                        variable: varName,
+                        data: varData,
                     });
                 } catch (e) {
                     console.error('OnDataSourceChanged error:', e);
