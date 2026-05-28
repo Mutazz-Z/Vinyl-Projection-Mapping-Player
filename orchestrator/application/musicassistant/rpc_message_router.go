@@ -11,28 +11,6 @@ import (
 	"vinyl-orchestrator/application/database"
 )
 
-type RpcMessageRouter struct {
-	systemDataSource         database.DataSource
-	connectionManager        *WebSocketManager
-	messageIdentifierCounter uint64
-	pendingRequests          map[uint64]chan map[string]interface{}
-	requestsMutex            sync.Mutex
-}
-
-func NewRpcMessageRouter() *RpcMessageRouter {
-	return &RpcMessageRouter{
-		pendingRequests: make(map[uint64]chan map[string]interface{}),
-	}
-}
-
-func (router *RpcMessageRouter) BindConnectionManager(managerInstance *WebSocketManager) {
-	router.connectionManager = managerInstance
-}
-
-func (router *RpcMessageRouter) SetDataSource(dataSource database.DataSource) {
-	router.systemDataSource = dataSource
-}
-
 func (router *RpcMessageRouter) ExecuteRemoteProcedureCall(procedureCommand string, commandArguments map[string]interface{}) (map[string]interface{}, error) {
 	activeConnection, isConnectionAuthenticated := router.connectionManager.RetrieveActiveConnectionState()
 
@@ -174,4 +152,18 @@ func (router *RpcMessageRouter) broadcastServerEventToSystem(incomingPayloadMap 
 		specificEventTopicString := fmt.Sprintf("ma_event_%s", eventNameString)
 		router.systemDataSource.Publish(specificEventTopicString, eventDataPayload)
 	}
+}
+
+func (router *RpcMessageRouter) Init(dataSource database.DataSource, managerInstance *WebSocketManager) {
+	router.systemDataSource = dataSource
+	router.connectionManager = managerInstance
+	router.pendingRequests = make(map[uint64]chan map[string]interface{})
+}
+
+type RpcMessageRouter struct {
+	systemDataSource         database.DataSource
+	connectionManager        *WebSocketManager
+	messageIdentifierCounter uint64
+	pendingRequests          map[uint64]chan map[string]interface{}
+	requestsMutex            sync.Mutex
 }

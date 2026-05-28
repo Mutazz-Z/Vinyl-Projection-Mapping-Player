@@ -33,7 +33,7 @@ class OrchestratorApiClient {
   Future<List<AvailablePlayers>> getAvailablePlayers() async {
     try {
       final response = await http.get(
-        Uri.parse('http://$globalOrchestratorHostAddress:8080/api/players/'),
+        Uri.parse('http://$globalOrchestratorHostAddress:8099/api/players/'),
       );
 
       if (response.statusCode == 200) {
@@ -54,7 +54,7 @@ class OrchestratorApiClient {
   // TODO: Fix whatever this does, right now it just sends out 127.0.0.1... Do we even need this?
   Future<String> fetchHostIp() async {
     final Uri requestUri = Uri.parse(
-      'http://$globalOrchestratorHostAddress:8080/api/system/network',
+      'http://$globalOrchestratorHostAddress:8099/api/system/network',
     );
 
     try {
@@ -73,7 +73,7 @@ class OrchestratorApiClient {
 
   Future<bool> verifyReaderConnection() async {
     final Uri requestUri = Uri.parse(
-      'http://$globalOrchestratorHostAddress:8080/api/system/verify_reader',
+      'http://$globalOrchestratorHostAddress:8099/api/system/verify_reader',
     );
     try {
       final response = await http.get(requestUri);
@@ -86,7 +86,7 @@ class OrchestratorApiClient {
 
   Uri constructMetadataResolutionUri(String mediaResourceIdentifier) {
     return Uri.parse(
-      'http://$globalOrchestratorHostAddress:8080/api/metadata/resolve?uri=$mediaResourceIdentifier',
+      'http://$globalOrchestratorHostAddress:8099/api/metadata/resolve?uri=$mediaResourceIdentifier',
     );
   }
 
@@ -136,14 +136,22 @@ class OrchestratorApiClient {
     Executes a simple connectivity and authentication test against the Orchestrator API.
     This can be used to verify that the Go server is running and that Music Assistant credentials are valid.
   */
-  Future<ConnectionTestResult> executeSystemConnectionTest() async {
+  Future<ConnectionTestResult> executeSystemConnectionTest(
+    String targetUrl,
+    String targetToken,
+  ) async {
     try {
       final Uri targetTestUri = Uri.parse(
-        'http://$globalOrchestratorHostAddress:8080/api/system/test',
+        'http://$globalOrchestratorHostAddress:8099/api/system/test',
       );
 
+      // Changed from GET to POST to actually send the payload to the Pi
       final http.Response networkResponse = await http
-          .get(targetTestUri)
+          .post(
+            targetTestUri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'url': targetUrl, 'token': targetToken}),
+          )
           .timeout(const Duration(seconds: 8));
 
       if (networkResponse.statusCode >= 200 &&
@@ -175,7 +183,7 @@ class OrchestratorApiClient {
   Future<List<AlbumsInLibrary>> getAllAlbumsFromMusicAssistantLibrary() async {
     try {
       final response = await http.get(
-        Uri.parse('http://$globalOrchestratorHostAddress:8080/api/library/'),
+        Uri.parse('http://$globalOrchestratorHostAddress:8099/api/library/'),
       );
 
       if (response.statusCode == 200) {
@@ -200,7 +208,7 @@ class OrchestratorApiClient {
     try {
       final http.Response response = await http.get(
         Uri.parse(
-          'http://$globalOrchestratorHostAddress:8080/api/library/$provider/$itemId',
+          'http://$globalOrchestratorHostAddress:8099/api/library/$provider/$itemId',
         ),
       );
       if (response.statusCode == 200) {

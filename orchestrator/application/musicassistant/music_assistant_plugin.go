@@ -5,49 +5,8 @@ import (
 	"vinyl-orchestrator/application/database"
 )
 
-type MusicAssistantPlugin struct {
-	systemDataSource  database.DataSource
-	connectionManager *WebSocketManager
-	messageRouter     *RpcMessageRouter
-	mediaPlayer       *SystemMediaPlayer
-}
-
-func NewMusicAssistantPlugin() *MusicAssistantPlugin {
-	messageRouterInstance := NewRpcMessageRouter()
-	connectionManagerInstance := NewWebSocketManager(messageRouterInstance)
-	messageRouterInstance.BindConnectionManager(connectionManagerInstance)
-
-	return &MusicAssistantPlugin{
-		connectionManager: connectionManagerInstance,
-		messageRouter:     messageRouterInstance,
-		mediaPlayer:       NewSystemMediaPlayer(messageRouterInstance),
-	}
-}
-
-func (plugin *MusicAssistantPlugin) Name() string {
-	return "Music_Assistant_Core_Client"
-}
-
 func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
 	return plugin.mediaPlayer.GetAvailablePlayers()
-}
-
-func (plugin *MusicAssistantPlugin) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
-	plugin.systemDataSource = dataSource
-	plugin.connectionManager.SetDataSource(dataSource)
-	plugin.messageRouter.SetDataSource(dataSource)
-	plugin.mediaPlayer.SetDataSource(dataSource)
-	return nil
-}
-
-func (plugin *MusicAssistantPlugin) StartPlugin(applicationContext context.Context) error {
-	go plugin.connectionManager.MaintainWebSocketConnection(applicationContext)
-	return nil
-}
-
-func (plugin *MusicAssistantPlugin) StopPlugin(applicationContext context.Context) error {
-	plugin.connectionManager.CloseActiveConnection()
-	return nil
 }
 
 func (plugin *MusicAssistantPlugin) PlayMedia(mediaResourceIdentifier string) error {
@@ -72,4 +31,28 @@ func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider st
 
 func (plugin *MusicAssistantPlugin) ValidateSystemCredentials() error {
 	return plugin.validateCredentials()
+}
+
+func (plugin *MusicAssistantPlugin) Init(ctx context.Context, dataSource database.DataSource) {
+	plugin.systemDataSource = dataSource
+
+	plugin.messageRouter = &RpcMessageRouter{}
+	plugin.connectionManager = &WebSocketManager{}
+	plugin.mediaPlayer = &SystemMediaPlayer{}
+
+	plugin.messageRouter.Init(dataSource, plugin.connectionManager)
+	plugin.connectionManager.Init(ctx, dataSource, plugin.messageRouter)
+	plugin.mediaPlayer.Init(dataSource, plugin.messageRouter)
+
+	go func() {
+		<-ctx.Done()
+		plugin.connectionManager.CloseActiveConnection()
+	}()
+}
+
+type MusicAssistantPlugin struct {
+	systemDataSource  database.DataSource
+	connectionManager *WebSocketManager
+	messageRouter     *RpcMessageRouter
+	mediaPlayer       *SystemMediaPlayer
 }

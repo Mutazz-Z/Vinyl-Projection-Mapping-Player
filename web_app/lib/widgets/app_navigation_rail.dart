@@ -4,6 +4,7 @@ import 'package:web_app/theme/app_theme.dart';
 enum AppPageTab {
   library,
   settings,
+  debug,
 }
 
 class AppNavigationRail extends StatelessWidget {
@@ -38,6 +39,10 @@ class AppNavigationRail extends StatelessWidget {
         NavigationRailDestination(
           icon: Icon(Icons.settings),
           label: Text('Settings'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.bug_report),
+          label: Text('Debug'),
         ),
       ],
     );

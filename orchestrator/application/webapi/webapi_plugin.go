@@ -72,7 +72,7 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 		system := api.Group("/system")
 		{
 			system.GET("/network", plugin.handleNetworkInfo)
-			system.GET("/test", plugin.handleConnectionTestRequest)
+			system.POST("/test", plugin.handleConnectionTestRequest)
 			system.GET("/verify_reader", plugin.handleVerifyReaderRequest)
 		}
 
@@ -88,7 +88,7 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 		}
 	}
 
-	absPath, _ := filepath.Abs(plugin.assetPlugin.GetAssetRootPath())
+	absPath, _ := filepath.Abs(plugin.assetPlugin.AssetRootPath)
 	assetsDir := router.Group("/assets")
 
 	assetsDir.Use(func(c *gin.Context) {
@@ -101,7 +101,7 @@ func (plugin *WebServerPlugin) StartPlugin(applicationContext context.Context) e
 	router.GET("/ws", plugin.handleWebSockets)
 
 	plugin.server = &http.Server{
-		Addr:    ":8080",
+		Addr:    ":8099",
 		Handler: router,
 	}
 
@@ -221,16 +221,51 @@ func (plugin *WebServerPlugin) getAllAlbumsInLibrary(c *gin.Context) {
 	c.JSON(http.StatusOK, albums)
 }
 
-func (plugin *WebServerPlugin) handleConnectionTestRequest(c *gin.Context) {
-	err := plugin.musicAssistantPlugin.ValidateSystemCredentials()
+type ConnectionTestPayload struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
 
+func (plugin *WebServerPlugin) handleConnectionTestRequest(c *gin.Context) {
+	var payload ConnectionTestPayload
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", payload.URL+"/api/", nil)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Music Assistant URL format"})
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+payload.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Could not reach Music Assistant server"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Music Assistant rejected the token"})
+		return
+	}
+
+	errUrl := plugin.dataSource.Write("GLOBAL_MusicAssistantUrl", payload.URL)
+	errToken := plugin.dataSource.Write("GLOBAL_MusicAssistantToken", payload.Token)
+
+	if errUrl != nil || errToken != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Tested successfully, but failed to save to database"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Authentication Successful",
+		"message": "Connection successful and credentials saved! Please restart the Go service to establish the websocket link.",
 	})
 }
 

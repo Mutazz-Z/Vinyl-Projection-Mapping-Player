@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/glebarez/go-sqlite"
 
 	"vinyl-orchestrator/application/assets"
 	"vinyl-orchestrator/application/database"
@@ -17,7 +17,6 @@ import (
 	"vinyl-orchestrator/application/musicassistant"
 	"vinyl-orchestrator/application/playback"
 	"vinyl-orchestrator/application/webapi"
-	pluginInterface "vinyl-orchestrator/plugin"
 )
 
 func resolvePrimaryDatabaseFilePath() string {
@@ -32,7 +31,7 @@ func main() {
 	fmt.Println("Orchestrator Boot Sequence Initiated...")
 
 	databaseFilePath := resolvePrimaryDatabaseFilePath()
-	sharedDatabaseConnection, databaseConnectionError := sql.Open("sqlite3", databaseFilePath)
+	sharedDatabaseConnection, databaseConnectionError := sql.Open("sqlite", databaseFilePath)
 	if databaseConnectionError != nil {
 		panic(fmt.Sprintf("Fatal Error: Could not establish database connection: %v", databaseConnectionError))
 	}
@@ -48,49 +47,43 @@ func main() {
 		panic(fmt.Sprintf("Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
 	}
 
-	musicAssistantClient := musicassistant.NewMusicAssistantPlugin()
+	assetPlugin := &assets.AssetPlugin{}
+	musicAssistantClient := &musicassistant.MusicAssistantPlugin{}
 
-	assetPlugin := assets.NewAssetPlugin()
 
-	orchestratorPlugins := []pluginInterface.Plugin{
-		musicAssistantClient,
-		playback.NewPlaybackApplicationService(musicAssistantClient),
-		display.NewDisplayApplicationService(),
-		mqtt.NewBrokerPlugin(),
-		assetPlugin,
-		webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin),
-	}
+	playbackPlugin := playback.NewPlaybackApplicationService(musicAssistantClient)
+	displayPlugin := display.NewDisplayApplicationService()
+	mqttPlugin := mqtt.NewBrokerPlugin()
+	assetPlugin.Init()
+	webApiPlugin := webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin)
 
 	applicationContext, cancelApplicationContext := context.WithCancel(context.Background())
 	defer cancelApplicationContext()
 
-	for _, currentPlugin := range orchestratorPlugins {
-		fmt.Printf("Initializing Module: %s\n", currentPlugin.Name())
+	musicAssistantClient.Init(applicationContext, systemDataSource)
+	playbackPlugin.Init(systemDataSource, AlbumLibrary)
+	displayPlugin.Init(systemDataSource, AlbumLibrary)
+	mqttPlugin.Init(systemDataSource, AlbumLibrary)
+	webApiPlugin.Init(systemDataSource, AlbumLibrary)
 
-		initializationError := currentPlugin.Init(systemDataSource, AlbumLibrary)
-		if initializationError != nil {
-			panic(fmt.Sprintf("Fatal Error: %s failed to initialize: %v", currentPlugin.Name(), initializationError))
-		}
-
-		startupError := currentPlugin.StartPlugin(applicationContext)
-		if startupError != nil {
-			panic(fmt.Sprintf("Fatal Error: %s failed to start: %v", currentPlugin.Name(), startupError))
-		}
-	}
+	playbackPlugin.StartPlugin(context.Background())
+	displayPlugin.StartPlugin(context.Background())
+	mqttPlugin.StartPlugin(context.Background())
+	webApiPlugin.StartPlugin(context.Background())
 
 	fmt.Println("Orchestrator Boot Sequence Complete. All modules running.")
 
+	fmt.Println("Server should be running now... waiting for signal")
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownSignalChannel
 
 	fmt.Println("\nReceived termination signal. Executing graceful shutdown sequence...")
 
-	for index := len(orchestratorPlugins) - 1; index >= 0; index-- {
-		pluginToStop := orchestratorPlugins[index]
-		fmt.Printf("Stopping Module: %s\n", pluginToStop.Name())
-		pluginToStop.StopPlugin(applicationContext)
-	}
+	webApiPlugin.StopPlugin(applicationContext)
+	mqttPlugin.StopPlugin(applicationContext)
+	displayPlugin.StopPlugin(applicationContext)
+	playbackPlugin.StopPlugin(applicationContext)
 
 	fmt.Println("Graceful shutdown complete. Orchestrator terminated.")
 }

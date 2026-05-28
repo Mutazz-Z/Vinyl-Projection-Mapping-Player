@@ -7,7 +7,7 @@ package database
 import (
 	typedefinitions "vinyl-orchestrator/type_definitions"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 

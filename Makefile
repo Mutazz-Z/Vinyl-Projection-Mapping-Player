@@ -24,7 +24,7 @@ DATABASE     = builds/data/vinyl.db
 build_all: build-rpi64 build-macos-arm64
 
 build-rpi64:
-	cd orchestrator && GOOS=linux GOARCH=arm64 go build -o ../$(BINARY_RPI64) .
+	cd orchestrator && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -o ../$(BINARY_RPI64) .
 
 build-macos-arm64:
 	cd orchestrator && GOOS=darwin GOARCH=arm64 go build -o ../$(BINARY_MACOS) . 

@@ -44,11 +44,13 @@ func (plugin *BrokerPlugin) handleLostConnection(disconnectedClient eclipseMqtt.
 func (plugin *BrokerPlugin) handleIncomingTagMessage(client eclipseMqtt.Client, incomingMessage eclipseMqtt.Message) {
 	var tagPayload HardwareTagPayload
 	if err := json.Unmarshal(incomingMessage.Payload(), &tagPayload); err != nil {
+		fmt.Printf("Hardware Error: Failed to parse tag JSON payload '%s': %v\n", string(incomingMessage.Payload()), err)
 		return
 	}
 
 	normalizedUniqueIdentifier := strings.ToUpper(strings.TrimSpace(tagPayload.UniqueIdentifier))
 	if normalizedUniqueIdentifier == "" {
+		fmt.Printf("Hardware Error: Received empty UID from payload: %s\n", string(incomingMessage.Payload()))
 		return
 	}
 

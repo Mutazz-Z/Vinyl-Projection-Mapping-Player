@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:web_app/screens/debug_screen.dart';
+import 'package:web_app/screens/settings_screen.dart';
 import 'package:web_app/services/orchestrator_api_client.dart';
 import 'screens/library_screen.dart';
 import 'screens/register_screen.dart';
@@ -22,16 +23,16 @@ String get globalOrchestratorHostAddress {
   return (host.isNotEmpty && host != 'localhost') ? host : '127.0.0.1';
 }
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+bool _isAppInitialized = false;
+
+Future<void> initializeAppEnvironment() async {
+  if (_isAppInitialized) return;
 
   systemDataSource = SystemDataSource(
     host: globalOrchestratorHostAddress,
-    port: 8080,
+    port: 8099,
   );
   systemDataSource.connect();
-
-  await Future.delayed(const Duration(milliseconds: 100));
 
   await musicAssistant.initializeService();
 
@@ -40,42 +41,70 @@ void main() async {
     navigatorKey: navigatorKey,
   );
 
-  final bool isFirstBoot = !musicAssistant.applicationSettings.isConfigured;
-
-  if (!isFirstBoot) {
+  if (musicAssistant.isSystemConfigured) {
     debugPrint(
       'main: SystemDataSource online. Handing off processing stream...',
     );
     appCoordinator.start();
   }
 
-  runApp(VinylApp(isFirstBoot: isFirstBoot));
+  _isAppInitialized = true;
 }
 
-class VinylApp extends StatelessWidget {
-  final bool isFirstBoot;
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const VinylApp());
+}
 
-  const VinylApp({super.key, required this.isFirstBoot});
+class VinylApp extends StatefulWidget {
+  const VinylApp({super.key});
+
+  @override
+  State<VinylApp> createState() => _VinylAppState();
+}
+
+class _VinylAppState extends State<VinylApp> {
+  late Future<void> _initFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = initializeAppEnvironment();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final String? scannedUid = Uri.base.queryParameters['uid'];
-    final bool hasScannedUid = scannedUid != null && scannedUid.isNotEmpty;
-
-    Widget initialScreen;
-    if (hasScannedUid) {
-      initialScreen = RegisterScreen(uid: scannedUid);
-    } else if (isFirstBoot) {
-      initialScreen = const WelcomeScreen();
-    } else {
-      initialScreen = const AppShellScreen();
-    }
-
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Vinyl Orchestrator',
       theme: AppTheme.darkTheme,
-      home: initialScreen,
+      home: FutureBuilder(
+        future: _initFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: AppColors.balticBlue,
+              body: Center(
+                child: CircularProgressIndicator(color: AppColors.porcelain),
+              ),
+            );
+          }
+
+          final String? scannedUid = Uri.base.queryParameters['uid'];
+          final bool hasScannedUid =
+              scannedUid != null && scannedUid.isNotEmpty;
+
+          if (hasScannedUid) {
+            return RegisterScreen(uid: scannedUid);
+          }
+
+          if (!musicAssistant.isSystemConfigured) {
+            return const WelcomeScreen();
+          } else {
+            return const AppShellScreen();
+          }
+        },
+      ),
     );
   }
 }
@@ -118,6 +147,8 @@ class _AppShellScreenState extends State<AppShellScreen> {
       case AppPageTab.library:
         return const LibraryScreen();
       case AppPageTab.settings:
+        return const SettingsScreen();
+      case AppPageTab.debug:
         return const DebugScreen();
     }
   }

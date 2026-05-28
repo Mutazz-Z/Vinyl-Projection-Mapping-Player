@@ -1,30 +1,12 @@
 package assets
 
 import (
-	"context"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
 	"path/filepath"
-
-	"vinyl-orchestrator/application/database"
-
-	"github.com/gin-gonic/gin"
 )
-
-type AssetPlugin struct {
-	systemDataSource database.DataSource
-	AlbumLibrary     database.AlbumLibrary
-	assetRootPath    string
-}
-
-func NewAssetPlugin() *AssetPlugin {
-	return &AssetPlugin{}
-}
-
-func (plugin *AssetPlugin) Name() string {
-	return "Standard_Static_Asset_Manager"
-}
 
 func (plugin *AssetPlugin) resolveAssetRoot() string {
 	configuredPath := os.Getenv("VINYL_ASSET_STORAGE_PATH")
@@ -35,33 +17,17 @@ func (plugin *AssetPlugin) resolveAssetRoot() string {
 }
 
 func (plugin *AssetPlugin) initializeFileSystem() error {
-	requiredAssetCategories := []string{"overlays", "labels", "outer-rings", "covers", "utils", "album-covers"}
+	requiredAssetCategories := []string{"overlays", "labels", "outer-rings"}
 
-	if err := os.MkdirAll(plugin.assetRootPath, 0755); err != nil {
+	if err := os.MkdirAll(plugin.AssetRootPath, 0755); err != nil {
 		return err
 	}
 
 	for _, category := range requiredAssetCategories {
-		if err := os.MkdirAll(filepath.Join(plugin.assetRootPath, category), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(plugin.AssetRootPath, category), 0755); err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-func (plugin *AssetPlugin) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
-	plugin.systemDataSource = dataSource
-	plugin.AlbumLibrary = AlbumLibrary
-	plugin.assetRootPath = plugin.resolveAssetRoot()
-	return plugin.initializeFileSystem()
-}
-
-func (plugin *AssetPlugin) StartPlugin(applicationContext context.Context) error {
-	fmt.Println("Asset Manager Online: Serving files from /assets")
-	return nil
-}
-
-func (plugin *AssetPlugin) StopPlugin(applicationContext context.Context) error {
 	return nil
 }
 
@@ -77,7 +43,7 @@ func (plugin *AssetPlugin) HandleGinAssetUpload(c *gin.Context) {
 		category = "covers"
 	}
 
-	targetFilePath := filepath.Join(plugin.assetRootPath, category, file.Filename)
+	targetFilePath := filepath.Join(plugin.AssetRootPath, category, file.Filename)
 
 	if err := c.SaveUploadedFile(file, targetFilePath); err != nil {
 		c.String(http.StatusInternalServerError, "Error saving asset to disk")
@@ -91,12 +57,12 @@ func (plugin *AssetPlugin) HandleGinAssetUpload(c *gin.Context) {
 func (plugin *AssetPlugin) HandleGinAssetList(c *gin.Context) {
 	foundAssetPaths := make([]string, 0)
 
-	err := filepath.Walk(plugin.assetRootPath, func(currentPath string, info os.FileInfo, err error) error {
+	err := filepath.Walk(plugin.AssetRootPath, func(currentPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
-			relativePath, err := filepath.Rel(plugin.assetRootPath, currentPath)
+			relativePath, err := filepath.Rel(plugin.AssetRootPath, currentPath)
 			if err == nil {
 				foundAssetPaths = append(foundAssetPaths, relativePath)
 			}
@@ -112,6 +78,13 @@ func (plugin *AssetPlugin) HandleGinAssetList(c *gin.Context) {
 	c.JSON(http.StatusOK, foundAssetPaths)
 }
 
-func (plugin *AssetPlugin) GetAssetRootPath() string {
-	return plugin.assetRootPath
+type AssetPlugin struct {
+	AssetRootPath    string
+}
+
+func (plugin *AssetPlugin) Init() *AssetPlugin {
+	plugin.AssetRootPath = plugin.resolveAssetRoot()
+	plugin.initializeFileSystem()
+
+	return plugin
 }

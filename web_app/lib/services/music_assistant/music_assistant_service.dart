@@ -28,7 +28,11 @@ class MusicAssistantService {
   }
 
   Future<ConnectionTestResult> testConnectionDetailed() async {
-    return await orchestratorApiClient.executeSystemConnectionTest();
+    // Pass the newly saved URL and Token directly to the Orchestrator
+    return await orchestratorApiClient.executeSystemConnectionTest(
+      applicationSettings.musicAssistantUrlString,
+      applicationSettings.musicAssistantTokenString,
+    );
   }
 
   Future<RegistrationResolutionResult> resolveRegistrationInput(
@@ -62,7 +66,6 @@ class MusicAssistantService {
       return 'YOUR_MQTT_BROKER_IP';
     }
   }
-
 
   Future<VinylAlbumRecord> fetchCleanMetadataRecord(
     String mediaResourceIdentifier,

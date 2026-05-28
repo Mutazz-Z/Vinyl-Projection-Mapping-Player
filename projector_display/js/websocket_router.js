@@ -2,7 +2,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const hostIp = window.location.hostname || '127.0.0.1';
     const wsHost = urlParams.get('host') || hostIp;
-    const wsPort = urlParams.get('port') || 8080;
+    const wsPort = urlParams.get('port') || 8099;
 
     const CLIENT_ID = 'projector_' + Math.random().toString(16).substring(2, 10);
 

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"sync"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/glebarez/go-sqlite"
 	"vinyl-orchestrator/core"
 )
 

@@ -769,7 +769,7 @@ class _AssetPickerWidgetState extends State<_AssetPickerWidget> {
                       final String assetUrl = _availableAssets[assetIndex];
 
                       final String displayUrl = assetUrl.startsWith('/')
-                          ? 'http://$globalOrchestratorHostAddress:8080$assetUrl'
+                          ? 'http://$globalOrchestratorHostAddress:8099$assetUrl'
                           : assetUrl;
 
                       final bool isVideoAsset = displayUrl

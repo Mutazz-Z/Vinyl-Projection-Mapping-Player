@@ -59,7 +59,7 @@ class MusicAssistantApi {
 
   Uri getNormalizedBaseUri() {
     if (Uri.base.host == 'localhost') {
-      return Uri.parse('http://localhost:8080/api/');
+      return Uri.parse('http://localhost:8099/api/');
     }
     return Uri.base.resolve('/api/');
   }

@@ -7,21 +7,6 @@ import (
 	"vinyl-orchestrator/application/database"
 )
 
-type SystemMediaPlayer struct {
-	systemDataSource database.DataSource
-	messageRouter    *RpcMessageRouter
-}
-
-func NewSystemMediaPlayer(routerInstance *RpcMessageRouter) *SystemMediaPlayer {
-	return &SystemMediaPlayer{
-		messageRouter: routerInstance,
-	}
-}
-
-func (player *SystemMediaPlayer) SetDataSource(dataSource database.DataSource) {
-	player.systemDataSource = dataSource
-}
-
 func (player *SystemMediaPlayer) retrieveTargetPlayerIdentifier() (string, error) {
 	var targetPlayerIdentifier string
 	player.systemDataSource.Read("GLOBAL_MusicAssistantTargetPlayerId", &targetPlayerIdentifier)
@@ -164,4 +149,14 @@ type MediaPlayer interface {
 	PlayMedia(mediaUri string) error
 	StopMedia() error
 	GetState() (string, error)
+}
+
+func (player *SystemMediaPlayer) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter) {
+	player.systemDataSource = dataSource
+	player.messageRouter = routerInstance
+}
+
+type SystemMediaPlayer struct {
+	systemDataSource database.DataSource
+	messageRouter    *RpcMessageRouter
 }

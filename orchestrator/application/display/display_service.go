@@ -3,6 +3,7 @@ package display
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 
 	"vinyl-orchestrator/application/database"
@@ -28,13 +29,26 @@ func (service *DisplayApplicationService) sendDataToProjectorForKnownTag(uid str
 	service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
 }
 
+func getLocalIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "localhost"
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
+}
+
 func (service *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid string) {
 
-	var host, port string
+	var host string
 	service.systemDataSource.Read("GLOBAL_FlutterWebUrl", &host)
-	service.systemDataSource.Read("GLOBAL_FlutterWebPort", &port)
 
-	formattedUrl := fmt.Sprintf("http://%s:%s/?uid=%s", host, port, url.QueryEscape(uid))
+	if host == "localhost" || host == "127.0.0.1" || host == "" {
+		host = getLocalIP()
+	}
+
+	formattedUrl := fmt.Sprintf("http://%s/?uid=%s", host, url.QueryEscape(uid))
 	payload := typedefinitions.ProjectorData{
 		PlayerState:    typedefinitions.PlayerState_Unknown,
 		TagData:        typedefinitions.VinylRecordTagData{TagUid: uid},

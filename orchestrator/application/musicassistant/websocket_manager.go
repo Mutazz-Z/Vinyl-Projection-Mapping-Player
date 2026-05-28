@@ -12,24 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type WebSocketManager struct {
-	systemDataSource    database.DataSource
-	messageRouter       *RpcMessageRouter
-	webSocketConnection *websocket.Conn
-	isAuthenticated     bool
-	webSocketMutex      sync.Mutex
-}
-
-func NewWebSocketManager(routerInstance *RpcMessageRouter) *WebSocketManager {
-	return &WebSocketManager{
-		messageRouter: routerInstance,
-	}
-}
-
-func (manager *WebSocketManager) SetDataSource(dataSource database.DataSource) {
-	manager.systemDataSource = dataSource
-}
-
 func (manager *WebSocketManager) RetrieveActiveConnectionState() (*websocket.Conn, bool) {
 	manager.webSocketMutex.Lock()
 	defer manager.webSocketMutex.Unlock()
@@ -205,4 +187,19 @@ func (manager *WebSocketManager) listenForServerEvents(activeSocketConnection *w
 		}
 		manager.messageRouter.ProcessIncomingWebSocketPayload(incomingMessageBytes)
 	}
+}
+
+func (manager *WebSocketManager) Init(ctx context.Context, dataSource database.DataSource, routerInstance *RpcMessageRouter) {
+	manager.systemDataSource = dataSource
+	manager.messageRouter = routerInstance
+
+	go manager.MaintainWebSocketConnection(ctx)
+}
+
+type WebSocketManager struct {
+	systemDataSource    database.DataSource
+	messageRouter       *RpcMessageRouter
+	webSocketConnection *websocket.Conn
+	isAuthenticated     bool
+	webSocketMutex      sync.Mutex
 }

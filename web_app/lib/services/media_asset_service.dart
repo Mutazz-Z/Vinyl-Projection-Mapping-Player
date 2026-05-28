@@ -6,7 +6,7 @@ import 'package:web_app/main.dart';
 class MediaAssetService {
 
   static String get _assetApiBaseUrl =>
-      'http://${systemDataSource.orchestratorHost}:8080/api/assets';
+      'http://${systemDataSource.orchestratorHost}:8099/api/assets';
 
   static Future<String> uploadAsset({
     required Uint8List fileBytes,
@@ -40,7 +40,7 @@ class MediaAssetService {
       throw StateError('Asset upload response contained no path.');
     }
 
-    return 'http://${systemDataSource.orchestratorHost}:8080$returnedAssetPath';
+    return 'http://${systemDataSource.orchestratorHost}:8099$returnedAssetPath';
   }
 
   static Future<List<String>> listAssets({required String category}) async {
@@ -59,7 +59,7 @@ class MediaAssetService {
         .where((String assetPath) => assetPath.startsWith(category))
         .map(
           (String assetPath) =>
-              'http://${systemDataSource.orchestratorHost}:8080/assets/$assetPath',
+              'http://${systemDataSource.orchestratorHost}:8099/assets/$assetPath',
         )
         .toList();
   }
