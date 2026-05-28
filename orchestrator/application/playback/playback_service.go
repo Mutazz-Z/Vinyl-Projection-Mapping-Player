@@ -128,7 +128,7 @@ func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args database.DataSourceChangedArgs) {
 
 		switch args.Variable {
-		case "GLOBAL_LastScannedNfcTag":
+		case "GLOBAL_CurrentUidScanned":
 			uid, _ := args.Data.(string)
 			if uid == "" {
 				return

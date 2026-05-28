@@ -30,7 +30,7 @@ class _DebugScreenState extends State<DebugScreen> {
     }
 
     try {
-      systemDataSource.write('GLOBAL_LastScannedNfcTag', uid);
+      systemDataSource.write('GLOBAL_CurrentUidScanned', uid);
 
       ScaffoldMessenger.of(
         context,

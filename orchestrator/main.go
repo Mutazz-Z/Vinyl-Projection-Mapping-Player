@@ -49,11 +49,11 @@ func main() {
 
 	assetPlugin := &assets.AssetPlugin{}
 	musicAssistantClient := &musicassistant.MusicAssistantPlugin{}
+	mqttPlugin := &mqtt.MqttPlugin_t{}
 
 
 	playbackPlugin := playback.NewPlaybackApplicationService(musicAssistantClient)
 	displayPlugin := display.NewDisplayApplicationService()
-	mqttPlugin := mqtt.NewBrokerPlugin()
 	assetPlugin.Init()
 	webApiPlugin := webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin)
 
@@ -63,12 +63,11 @@ func main() {
 	musicAssistantClient.Init(applicationContext, systemDataSource)
 	playbackPlugin.Init(systemDataSource, AlbumLibrary)
 	displayPlugin.Init(systemDataSource, AlbumLibrary)
-	mqttPlugin.Init(systemDataSource, AlbumLibrary)
+	mqttPlugin.Init(systemDataSource)
 	webApiPlugin.Init(systemDataSource, AlbumLibrary)
 
 	playbackPlugin.StartPlugin(context.Background())
 	displayPlugin.StartPlugin(context.Background())
-	mqttPlugin.StartPlugin(context.Background())
 	webApiPlugin.StartPlugin(context.Background())
 
 	fmt.Println("Orchestrator Boot Sequence Complete. All modules running.")

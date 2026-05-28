@@ -56,7 +56,7 @@ var SystemRegistry = map[string]SystemVariableDefinition{
 	"GLOBAL_MqttTcpPort":           {StorageType: NonVolatile, DataType: TypeInt, DefaultDataValue: 1883},
 
 	// ── NFC reader ───────────────────────────────────────────────────────────
-	"GLOBAL_LastScannedNfcTag":      {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
+	"GLOBAL_CurrentUidScanned":      {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
 	"GLOBAL_ReaderConnectionStatus": {StorageType: Volatile, DataType: TypeString, DefaultDataValue: "offline"},
 	"GLOBAL_LastUnknownNfcTag":      {StorageType: Volatile, DataType: TypeString, DefaultDataValue: ""},
 
