@@ -128,25 +128,13 @@ func (plugin *WebServerPlugin) handleVerifyReaderRequest(c *gin.Context) {
 		return
 	}
 
-	plugin.dataSource.Publish("CMD_PingReader", "ping")
+	var status string
+	plugin.dataSource.Read(core.Global_ReaderConnectionStatus, &status)
 
-	timeout := time.After(5 * time.Second)
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-timeout:
-			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Timeout waiting for reader response"})
-			return
-		case <-ticker.C:
-			var status string
-			plugin.dataSource.Read(core.Global_ReaderConnectionStatus, &status)
-			if status == "online" {
-				c.JSON(http.StatusOK, gin.H{"message": "Reader is online"})
-				return
-			}
-		}
+	if status == "online" {
+		c.JSON(http.StatusOK, gin.H{"message": "Reader is online"})
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Reader is offline"})
 	}
 }
 

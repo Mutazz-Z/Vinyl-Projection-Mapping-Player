@@ -1,6 +1,14 @@
 package core
 
 // typeshare
+type ReaderStatus_t bool
+
+const (
+	EspReaderStatus_Offline ReaderStatus_t = false
+	EspReaderStatus_Online  ReaderStatus_t = true
+)
+
+// typeshare
 type ShelfStatus_t bool
 
 const (

@@ -56,18 +56,18 @@ variables:
   - name: CurrentShelfStatus
     storage: Volatile
     type: ShelfStatus_t
-    default: 'ShelfStatus_Empty'
+    default: "ShelfStatus_Empty"
 
   - name: ReaderConnectionStatus
     storage: Volatile
-    type: string
-    default: '""'
+    type: ReaderStatus_t
+    default: "EspReaderStatus_Offline"
 
   # ── Projector ────────────────────────────────────────────────────────────
   - name: CurrentProjectorData
     storage: Volatile
     type: ProjectorData_t
-    default: 'ProjectorData_t{PlayerState: PlayerState_Stopped}'
+    default: "ProjectorData_t{PlayerState: PlayerState_Stopped}"
 
   - name: ProjectorHeartbeatSignal
     storage: Volatile

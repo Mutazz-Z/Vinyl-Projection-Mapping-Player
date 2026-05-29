@@ -155,7 +155,7 @@ const Global_ReaderConnectionStatus StateKey_t = "Global_ReaderConnectionStatus"
 func init() {
 	StateRegistry[Global_ReaderConnectionStatus] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: string(""),
+		DefaultData: ReaderStatus_t(EspReaderStatus_Offline),
 	}
 }
 

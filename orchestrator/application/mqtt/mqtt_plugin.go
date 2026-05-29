@@ -1,3 +1,7 @@
+/*
+ * Mqtt Plugin to communicate with esp based device with nfc reader
+ */
+
 package mqtt
 
 import (
@@ -14,22 +18,26 @@ import (
 )
 
 func (mqttPlugin *MqttPlugin_t) handleSuccessfulConnection(connectedClient eclipseMqtt.Client) {
-	fmt.Println("[Mqtt Plugin]: MQTT Broker Bridge Online")
+	fmt.Println("[Mqtt Plugin]: Mqtt Broker Bridge Online")
 	connectedClient.Subscribe("vinyl/shelf/state", 0, mqttPlugin.handleIncomingMessage).Wait()
-	connectedClient.Subscribe("vinyl/shelf/pong", 0, func(c eclipseMqtt.Client, m eclipseMqtt.Message) {
-		mqttPlugin._private.systemDataSource.Write(core.Global_ReaderConnectionStatus, "online")
-	}).Wait()
-
-	commandChannel := mqttPlugin._private.systemDataSource.Subscribe("CMD_PingReader")
-	go func() {
-		for range commandChannel {
-			mqttPlugin._private.systemDataSource.Write(core.Global_ReaderConnectionStatus, "pending")
-			connectedClient.Publish("vinyl/shelf/command/ping", 0, false, "ping")
-		}
-	}()
+	connectedClient.Subscribe("vinyl/shelf/status", 0, mqttPlugin.handleDeviceStatus).Wait()
 }
+
 func (mqttPlugin *MqttPlugin_t) handleLostConnection(disconnectedClient eclipseMqtt.Client, connectionError error) {
-	fmt.Printf("[Mqtt Plugin]: MQTT Broker Bridge Offline: %v\n", connectionError)
+	fmt.Printf("[Mqtt Plugin]: Mqtt Broker Bridge Offline: %v\n", connectionError)
+}
+
+func (mqttPlugin *MqttPlugin_t) handleDeviceStatus(client eclipseMqtt.Client, incomingMessage eclipseMqtt.Message) {
+	var status core.ReaderStatus_t
+	json.Unmarshal(incomingMessage.Payload(), &status)
+
+	if status == core.EspReaderStatus_Online {
+		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Online\n")
+	} else {
+		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Offline\n")
+	}
+
+	mqttPlugin._private.systemDataSource.Write(core.Global_ReaderConnectionStatus, status)
 }
 
 func (mqttPlugin *MqttPlugin_t) startWatchdogTimer() {
@@ -61,7 +69,6 @@ func (mqttPlugin *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client,
 		if previousUidScanned == vinylShelfMessage.UidScanned {
 			fmt.Printf("[Mqtt Plugin]: Tag %s already active, ignoring duplicate scan\n", vinylShelfMessage.UidScanned)
 		} else {
-
 			fmt.Printf("[Mqtt Plugin]: Scanned Tag %s\n", vinylShelfMessage.UidScanned)
 
 			mqttPlugin._private.systemDataSource.Write(core.Global_CurrentShelfStatus, vinylShelfMessage.ShelfStatus)
@@ -70,15 +77,17 @@ func (mqttPlugin *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client,
 
 	} else {
 		mqttPlugin.startWatchdogTimer()
-
 	}
 }
 
-func (mqttPlugin *MqttPlugin_t) StopPlugin(applicationContext context.Context) error {
-	if mqttPlugin._private.mqttClient != nil && mqttPlugin._private.mqttClient.IsConnected() {
-		mqttPlugin._private.mqttClient.Disconnect(250)
-	}
-	return nil
+func (mqttPlugin *MqttPlugin_t) getBrokerServer() string {
+	var mqttHostAddress string
+	var mqttTcpPort int
+
+	mqttPlugin._private.systemDataSource.Read(core.Global_MqttBrokerHostAddress, &mqttHostAddress)
+	mqttPlugin._private.systemDataSource.Read(core.Global_MqttTcpPort, &mqttTcpPort)
+
+	return fmt.Sprintf("tcp://%s:%d", mqttHostAddress, mqttTcpPort)
 }
 
 type VinylShelfMessage_t struct {
@@ -97,16 +106,6 @@ type MqttPlugin_t struct {
 	}
 }
 
-func (mqttPlugin *MqttPlugin_t) getBrokerServer() string {
-	var mqttHostAddress string
-	var mqttTcpPort int
-
-	mqttPlugin._private.systemDataSource.Read(core.Global_MqttBrokerHostAddress, &mqttHostAddress)
-	mqttPlugin._private.systemDataSource.Read(core.Global_MqttTcpPort, &mqttTcpPort)
-
-	return fmt.Sprintf("tcp://%s:%d", mqttHostAddress, mqttTcpPort)
-}
-
 func (mqttPlugin *MqttPlugin_t) Init(dataSource database.DataSource) error {
 	mqttPlugin._private.systemDataSource = dataSource
 	mqttPlugin._private.WatchdogTimeout = 1 * time.Second
@@ -123,4 +122,11 @@ func (mqttPlugin *MqttPlugin_t) Init(dataSource database.DataSource) error {
 	connectionToken.Wait()
 
 	return connectionToken.Error()
+}
+
+func (mqttPlugin *MqttPlugin_t) StopPlugin(applicationContext context.Context) error {
+	if mqttPlugin._private.mqttClient != nil && mqttPlugin._private.mqttClient.IsConnected() {
+		mqttPlugin._private.mqttClient.Disconnect(250)
+	}
+	return nil
 }
