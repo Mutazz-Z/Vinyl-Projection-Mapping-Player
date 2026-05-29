@@ -5,6 +5,7 @@
 package database
 
 import (
+	"fmt"
 	"vinyl-orchestrator/core"
 
 	"github.com/glebarez/sqlite"
@@ -31,19 +32,21 @@ func NewSQLiteAlbumLibrary(databasePath string) (*SQLiteAlbumLibrary, error) {
 	}, nil
 }
 
-func (repository *SQLiteAlbumLibrary) RetrieveAlbumByUid(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error) {
+func (repository *SQLiteAlbumLibrary) CheckUidExistsInLibrary(nfcUniqueIdentifier string) bool {
+	var count int64
+	repository.Database.Model(&core.VinylRecordTagData_t{}).Where("tag_uid = ?", nfcUniqueIdentifier).Count(&count)
+
+	return count > 0
+}
+
+func (repository *SQLiteAlbumLibrary) RetrieveAlbumByUid(nfcUniqueIdentifier string) core.VinylRecordTagData_t {
 	var retrievedAlbum core.VinylRecordTagData_t
 
 	result := repository.Database.Where("tag_uid = ?", nfcUniqueIdentifier).Find(&retrievedAlbum)
 	if result.Error != nil {
-		return retrievedAlbum, result.Error
+		fmt.Printf("Error retrieving album by UID %s: %v\n", nfcUniqueIdentifier, result.Error)
 	}
-
-	if result.RowsAffected == 0 {
-		return retrievedAlbum, gorm.ErrRecordNotFound
-	}
-
-	return retrievedAlbum, nil
+	return retrievedAlbum
 }
 
 func (repository *SQLiteAlbumLibrary) RetrieveAllSavedAlbums() ([]core.VinylRecordTagData_t, error) {
@@ -64,7 +67,8 @@ func (repository *SQLiteAlbumLibrary) DeleteAlbumRecord(uid string) error {
 
 type AlbumLibrary interface {
 	SaveAlbumRecord(albumRecord core.VinylRecordTagData_t) error
-	RetrieveAlbumByUid(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error)
+	CheckUidExistsInLibrary(nfcUniqueIdentifier string) bool
+	RetrieveAlbumByUid(nfcUniqueIdentifier string) core.VinylRecordTagData_t
 	RetrieveAllSavedAlbums() ([]core.VinylRecordTagData_t, error)
 	DeleteAlbumRecord(nfcUniqueIdentifier string) error
 }

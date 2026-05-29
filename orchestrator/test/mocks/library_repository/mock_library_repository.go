@@ -21,11 +21,9 @@ package mock_library
 // }
 
 // func (mock *MockAlbumLibrary) RetrieveAlbumByUid(nfcUniqueIdentifier string) (typedefinitions.VinylRecordTagData, error) {
-// 	record, exists := mock.storage[nfcUniqueIdentifier]
-// 	if !exists {
-// 		return typedefinitions.VinylRecordTagData{}, errors.New("album not found")
-// 	}
-// 	return record, nil
+// 	record := mock.storage[nfcUniqueIdentifier]
+
+// 	return record
 // }
 
 // func (mock *MockAlbumLibrary) RetrieveAllSavedAlbums() ([]typedefinitions.VinylRecordTagData, error) {

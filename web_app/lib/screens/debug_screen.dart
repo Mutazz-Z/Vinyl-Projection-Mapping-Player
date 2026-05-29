@@ -30,7 +30,7 @@ class _DebugScreenState extends State<DebugScreen> {
     }
 
     try {
-      systemDataSource.write('GLOBAL_CurrentUidScanned', uid);
+      systemDataSource.write('GLOBAL_LastKnownUidScanned', uid);
 
       ScaffoldMessenger.of(
         context,

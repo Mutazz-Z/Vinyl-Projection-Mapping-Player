@@ -52,8 +52,7 @@ func main() {
 	mqttPlugin := &mqtt.MqttPlugin_t{}
 	playbackPlugin := &playback.PlaybackApplicationService{}
 
-
-	displayPlugin := display.NewDisplayApplicationService()
+	displayPlugin := &display.DisplayApplicationService{}
 	assetPlugin.Init()
 	webApiPlugin := webapi.NewWebServerPlugin(musicAssistantPlugin, assetPlugin)
 
@@ -63,10 +62,9 @@ func main() {
 	musicAssistantPlugin.Init(applicationContext, systemDataSource)
 	playbackPlugin.Init(systemDataSource, AlbumLibrary, musicAssistantPlugin)
 	displayPlugin.Init(systemDataSource, AlbumLibrary)
-	mqttPlugin.Init(systemDataSource)
+	mqttPlugin.Init(systemDataSource, AlbumLibrary)
 	webApiPlugin.Init(systemDataSource, AlbumLibrary)
 
-	displayPlugin.StartPlugin(context.Background())
 	webApiPlugin.StartPlugin(context.Background())
 
 	fmt.Println("Orchestrator Boot Sequence Complete. All modules running.")
@@ -80,7 +78,6 @@ func main() {
 
 	webApiPlugin.StopPlugin(applicationContext)
 	mqttPlugin.StopPlugin(applicationContext)
-	displayPlugin.StopPlugin(applicationContext)
 	playbackPlugin.StopPlugin(applicationContext)
 
 	fmt.Println("Graceful shutdown complete. Orchestrator terminated.")

@@ -19,12 +19,12 @@ variables:
   - name: FlutterWebUrl
     storage: NonVolatile
     type: string
-    default: '"localhost"'
+    default: '""'
 
   - name: FlutterWebPort
     storage: NonVolatile
     type: string
-    default: '"8080"'
+    default: '""'
 
   # ── MQTT ─────────────────────────────────────────────────────────────────
   - name: MqttBrokerHostAddress
@@ -43,12 +43,12 @@ variables:
     default: 1883
 
   # ── NFC Reader ───────────────────────────────────────────────────────────
-  - name: CurrentUidScanned
+  - name: LastKnownUidScanned
     storage: Volatile
     type: string
     default: '""'
 
-  - name: LastUnknownNfcTag
+  - name: LastUnknownUidScanned
     storage: Volatile
     type: string
     default: '""'

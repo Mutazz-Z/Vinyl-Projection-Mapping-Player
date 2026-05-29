@@ -1,7 +1,10 @@
+/*
+ * Packages and sends the data/visuals to be displayed on the projector
+ */
+
 package display
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -11,23 +14,15 @@ import (
 	"vinyl-orchestrator/utils"
 )
 
-type DisplayApplicationService struct {
-	systemDataSource database.DataSource
-	AlbumLibrary     database.AlbumLibrary
-}
-
-func (service *DisplayApplicationService) sendDataToProjectorForKnownTag(uid string) {
-	retrievedAlbumRecord, err := service.AlbumLibrary.RetrieveAlbumByUid(uid)
-	if err != nil {
-		return
-	}
+func (instance *DisplayApplicationService) sendDataToProjectorForKnownTag(uid string) {
+	retrievedAlbumRecord := instance._private.AlbumLibrary.RetrieveAlbumByUid(uid)
 
 	payload := core.ProjectorData_t{
 		TagData:     retrievedAlbumRecord,
 		PlayerState: core.PlayerState_Playing,
 	}
 
-	service.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
+	instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
 }
 
 func getLocalIP() string {
@@ -40,12 +35,12 @@ func getLocalIP() string {
 	return localAddr.IP.String()
 }
 
-func (service *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid string) {
+func (instance *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid string) {
 
 	var flutterUrl string
-	service.systemDataSource.Read(core.Global_FlutterWebUrl, &flutterUrl)
+	instance._private.systemDataSource.Read(core.Global_FlutterWebUrl, &flutterUrl)
 
-	if flutterUrl == "localhost" || flutterUrl == "127.0.0.1" || flutterUrl == "" {
+	if flutterUrl == "" {
 		flutterUrl = getLocalIP()
 	}
 
@@ -56,31 +51,26 @@ func (service *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid s
 		RegisterTagUrl: formattedUrl,
 	}
 
-	service.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
+	instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
 }
 
-func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
+func (instance *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
-		case core.Global_CurrentUidScanned:
+		case core.Global_LastKnownUidScanned:
 			currentUid := args.Data.(string)
-			if currentUid == "" {
-				return
-			}
-			service.sendDataToProjectorForKnownTag(currentUid)
+			instance.sendDataToProjectorForKnownTag(currentUid)
 
-		case core.Global_LastUnknownNfcTag:
-			lastUnKnownNfcTag := args.Data.(string)
-			if lastUnKnownNfcTag == "" {
-				return
-			}
-			service.sendDataToProjectorForUnknownTag(lastUnKnownNfcTag)
+		case core.Global_LastUnknownUidScanned:
+			LastUnknownUidScanned := args.Data.(string)
+			instance.sendDataToProjectorForUnknownTag(LastUnknownUidScanned)
 
 		case core.Global_CurrentShelfStatus:
 			shelfStatus := args.Data.(core.ShelfStatus_t)
 			if shelfStatus == core.ShelfStatus_Empty {
-				service.systemDataSource.Write(core.Global_CurrentProjectorData, core.ProjectorData_t{PlayerState: core.PlayerState_Stopped})
+				fmt.Println("[Display Service]: Shelf is empty, clearing visuals")
+				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, core.ProjectorData_t{PlayerState: core.PlayerState_Stopped})
 			}
 
 		case core.Global_ActiveRecordPlaybackState:
@@ -90,32 +80,23 @@ func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged 
 					PlayerState:  core.PlayerState_Error,
 					ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
 				}
-				service.systemDataSource.Write(core.Global_CurrentProjectorData, dataToSend)
+				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, dataToSend)
 			}
 		}
 	})
 }
 
-func NewDisplayApplicationService() *DisplayApplicationService {
-	return &DisplayApplicationService{}
+type DisplayApplicationService struct {
+	_private struct {
+		systemDataSource database.DataSource
+		AlbumLibrary     database.AlbumLibrary
+	}
 }
 
-func (service *DisplayApplicationService) Name() string {
-	return "Application_Display_Coordinator"
-}
+func (instance *DisplayApplicationService) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) {
+	instance._private.systemDataSource = dataSource
+	instance._private.AlbumLibrary = AlbumLibrary
 
-func (service *DisplayApplicationService) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary) error {
-	service.systemDataSource = dataSource
-	service.AlbumLibrary = AlbumLibrary
-	return nil
-}
-
-func (service *DisplayApplicationService) StartPlugin(applicationContext context.Context) error {
-	dataSourceChanged := service.systemDataSource.Subscribe("datasource")
-	go service.onDataSourceChanged(dataSourceChanged)
-	return nil
-}
-
-func (service *DisplayApplicationService) StopPlugin(applicationContext context.Context) error {
-	return nil
+	dataSourceChanged := instance._private.systemDataSource.Subscribe("datasource")
+	go instance.onDataSourceChanged(dataSourceChanged)
 }

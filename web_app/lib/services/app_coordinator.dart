@@ -17,7 +17,7 @@ class AppCoordinator {
 
   void start() {
     dataSource.onDataSourceChanged.listen((args) {
-      if (args.variable == 'GLOBAL_LastUnknownNfcTag') {
+      if (args.variable == 'GLOBAL_LastUnknownUidScanned') {
         _handleRegistrationRequest(args.data.toString());
       } else if (args.variable == 'GLOBAL_CurrentProjectorData') {
         _handleVisualPlaybackEvent(args.data);

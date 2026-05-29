@@ -115,23 +115,23 @@ func init() {
 	}
 }
 
-// ── CurrentUidScanned ──────────────────────────────────
+// ── LastKnownUidScanned ──────────────────────────────────
 
-const Global_CurrentUidScanned StateKey_t = "Global_CurrentUidScanned"
+const Global_LastKnownUidScanned StateKey_t = "Global_LastKnownUidScanned"
 
 func init() {
-	StateRegistry[Global_CurrentUidScanned] = StateMetadata{
+	StateRegistry[Global_LastKnownUidScanned] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: string(""),
 	}
 }
 
-// ── LastUnknownNfcTag ──────────────────────────────────
+// ── LastUnknownUidScanned ──────────────────────────────────
 
-const Global_LastUnknownNfcTag StateKey_t = "Global_LastUnknownNfcTag"
+const Global_LastUnknownUidScanned StateKey_t = "Global_LastUnknownUidScanned"
 
 func init() {
-	StateRegistry[Global_LastUnknownNfcTag] = StateMetadata{
+	StateRegistry[Global_LastUnknownUidScanned] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: string(""),
 	}
