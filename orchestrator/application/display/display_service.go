@@ -17,7 +17,7 @@ type DisplayApplicationService struct {
 }
 
 func (service *DisplayApplicationService) sendDataToProjectorForKnownTag(uid string) {
-	retrievedAlbumRecord, err := service.AlbumLibrary.RetrieveAlbumByNfcIdentifier(uid)
+	retrievedAlbumRecord, err := service.AlbumLibrary.RetrieveAlbumByUid(uid)
 	if err != nil {
 		return
 	}

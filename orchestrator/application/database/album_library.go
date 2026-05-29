@@ -5,9 +5,10 @@
 package database
 
 import (
+	"vinyl-orchestrator/core"
+
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
-	"vinyl-orchestrator/core"
 )
 
 type SQLiteAlbumLibrary struct {
@@ -30,7 +31,7 @@ func NewSQLiteAlbumLibrary(databasePath string) (*SQLiteAlbumLibrary, error) {
 	}, nil
 }
 
-func (repository *SQLiteAlbumLibrary) RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error) {
+func (repository *SQLiteAlbumLibrary) RetrieveAlbumByUid(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error) {
 	var retrievedAlbum core.VinylRecordTagData_t
 
 	result := repository.Database.Where("tag_uid = ?", nfcUniqueIdentifier).Find(&retrievedAlbum)
@@ -63,7 +64,7 @@ func (repository *SQLiteAlbumLibrary) DeleteAlbumRecord(uid string) error {
 
 type AlbumLibrary interface {
 	SaveAlbumRecord(albumRecord core.VinylRecordTagData_t) error
-	RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error)
+	RetrieveAlbumByUid(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error)
 	RetrieveAllSavedAlbums() ([]core.VinylRecordTagData_t, error)
 	DeleteAlbumRecord(nfcUniqueIdentifier string) error
 }

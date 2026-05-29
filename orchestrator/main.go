@@ -48,25 +48,24 @@ func main() {
 	}
 
 	assetPlugin := &assets.AssetPlugin{}
-	musicAssistantClient := &musicassistant.MusicAssistantPlugin{}
+	musicAssistantPlugin := &musicassistant.MusicAssistantPlugin{}
 	mqttPlugin := &mqtt.MqttPlugin_t{}
+	playbackPlugin := &playback.PlaybackApplicationService{}
 
 
-	playbackPlugin := playback.NewPlaybackApplicationService(musicAssistantClient)
 	displayPlugin := display.NewDisplayApplicationService()
 	assetPlugin.Init()
-	webApiPlugin := webapi.NewWebServerPlugin(musicAssistantClient, assetPlugin)
+	webApiPlugin := webapi.NewWebServerPlugin(musicAssistantPlugin, assetPlugin)
 
 	applicationContext, cancelApplicationContext := context.WithCancel(context.Background())
 	defer cancelApplicationContext()
 
-	musicAssistantClient.Init(applicationContext, systemDataSource)
-	playbackPlugin.Init(systemDataSource, AlbumLibrary)
+	musicAssistantPlugin.Init(applicationContext, systemDataSource)
+	playbackPlugin.Init(systemDataSource, AlbumLibrary, musicAssistantPlugin)
 	displayPlugin.Init(systemDataSource, AlbumLibrary)
 	mqttPlugin.Init(systemDataSource)
 	webApiPlugin.Init(systemDataSource, AlbumLibrary)
 
-	playbackPlugin.StartPlugin(context.Background())
 	displayPlugin.StartPlugin(context.Background())
 	webApiPlugin.StartPlugin(context.Background())
 
