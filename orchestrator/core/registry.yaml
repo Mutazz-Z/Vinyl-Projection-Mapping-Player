@@ -1,0 +1,121 @@
+variables:
+  # ── Music Assistant ──────────────────────────────────────────────────────
+  - name: MusicAssistantUrl
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  - name: MusicAssistantToken
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  - name: MusicAssistantTargetPlayerId
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  # ── Web / Network ────────────────────────────────────────────────────────
+  - name: FlutterWebUrl
+    storage: NonVolatile
+    type: string
+    default: '"localhost"'
+
+  - name: FlutterWebPort
+    storage: NonVolatile
+    type: string
+    default: '"8080"'
+
+  # ── MQTT ─────────────────────────────────────────────────────────────────
+  - name: MqttBrokerHostAddress
+    storage: NonVolatile
+    type: string
+    default: '"127.0.0.1"'
+
+  - name: MqttWebSocketPort
+    storage: NonVolatile
+    type: int
+    default: 9001
+
+  - name: MqttTcpPort
+    storage: NonVolatile
+    type: int
+    default: 1883
+
+  # ── NFC Reader ───────────────────────────────────────────────────────────
+  - name: CurrentUidScanned
+    storage: Volatile
+    type: string
+    default: '""'
+
+  - name: LastUnknownNfcTag
+    storage: Volatile
+    type: string
+    default: '""'
+
+  - name: CurrentShelfStatus
+    storage: Volatile
+    type: ShelfStatus_t
+    default: 'ShelfStatus_Empty'
+
+  - name: ReaderConnectionStatus
+    storage: Volatile
+    type: string
+    default: '""'
+
+  # ── Projector ────────────────────────────────────────────────────────────
+  - name: CurrentProjectorData
+    storage: Volatile
+    type: ProjectorData_t
+    default: 'ProjectorData_t{PlayerState: PlayerState_Stopped}'
+
+  - name: ProjectorHeartbeatSignal
+    storage: Volatile
+    type: interface{}
+    default: nil
+
+  - name: ProjectorHeartbeat
+    storage: Volatile
+    type: interface{}
+    default: nil
+
+  - name: TargetDisplayWidthInPixels
+    storage: NonVolatile
+    type: string
+    default: '"1920"'
+
+  - name: TargetDisplayHeightInPixels
+    storage: NonVolatile
+    type: string
+    default: '"1080"'
+
+  - name: CurrentMaptasticProjectorPositions
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  - name: SavedMaptasticProjectorPositions
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  # ── Active Record Shelf ──────────────────────────────────────────────────
+  - name: ActiveRecordPlaybackState
+    storage: Volatile
+    type: string
+    default: '"idle"'
+
+  - name: ActiveRecordTrackName
+    storage: Volatile
+    type: string
+    default: '"Unknown"'
+
+  - name: ActiveTrackProgressInSeconds
+    storage: Volatile
+    type: float64
+    default: 0.0
+
+  - name: ActiveTrackTotalDurationInSeconds
+    storage: Volatile
+    type: float64
+    default: 0.0

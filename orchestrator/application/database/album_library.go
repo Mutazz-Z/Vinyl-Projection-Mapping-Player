@@ -5,10 +5,9 @@
 package database
 
 import (
-	typedefinitions "vinyl-orchestrator/type_definitions"
-
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+	"vinyl-orchestrator/core"
 )
 
 type SQLiteAlbumLibrary struct {
@@ -21,7 +20,7 @@ func NewSQLiteAlbumLibrary(databasePath string) (*SQLiteAlbumLibrary, error) {
 		return nil, err
 	}
 
-	err = Database.AutoMigrate(&typedefinitions.VinylRecordTagData{})
+	err = Database.AutoMigrate(&core.VinylRecordTagData_t{})
 	if err != nil {
 		return nil, err
 	}
@@ -31,32 +30,40 @@ func NewSQLiteAlbumLibrary(databasePath string) (*SQLiteAlbumLibrary, error) {
 	}, nil
 }
 
-func (repository *SQLiteAlbumLibrary) RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (typedefinitions.VinylRecordTagData, error) {
-	var retrievedAlbum typedefinitions.VinylRecordTagData
-	err := repository.Database.Where("tag_uid = ?", nfcUniqueIdentifier).First(&retrievedAlbum).Error
+func (repository *SQLiteAlbumLibrary) RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error) {
+	var retrievedAlbum core.VinylRecordTagData_t
 
-	return retrievedAlbum, err
+	result := repository.Database.Where("tag_uid = ?", nfcUniqueIdentifier).Find(&retrievedAlbum)
+	if result.Error != nil {
+		return retrievedAlbum, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return retrievedAlbum, gorm.ErrRecordNotFound
+	}
+
+	return retrievedAlbum, nil
 }
 
-func (repository *SQLiteAlbumLibrary) RetrieveAllSavedAlbums() ([]typedefinitions.VinylRecordTagData, error) {
-	var allAlbumsList []typedefinitions.VinylRecordTagData
+func (repository *SQLiteAlbumLibrary) RetrieveAllSavedAlbums() ([]core.VinylRecordTagData_t, error) {
+	var allAlbumsList []core.VinylRecordTagData_t
 
 	err := repository.Database.Find(&allAlbumsList).Error
 
 	return allAlbumsList, err
 }
 
-func (repository *SQLiteAlbumLibrary) SaveAlbumRecord(albumRecord typedefinitions.VinylRecordTagData) error {
+func (repository *SQLiteAlbumLibrary) SaveAlbumRecord(albumRecord core.VinylRecordTagData_t) error {
 	return repository.Database.Save(&albumRecord).Error
 }
 
 func (repository *SQLiteAlbumLibrary) DeleteAlbumRecord(uid string) error {
-	return repository.Database.Where("tag_uid = ?", uid).Delete(&typedefinitions.VinylRecordTagData{}).Error
+	return repository.Database.Where("tag_uid = ?", uid).Delete(&core.VinylRecordTagData_t{}).Error
 }
 
 type AlbumLibrary interface {
-	SaveAlbumRecord(albumRecord typedefinitions.VinylRecordTagData) error
-	RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (typedefinitions.VinylRecordTagData, error)
-	RetrieveAllSavedAlbums() ([]typedefinitions.VinylRecordTagData, error)
+	SaveAlbumRecord(albumRecord core.VinylRecordTagData_t) error
+	RetrieveAlbumByNfcIdentifier(nfcUniqueIdentifier string) (core.VinylRecordTagData_t, error)
+	RetrieveAllSavedAlbums() ([]core.VinylRecordTagData_t, error)
 	DeleteAlbumRecord(nfcUniqueIdentifier string) error
 }

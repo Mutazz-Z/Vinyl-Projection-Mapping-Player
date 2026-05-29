@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/core"
 
 	eclipseMqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -16,13 +17,13 @@ func (mqttPlugin *MqttPlugin_t) handleSuccessfulConnection(connectedClient eclip
 	fmt.Println("[Mqtt Plugin]: MQTT Broker Bridge Online")
 	connectedClient.Subscribe("vinyl/shelf/state", 0, mqttPlugin.handleIncomingMessage).Wait()
 	connectedClient.Subscribe("vinyl/shelf/pong", 0, func(c eclipseMqtt.Client, m eclipseMqtt.Message) {
-		mqttPlugin._private.systemDataSource.Write("GLOBAL_ReaderConnectionStatus", "online")
+		mqttPlugin._private.systemDataSource.Write(core.Global_ReaderConnectionStatus, "online")
 	}).Wait()
 
 	commandChannel := mqttPlugin._private.systemDataSource.Subscribe("CMD_PingReader")
 	go func() {
 		for range commandChannel {
-			mqttPlugin._private.systemDataSource.Write("GLOBAL_ReaderConnectionStatus", "pending")
+			mqttPlugin._private.systemDataSource.Write(core.Global_ReaderConnectionStatus, "pending")
 			connectedClient.Publish("vinyl/shelf/command/ping", 0, false, "ping")
 		}
 	}()
@@ -40,8 +41,8 @@ func (mqttPlugin *MqttPlugin_t) startWatchdogTimer() {
 	}
 
 	mqttPlugin._private.watchdogTimer = time.AfterFunc(mqttPlugin._private.WatchdogTimeout, func() {
-		mqttPlugin._private.systemDataSource.Write("GLOBAL_CurrentUidScanned", "")
-		mqttPlugin._private.systemDataSource.Write("GLOBAL_CurrentShelfStatus", "empty")
+		mqttPlugin._private.systemDataSource.Write(core.Global_CurrentUidScanned, "")
+		mqttPlugin._private.systemDataSource.Write(core.Global_CurrentShelfStatus, core.ShelfStatus_Empty)
 	})
 }
 
@@ -49,13 +50,13 @@ func (mqttPlugin *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client,
 	var vinylShelfMessage VinylShelfMessage_t
 	json.Unmarshal(incomingMessage.Payload(), &vinylShelfMessage)
 
-	if vinylShelfMessage.ShelfIsOccupied {
+	if vinylShelfMessage.ShelfStatus == core.ShelfStatus_Occupied {
 		if mqttPlugin._private.watchdogTimer != nil {
 			mqttPlugin._private.watchdogTimer.Stop()
 		}
 
 		var previousUidScanned string
-		mqttPlugin._private.systemDataSource.Read("GLOBAL_CurrentUidScanned", &previousUidScanned)
+		mqttPlugin._private.systemDataSource.Read(core.Global_CurrentUidScanned, &previousUidScanned)
 
 		if previousUidScanned == vinylShelfMessage.UidScanned {
 			fmt.Printf("[Mqtt Plugin]: Tag %s already active, ignoring duplicate scan\n", vinylShelfMessage.UidScanned)
@@ -63,8 +64,8 @@ func (mqttPlugin *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client,
 
 			fmt.Printf("[Mqtt Plugin]: Scanned Tag %s\n", vinylShelfMessage.UidScanned)
 
-			mqttPlugin._private.systemDataSource.Write("GLOBAL_CurrentShelfStatus", vinylShelfMessage.ShelfIsOccupied)
-			mqttPlugin._private.systemDataSource.Write("GLOBAL_CurrentUidScanned", vinylShelfMessage.UidScanned)
+			mqttPlugin._private.systemDataSource.Write(core.Global_CurrentShelfStatus, vinylShelfMessage.ShelfStatus)
+			mqttPlugin._private.systemDataSource.Write(core.Global_CurrentUidScanned, vinylShelfMessage.UidScanned)
 		}
 
 	} else {
@@ -81,8 +82,8 @@ func (mqttPlugin *MqttPlugin_t) StopPlugin(applicationContext context.Context) e
 }
 
 type VinylShelfMessage_t struct {
-	UidScanned      string `json:"uid"`
-	ShelfIsOccupied bool   `json:"shelfStatus"`
+	UidScanned  string             `json:"uid"`
+	ShelfStatus core.ShelfStatus_t `json:"shelfStatus"`
 }
 
 type MqttPlugin_t struct {
@@ -90,9 +91,9 @@ type MqttPlugin_t struct {
 		systemDataSource database.DataSource
 		mqttClient       eclipseMqtt.Client
 
-		watchdogTimer    *time.Timer
-		WatchdogTimeout  time.Duration
-		timerMutex          sync.Mutex
+		watchdogTimer   *time.Timer
+		WatchdogTimeout time.Duration
+		timerMutex      sync.Mutex
 	}
 }
 
@@ -100,8 +101,8 @@ func (mqttPlugin *MqttPlugin_t) getBrokerServer() string {
 	var mqttHostAddress string
 	var mqttTcpPort int
 
-	mqttPlugin._private.systemDataSource.Read("GLOBAL_MqttBrokerHostAddress", &mqttHostAddress)
-	mqttPlugin._private.systemDataSource.Read("GLOBAL_MqttTcpPort", &mqttTcpPort)
+	mqttPlugin._private.systemDataSource.Read(core.Global_MqttBrokerHostAddress, &mqttHostAddress)
+	mqttPlugin._private.systemDataSource.Read(core.Global_MqttTcpPort, &mqttTcpPort)
 
 	return fmt.Sprintf("tcp://%s:%d", mqttHostAddress, mqttTcpPort)
 }

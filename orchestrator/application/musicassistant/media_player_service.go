@@ -5,11 +5,12 @@ import (
 	"strings"
 
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/core"
 )
 
 func (player *SystemMediaPlayer) retrieveTargetPlayerIdentifier() (string, error) {
 	var targetPlayerIdentifier string
-	player.systemDataSource.Read("GLOBAL_MusicAssistantTargetPlayerId", &targetPlayerIdentifier)
+	player.systemDataSource.Read(core.Global_MusicAssistantTargetPlayerId, &targetPlayerIdentifier)
 
 	if targetPlayerIdentifier == "" {
 		return "", fmt.Errorf("player entity id not set")
@@ -134,12 +135,12 @@ func (player *SystemMediaPlayer) extractAndBroadcastState(remoteProcedureCallRes
 		}
 	}
 
-	player.systemDataSource.Write("GLOBAL_ActiveRecordPlaybackState", currentStateString)
-	player.systemDataSource.Write("GLOBAL_ActiveTrackProgressInSeconds", trackPositionInSeconds)
-	player.systemDataSource.Write("GLOBAL_ActiveTrackTotalDurationInSeconds", trackDurationInSeconds)
+	player.systemDataSource.Write(core.Global_ActiveRecordPlaybackState, currentStateString)
+	player.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, trackPositionInSeconds)
+	player.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, trackDurationInSeconds)
 
 	if activeTrackNameString != "" {
-		player.systemDataSource.Write("GLOBAL_ActiveRecordTrackName", activeTrackNameString)
+		player.systemDataSource.Write(core.Global_ActiveRecordTrackName, activeTrackNameString)
 	}
 
 	return currentStateString

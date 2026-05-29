@@ -54,7 +54,10 @@ func (plugin *WebServerPlugin) handleDataSourceMessage(
 
 	case "read":
 		var value interface{}
-		err := plugin.dataSource.Read(msg.Key, &value)
+
+		typedKey := core.StateKey_t(msg.Key)
+
+		err := plugin.dataSource.Read(typedKey, &value)
 		if err != nil {
 			responseChan <- DataSourceResponse{
 				Action: "read_error",
@@ -64,20 +67,16 @@ func (plugin *WebServerPlugin) handleDataSourceMessage(
 			}
 			return
 		}
-		dataTypeStr := ""
-		if def, ok := core.SystemRegistry[msg.Key]; ok {
-			dataTypeStr = def.DataType.String()
-		}
 		responseChan <- DataSourceResponse{
-			Action:   "read_response",
-			Key:      msg.Key,
-			Value:    value,
-			DataType: dataTypeStr,
-			ReqID:    msg.ReqID,
+			Action: "read_response",
+			Key:    msg.Key,
+			Value:  value,
+			ReqID:  msg.ReqID,
 		}
 
 	case "write":
-		if err := plugin.dataSource.Write(msg.Key, msg.Value); err != nil {
+		typedKey := core.StateKey_t(msg.Key)
+		if err := plugin.dataSource.Write(typedKey, msg.Value); err != nil {
 			fmt.Printf("DataSource bridge write error [%s]: %v\n", msg.Key, err)
 		}
 

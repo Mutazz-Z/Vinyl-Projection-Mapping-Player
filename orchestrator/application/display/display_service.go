@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"vinyl-orchestrator/application/database"
-	typedefinitions "vinyl-orchestrator/type_definitions"
+	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/utils"
 )
 
@@ -22,11 +22,12 @@ func (service *DisplayApplicationService) sendDataToProjectorForKnownTag(uid str
 		return
 	}
 
-	payload := typedefinitions.ProjectorData{
+	payload := core.ProjectorData_t{
 		TagData:     retrievedAlbumRecord,
-		PlayerState: typedefinitions.PlayerState_Playing,
+		PlayerState: core.PlayerState_Playing,
 	}
-	service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
+
+	service.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
 }
 
 func getLocalIP() string {
@@ -41,55 +42,55 @@ func getLocalIP() string {
 
 func (service *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid string) {
 
-	var host string
-	service.systemDataSource.Read("GLOBAL_FlutterWebUrl", &host)
+	var flutterUrl string
+	service.systemDataSource.Read(core.Global_FlutterWebUrl, &flutterUrl)
 
-	if host == "localhost" || host == "127.0.0.1" || host == "" {
-		host = getLocalIP()
+	if flutterUrl == "localhost" || flutterUrl == "127.0.0.1" || flutterUrl == "" {
+		flutterUrl = getLocalIP()
 	}
 
-	formattedUrl := fmt.Sprintf("http://%s/?uid=%s", host, url.QueryEscape(uid))
-	payload := typedefinitions.ProjectorData{
-		PlayerState:    typedefinitions.PlayerState_Unknown,
-		TagData:        typedefinitions.VinylRecordTagData{TagUid: uid},
+	formattedUrl := fmt.Sprintf("http://%s/?uid=%s", flutterUrl, url.QueryEscape(uid))
+	payload := core.ProjectorData_t{
+		PlayerState:    core.PlayerState_Unknown,
+		TagData:        core.VinylRecordTagData_t{TagUid: uid},
 		RegisterTagUrl: formattedUrl,
 	}
-	service.systemDataSource.Write("GLOBAL_CurrentProjectorData", payload)
+
+	service.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
 }
 
 func (service *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
-	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args database.DataSourceChangedArgs) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
-		case "GLOBAL_CurrentUidScanned":
-			uid, _ := args.Data.(string)
-			if uid == "" {
+		case core.Global_CurrentUidScanned:
+			currentUid := args.Data.(string)
+			if currentUid == "" {
 				return
 			}
-			service.sendDataToProjectorForKnownTag(uid)
+			service.sendDataToProjectorForKnownTag(currentUid)
 
-		case "GLOBAL_LastUnknownNfcTag":
-			uid, _ := args.Data.(string)
-			if uid == "" {
+		case core.Global_LastUnknownNfcTag:
+			lastUnKnownNfcTag := args.Data.(string)
+			if lastUnKnownNfcTag == "" {
 				return
 			}
-			service.sendDataToProjectorForUnknownTag(uid)
+			service.sendDataToProjectorForUnknownTag(lastUnKnownNfcTag)
 
-			// TODO: Playback service has a 1 second watchdog delay before it actually commits to stopping playback, we need to mirror that here
-		case "GLOBAL_CurrentShelfStatus":
-			status, _ := args.Data.(string)
-			if status == "empty" {
-				service.systemDataSource.Write("GLOBAL_CurrentProjectorData", typedefinitions.ProjectorData{PlayerState: typedefinitions.PlayerState_Stopped})
+		case core.Global_CurrentShelfStatus:
+			shelfStatus := args.Data.(core.ShelfStatus_t)
+			if shelfStatus == core.ShelfStatus_Empty {
+				service.systemDataSource.Write(core.Global_CurrentProjectorData, core.ProjectorData_t{PlayerState: core.PlayerState_Stopped})
 			}
 
-		case "GLOBAL_ActiveRecordPlaybackState":
-			state, _ := args.Data.(string)
-			if state == "error" {
-				dataToSend := typedefinitions.ProjectorData{
-					PlayerState:  typedefinitions.PlayerState_Error,
+		case core.Global_ActiveRecordPlaybackState:
+			activeRecordPlaybackState := args.Data.(string)
+			if activeRecordPlaybackState == "error" {
+				dataToSend := core.ProjectorData_t{
+					PlayerState:  core.PlayerState_Error,
 					ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
 				}
-				service.systemDataSource.Write("GLOBAL_CurrentProjectorData", dataToSend)
+				service.systemDataSource.Write(core.Global_CurrentProjectorData, dataToSend)
 			}
 		}
 	})

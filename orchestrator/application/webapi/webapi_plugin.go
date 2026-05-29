@@ -9,7 +9,7 @@ import (
 	"vinyl-orchestrator/application/assets"
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/application/musicassistant"
-	typedefinitions "vinyl-orchestrator/type_definitions"
+	"vinyl-orchestrator/core"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -141,7 +141,7 @@ func (plugin *WebServerPlugin) handleVerifyReaderRequest(c *gin.Context) {
 			return
 		case <-ticker.C:
 			var status string
-			plugin.dataSource.Read("GLOBAL_ReaderConnectionStatus", &status)
+			plugin.dataSource.Read(core.Global_ReaderConnectionStatus, &status)
 			if status == "online" {
 				c.JSON(http.StatusOK, gin.H{"message": "Reader is online"})
 				return
@@ -188,7 +188,7 @@ func (plugin *WebServerPlugin) deleteAlbumRecordGivenId(c *gin.Context) {
 }
 
 func (plugin *WebServerPlugin) saveNewAlbumRecord(c *gin.Context) {
-	var albumRecord typedefinitions.VinylRecordTagData
+	var albumRecord core.VinylRecordTagData_t
 	if err := c.ShouldBindJSON(&albumRecord); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -256,8 +256,8 @@ func (plugin *WebServerPlugin) handleConnectionTestRequest(c *gin.Context) {
 		return
 	}
 
-	errUrl := plugin.dataSource.Write("GLOBAL_MusicAssistantUrl", payload.URL)
-	errToken := plugin.dataSource.Write("GLOBAL_MusicAssistantToken", payload.Token)
+	errUrl := plugin.dataSource.Write(core.Global_MusicAssistantUrl, payload.URL)
+	errToken := plugin.dataSource.Write(core.Global_MusicAssistantToken, payload.Token)
 
 	if errUrl != nil || errToken != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Tested successfully, but failed to save to database"})

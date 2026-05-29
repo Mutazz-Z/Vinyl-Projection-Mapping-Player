@@ -4,15 +4,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sync"
 
-	_ "github.com/glebarez/go-sqlite"
 	"vinyl-orchestrator/core"
+
+	_ "github.com/glebarez/go-sqlite"
 )
 
 type SQLiteDataSource struct {
-	connection       *sql.DB
-	memoryCache      map[string]interface{}
+	connection *sql.DB
+	memoryCache      map[core.StateKey_t]interface{}
 	cacheMutex       sync.RWMutex
 	eventSubscribers map[string][]chan Event
 	subscriberMutex  sync.RWMutex
@@ -26,7 +28,7 @@ func NewSQLiteDataSource(databaseConnection *sql.DB) (*SQLiteDataSource, error) 
 
 	dataSource := &SQLiteDataSource{
 		connection:       databaseConnection,
-		memoryCache:      make(map[string]interface{}),
+		memoryCache:      make(map[core.StateKey_t]interface{}),
 		eventSubscribers: make(map[string][]chan Event),
 	}
 
@@ -36,27 +38,30 @@ func NewSQLiteDataSource(databaseConnection *sql.DB) (*SQLiteDataSource, error) 
 }
 
 func (dataSource *SQLiteDataSource) initializeCacheFromRegistry() {
-	for registryKey, definition := range core.SystemRegistry {
-		dataSource.memoryCache[registryKey] = definition.DefaultDataValue
+	for registryKey, metadata := range core.StateRegistry {
+		keyStr := string(registryKey)
 
-		if definition.StorageType == core.NonVolatile {
+		dataSource.memoryCache[registryKey] = metadata.DefaultData
+
+		if metadata.StorageType == core.NonVolatile {
 			var jsonString string
 			queryError := dataSource.connection.QueryRow(
-				"SELECT value FROM app_settings WHERE key = ?", registryKey,
+				"SELECT value FROM app_settings WHERE key = ?", keyStr,
 			).Scan(&jsonString)
 
 			if queryError == nil {
-				var parsedValue interface{}
-				if unmarshalError := json.Unmarshal([]byte(jsonString), &parsedValue); unmarshalError == nil {
-					dataSource.memoryCache[registryKey] = parsedValue
+				parsedValue := reflect.New(reflect.TypeOf(metadata.DefaultData)).Interface()
+
+				if unmarshalError := json.Unmarshal([]byte(jsonString), parsedValue); unmarshalError == nil {
+					dataSource.memoryCache[registryKey] = reflect.ValueOf(parsedValue).Elem().Interface()
 				}
 			}
 		}
 	}
 }
 
-func (dataSource *SQLiteDataSource) Read(key string, destination interface{}) error {
-	_, isRegistered := core.SystemRegistry[key]
+func (dataSource *SQLiteDataSource) Read(key core.StateKey_t, destination interface{}) error {
+	_, isRegistered := core.StateRegistry[key]
 	if !isRegistered {
 		return errors.New("unregistered configuration key requested")
 	}
@@ -73,8 +78,8 @@ func (dataSource *SQLiteDataSource) Read(key string, destination interface{}) er
 	return json.Unmarshal(jsonBytes, destination)
 }
 
-func (dataSource *SQLiteDataSource) Write(key string, value interface{}) error {
-	definition, isRegistered := core.SystemRegistry[key]
+func (dataSource *SQLiteDataSource) Write(key core.StateKey_t, value interface{}) error {
+	definition, isRegistered := core.StateRegistry[key]
 	if !isRegistered {
 		return errors.New("unregistered configuration key provided")
 	}
@@ -90,12 +95,12 @@ func (dataSource *SQLiteDataSource) Write(key string, value interface{}) error {
 		}
 
 		insertQuery := `INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)`
-		if _, executionError := dataSource.connection.Exec(insertQuery, key, string(jsonBytes)); executionError != nil {
+		if _, executionError := dataSource.connection.Exec(insertQuery, string(key), string(jsonBytes)); executionError != nil {
 			return executionError
 		}
 	}
 
-	go dataSource.Publish("datasource", DataSourceChangedArgs{
+	go dataSource.Publish("datasource", core.OnDataSourceChangedArgs_t{
 		Variable: key,
 		Data:     value,
 	})
@@ -140,14 +145,9 @@ type Event struct {
 	Payload interface{}
 }
 
-type DataSourceChangedArgs struct {
-	Variable string      `json:"variable"`
-	Data     interface{} `json:"data"`
-}
-
 type DataSource interface {
-	Read(key string, destination interface{}) error
-	Write(key string, value interface{}) error
+	Read(key core.StateKey_t, destination interface{}) error
+	Write(key core.StateKey_t, value interface{}) error
 	Publish(topic string, payload interface{})
 	Subscribe(topic string) <-chan Event
 }

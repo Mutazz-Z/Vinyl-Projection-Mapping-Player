@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/core"
 
 	"github.com/gorilla/websocket"
 )
@@ -79,8 +80,8 @@ func (manager *WebSocketManager) retrieveWebSocketCredentials() (string, string,
 	var musicAssistantUrlString string
 	var musicAssistantTokenString string
 
-	manager.systemDataSource.Read("GLOBAL_MusicAssistantUrl", &musicAssistantUrlString)
-	manager.systemDataSource.Read("GLOBAL_MusicAssistantToken", &musicAssistantTokenString)
+	manager.systemDataSource.Read(core.Global_MusicAssistantUrl, &musicAssistantUrlString)
+	manager.systemDataSource.Read(core.Global_MusicAssistantToken, &musicAssistantTokenString)
 
 	areCredentialsValid := musicAssistantUrlString != "" && musicAssistantTokenString != ""
 	return musicAssistantUrlString, musicAssistantTokenString, areCredentialsValid

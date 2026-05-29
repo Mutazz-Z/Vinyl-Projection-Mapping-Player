@@ -8,6 +8,7 @@ import (
 
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/application/musicassistant"
+	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/utils"
 )
 
@@ -19,10 +20,6 @@ type PlaybackApplicationService struct {
 	playbackWatchdogTimer *time.Timer
 	watchdogMutex         sync.Mutex
 	WatchdogTimeout       time.Duration
-
-	recordRemovedTimer   *time.Timer
-	recordRemovedMutex   sync.Mutex
-	recordRemovedTimeout time.Duration
 }
 
 func (service *PlaybackApplicationService) startPlaybackWatchdog() {
@@ -41,7 +38,7 @@ func (service *PlaybackApplicationService) handleWatchdogTimeout() {
 
 	// TODO: Add visual error for communication failure
 	fmt.Println("Playback Service Error: Target device failed to respond within timeout window.")
-	service.systemDataSource.Write("GLOBAL_ActiveRecordPlaybackState", "error")
+	service.systemDataSource.Write(core.Global_ActiveRecordPlaybackState, "error")
 }
 
 func (service *PlaybackApplicationService) cancelPlaybackWatchdog() {
@@ -51,16 +48,6 @@ func (service *PlaybackApplicationService) cancelPlaybackWatchdog() {
 	if service.playbackWatchdogTimer != nil {
 		service.playbackWatchdogTimer.Stop()
 		service.playbackWatchdogTimer = nil
-	}
-}
-
-func (service *PlaybackApplicationService) cancelRecordRemovedTimeout() {
-	service.recordRemovedMutex.Lock()
-	defer service.recordRemovedMutex.Unlock()
-
-	if service.recordRemovedTimer != nil {
-		service.recordRemovedTimer.Stop()
-		service.recordRemovedTimer = nil
 	}
 }
 
@@ -83,34 +70,19 @@ func (service *PlaybackApplicationService) fetchAndPublishPlayerState() {
 	if fetchError != nil {
 		return
 	}
-	service.systemDataSource.Write("GLOBAL_ActiveRecordPlaybackState", playerStateString)
+	service.systemDataSource.Write(core.Global_ActiveRecordPlaybackState, playerStateString)
 
 	if playerStateString == "playing" || playerStateString == "paused" {
 		service.cancelPlaybackWatchdog()
 	}
 }
 
-func (service *PlaybackApplicationService) startRecordRemovedWatchdog() {
-	service.recordRemovedMutex.Lock()
-	defer service.recordRemovedMutex.Unlock()
-
-	if service.recordRemovedTimer != nil {
-		service.recordRemovedTimer.Stop()
-	}
-
-	fmt.Printf("Playback Service: Record removed, stopping playback in %v second(s)...\n", service.recordRemovedTimeout.Seconds())
-	service.recordRemovedTimer = time.AfterFunc(service.recordRemovedTimeout, func() {
-		service.activeMediaPlayer.StopMedia()
-	})
-}
-
 func (service *PlaybackApplicationService) processScannedNfcTag(uid string) {
-	service.cancelRecordRemovedTimeout()
 
 	retrievedAlbumRecord, error := service.AlbumLibrary.RetrieveAlbumByNfcIdentifier(uid)
 	if error != nil {
 		fmt.Printf("Playback Service: Unknown Tag %s, writing to registry for registration\n", uid)
-		service.systemDataSource.Write("GLOBAL_LastUnknownNfcTag", uid)
+		service.systemDataSource.Write(core.Global_LastUnknownNfcTag, uid)
 		return
 	}
 
@@ -125,21 +97,22 @@ func (service *PlaybackApplicationService) processScannedNfcTag(uid string) {
 }
 
 func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
-	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args database.DataSourceChangedArgs) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
-		case "GLOBAL_CurrentUidScanned":
-			uid, _ := args.Data.(string)
-			if uid == "" {
+		case core.Global_CurrentUidScanned:
+			currentUid, _ := args.Data.(string)
+			if currentUid == "" {
 				return
 			}
-			service.processScannedNfcTag(uid)
+			service.processScannedNfcTag(currentUid)
 
-		case "GLOBAL_CurrentShelfStatus":
-			status, _ := args.Data.(string)
-			if status == "empty" {
+		case core.Global_CurrentShelfStatus:
+			shelfStatus, _ := args.Data.(core.ShelfStatus_t)
+			if shelfStatus == core.ShelfStatus_Empty {
 				service.cancelPlaybackWatchdog()
-				service.startRecordRemovedWatchdog()
+				println("Playback Service: Shelf is empty, stopping playback")
+				service.activeMediaPlayer.StopMedia()
 			}
 		}
 	})
@@ -147,9 +120,8 @@ func (service *PlaybackApplicationService) onDataSourceChanged(dataSourceChanged
 
 func NewPlaybackApplicationService(mediaPlayer musicassistant.MediaPlayer) *PlaybackApplicationService {
 	return &PlaybackApplicationService{
-		activeMediaPlayer:    mediaPlayer,
-		WatchdogTimeout:      30 * time.Second,
-		recordRemovedTimeout: 1 * time.Second,
+		activeMediaPlayer: mediaPlayer,
+		WatchdogTimeout:   30 * time.Second,
 	}
 }
 
