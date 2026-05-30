@@ -1,13 +1,16 @@
+/*
+ * Handles media player operations such as play, stop, and polling for status updates
+ */
+
 package musicassistant
 
 import (
-	"fmt"
-	"strings"
+	"context"
+	"sync"
+	"time"
 
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 func (instance *SystemMediaPlayer_t) retrieveTargetPlayerIdentifier() string {
@@ -25,7 +28,11 @@ func (instance *SystemMediaPlayer_t) PlayMedia(mediaUri string) error {
 		"media":    []string{mediaUri},
 	}
 
-	return instance._private.messageRouter.SendFireAndForgetCommand("player_queues/play_media", commandArguments)
+	playMediaError := instance._private.messageRouter.SendFireAndForgetCommand("player_queues/play_media", commandArguments)
+	if playMediaError == nil {
+		instance.startPolling()
+	}
+	return playMediaError
 }
 
 func (instance *SystemMediaPlayer_t) StopMedia() error {
@@ -35,132 +42,81 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 		"queue_id": targetPlayerIdentifier,
 	}
 
-	return instance._private.messageRouter.SendFireAndForgetCommand("player_queues/stop", commandArguments)
-}
-
-func (instance *SystemMediaPlayer_t) fetchRawPlayerState() (map[string]interface{}, error) {
-	activeConnection, isAuthenticated := instance._private.messageRouter.connectionManager.RetrieveActiveConnectionState()
-	if activeConnection == nil || !isAuthenticated {
-		return nil, fmt.Errorf("music assistant connection is offline or unauthenticated")
+	stopMediaError := instance._private.messageRouter.SendFireAndForgetCommand("player_queues/stop", commandArguments)
+	if stopMediaError == nil {
+		instance.stopPolling()
 	}
-
-	targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
-	commandArguments := map[string]interface{}{
-		"queue_id": targetPlayerIdentifier,
-	}
-
-	return instance._private.messageRouter.ExecuteRemoteProcedureCall("player_queues/get", commandArguments)
+	return stopMediaError
 }
 
-type PlayerStateResult_t struct {
-	State       string  `mapstructure:"state"`
-	ElapsedTime float64 `mapstructure:"elapsed_time"`
-	CurrentItem struct {
-		Duration float64 `mapstructure:"duration"`
-		Name     string  `mapstructure:"name"`
-	} `mapstructure:"current_item"`
-}
+func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
+	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
 
-func (instance *SystemMediaPlayer_t) parsePlayerStateResponse(rpcResponse map[string]interface{}) PlayerStateResult_t {
-	var parsedState PlayerStateResult_t
-	rawResult, ok := rpcResponse["result"]
-	if !ok {
-		return parsedState
-	}
-	
-	mapstructure.Decode(rawResult, &parsedState)
-	return parsedState
-}
-
-func (instance *SystemMediaPlayer_t) broadcastStateToDatabase(parsedState PlayerStateResult_t, typedState core.PlayerState_t) {
 	mediaPlaybackState := core.MediaPlaybackState_t{
-		State:        typedState,
+		State:        mediaPlayerStatus.State,
 		ErrorMessage: "",
 	}
-	
+
 	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, mediaPlaybackState)
-	instance._private.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, parsedState.ElapsedTime)
-	instance._private.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, parsedState.CurrentItem.Duration)
+	instance._private.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
+	instance._private.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
 
-	if parsedState.CurrentItem.Name != "" {
-		instance._private.systemDataSource.Write(core.Global_ActiveRecordTrackName, parsedState.CurrentItem.Name)
+	if mediaPlayerStatus.TrackName != "" {
+		instance._private.systemDataSource.Write(core.Global_ActiveRecordTrackName, mediaPlayerStatus.TrackName)
 	}
-}
-
-func (instance *SystemMediaPlayer_t) UpdateState() (core.PlayerState_t, error) {
-	rawRpcResponse, err := instance.fetchRawPlayerState()
-	if err != nil {
-		return core.PlayerState_Unknown, err
-	}
-
-	parsedState := instance.parsePlayerStateResponse(rawRpcResponse)
-	playerState := parsePlayerState(parsedState.State)
-
-	instance.broadcastStateToDatabase(parsedState, playerState)
-
-	return playerState, nil
-}
-
-type AvailableMediaPlayers_t struct {
-	PlayerID    string `json:"player_id" mapstructure:"player_id"`
-	DisplayName string `json:"display_name" mapstructure:"display_name"`
 }
 
 func (instance *SystemMediaPlayer_t) GetAvailablePlayers() (interface{}, error) {
-	responseData, executionError := instance._private.messageRouter.ExecuteRemoteProcedureCall("players/all", nil)
-	if executionError != nil {
-		return nil, executionError
-	}
-
-	rawResult, ok := responseData["result"]
-	if !ok {
-		return nil, fmt.Errorf("response did not contain a 'result' field")
-	}
-
-	var availablePlayers []AvailableMediaPlayers_t
-	err := mapstructure.Decode(rawResult, &availablePlayers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode players: %w", err)
-	}
-
-	return availablePlayers, nil
+	return instance.getAvailablePlayers()
 }
 
-func parsePlayerState(rawState string) core.PlayerState_t {
-	switch strings.ToLower(rawState) {
-	case "playing":
-		return core.PlayerState_Playing
-	case "paused":
-		return core.PlayerState_Paused
-	case "idle":
-		return core.PlayerState_Idle
-	case "buffering":
-		return core.PlayerState_Buffering
-	case "stopped":
-		return core.PlayerState_Stopped
-	case "off", "standby":
-		return core.PlayerState_Off
-	case "error":
-		return core.PlayerState_Error
-	default:
-		return core.PlayerState_Unknown
+func (instance *SystemMediaPlayer_t) startPolling() {
+	instance._private.pollingMutex.Lock()
+	defer instance._private.pollingMutex.Unlock()
+
+	if instance._private.pollingCancel != nil {
+		instance._private.pollingCancel()
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	instance._private.pollingCancel = cancel
+
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				instance.updateStatesWhilePlayingMedia()
+			}
+		}
+	}(ctx)
 }
 
-type MediaPlayer interface {
-	PlayMedia(mediaUri string) error
-	StopMedia() error
-	UpdateState() (core.PlayerState_t, error)
+func (instance *SystemMediaPlayer_t) stopPolling() {
+	instance._private.pollingMutex.Lock()
+	defer instance._private.pollingMutex.Unlock()
+
+	if instance._private.pollingCancel != nil {
+		instance._private.pollingCancel()
+		instance._private.pollingCancel = nil
+	}
 }
 
 type SystemMediaPlayer_t struct {
 	_private struct {
 		systemDataSource database.DataSource
-		messageRouter    *RpcMessageRouter
+		messageRouter    *RpcMessageRouter_t
+
+		pollingCancel context.CancelFunc
+		pollingMutex  sync.Mutex
 	}
 }
 
-func (instance *SystemMediaPlayer_t) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter) {
+func (instance *SystemMediaPlayer_t) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter_t) {
 	instance._private.systemDataSource = dataSource
 	instance._private.messageRouter = routerInstance
 }

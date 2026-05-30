@@ -33,18 +33,18 @@ func main() {
 	databaseFilePath := resolvePrimaryDatabaseFilePath()
 	sharedDatabaseConnection, databaseConnectionError := sql.Open("sqlite", databaseFilePath)
 	if databaseConnectionError != nil {
-		panic(fmt.Sprintf("Fatal Error: Could not establish database connection: %v", databaseConnectionError))
+		panic(fmt.Sprintf("[Main]: Fatal Error: Could not establish database connection: %v", databaseConnectionError))
 	}
 	defer sharedDatabaseConnection.Close()
 
 	systemDataSource, dataSourceInitializationError := database.NewSQLiteDataSource(sharedDatabaseConnection)
 	if dataSourceInitializationError != nil {
-		panic(fmt.Sprintf("Fatal Error: Could not initialize data source: %v", dataSourceInitializationError))
+		panic(fmt.Sprintf("[Main]: Fatal Error: Could not initialize data source: %v", dataSourceInitializationError))
 	}
 
 	AlbumLibrary, repositoryInitializationError := database.NewSQLiteAlbumLibrary(databaseFilePath)
 	if repositoryInitializationError != nil {
-		panic(fmt.Sprintf("Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
+		panic(fmt.Sprintf("[Main]: Fatal Error: Could not initialize library repository: %v", repositoryInitializationError))
 	}
 
 	assetPlugin := &assets.AssetPlugin{}
@@ -67,18 +67,18 @@ func main() {
 
 	webApiPlugin.StartPlugin(context.Background())
 
-	fmt.Println("Orchestrator Boot Sequence Complete. All modules running.")
+	fmt.Println("[Main]: Orchestrator Boot Sequence Complete. All modules running.")
 
-	fmt.Println("Server should be running now... waiting for signal")
+	fmt.Println("[Main]: Server should be running now... waiting for signal")
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownSignalChannel
 
-	fmt.Println("\nReceived termination signal. Executing graceful shutdown sequence...")
+	fmt.Println("\n[Main]: Received termination signal. Executing graceful shutdown sequence...")
 
 	webApiPlugin.StopPlugin(applicationContext)
 	mqttPlugin.StopPlugin(applicationContext)
 	playbackPlugin.StopPlugin(applicationContext)
 
-	fmt.Println("Graceful shutdown complete. Orchestrator terminated.")
+	fmt.Println("[Main]: Graceful shutdown complete. Orchestrator terminated.")
 }

@@ -2,8 +2,8 @@ package musicassistant
 
 import (
 	"context"
+	"fmt"
 	"vinyl-orchestrator/application/database"
-	"vinyl-orchestrator/core"
 )
 
 func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
@@ -18,10 +18,6 @@ func (plugin *MusicAssistantPlugin) StopMedia() error {
 	return plugin.mediaPlayer.StopMedia()
 }
 
-func (plugin *MusicAssistantPlugin) UpdateState() (core.PlayerState_t, error) {
-	return plugin.mediaPlayer.UpdateState()
-}
-
 func (plugin *MusicAssistantPlugin) GetAllAlbumsInLibrary() (interface{}, error) {
 	return plugin.getAllAlbumsFromMusicAssistantLibrary()
 }
@@ -31,14 +27,28 @@ func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider st
 }
 
 func (plugin *MusicAssistantPlugin) ValidateSystemCredentials() error {
-	return plugin.validateCredentials()
+	if plugin.connectionManager == nil {
+		return fmt.Errorf("internal error: websocket manager is offline")
+	}
+
+	activeConnection, isConnectionAuthenticated := plugin.connectionManager.RetrieveActiveConnectionState()
+
+	if activeConnection == nil {
+		return fmt.Errorf("not connected to Music Assistant — check the URL and ensure the server is reachable")
+	}
+
+	if !isConnectionAuthenticated {
+		return fmt.Errorf("connected but not yet authenticated — the token may be incorrect")
+	}
+
+	return nil
 }
 
 func (plugin *MusicAssistantPlugin) Init(ctx context.Context, dataSource database.DataSource) {
 	plugin.systemDataSource = dataSource
 
-	plugin.messageRouter = &RpcMessageRouter{}
-	plugin.connectionManager = &WebSocketManager{}
+	plugin.messageRouter = &RpcMessageRouter_t{}
+	plugin.connectionManager = &WebSocketManager_t{}
 	plugin.mediaPlayer = &SystemMediaPlayer_t{}
 
 	plugin.messageRouter.Init(dataSource, plugin.connectionManager)
@@ -51,9 +61,15 @@ func (plugin *MusicAssistantPlugin) Init(ctx context.Context, dataSource databas
 	}()
 }
 
+type MusicAssistantPlayer_t interface {
+	GetAvailablePlayers() (interface{}, error)
+	PlayMedia(mediaResourceIdentifier string) error
+	StopMedia() error
+}
+
 type MusicAssistantPlugin struct {
 	systemDataSource  database.DataSource
-	connectionManager *WebSocketManager
-	messageRouter     *RpcMessageRouter
+	connectionManager *WebSocketManager_t
+	messageRouter     *RpcMessageRouter_t
 	mediaPlayer       *SystemMediaPlayer_t
 }

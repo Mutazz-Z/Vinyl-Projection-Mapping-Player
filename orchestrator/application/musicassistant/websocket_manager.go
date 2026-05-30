@@ -13,57 +13,57 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func (manager *WebSocketManager) RetrieveActiveConnectionState() (*websocket.Conn, bool) {
-	manager.webSocketMutex.Lock()
-	defer manager.webSocketMutex.Unlock()
-	return manager.webSocketConnection, manager.isAuthenticated
+func (instance *WebSocketManager_t) RetrieveActiveConnectionState() (*websocket.Conn, bool) {
+	instance._private.webSocketMutex.Lock()
+	defer instance._private.webSocketMutex.Unlock()
+	return instance._private.webSocketConnection, instance._private.isAuthenticated
 }
 
-func (manager *WebSocketManager) SendPayloadOverWebSocket(activeConnection *websocket.Conn, procedurePayload map[string]interface{}) error {
-	manager.webSocketMutex.Lock()
-	defer manager.webSocketMutex.Unlock()
+func (instance *WebSocketManager_t) SendPayloadOverWebSocket(activeConnection *websocket.Conn, procedurePayload map[string]interface{}) error {
+	instance._private.webSocketMutex.Lock()
+	defer instance._private.webSocketMutex.Unlock()
 
 	writeError := activeConnection.WriteJSON(procedurePayload)
 	if writeError != nil {
-		return fmt.Errorf("failed to send RPC message over websocket: %v", writeError)
+		return fmt.Errorf("[WebSocket Manager]: failed to send RPC message over websocket: %v", writeError)
 	}
 	return nil
 }
 
-func (manager *WebSocketManager) CloseActiveConnection() {
-	manager.webSocketMutex.Lock()
-	defer manager.webSocketMutex.Unlock()
+func (instance *WebSocketManager_t) CloseActiveConnection() {
+	instance._private.webSocketMutex.Lock()
+	defer instance._private.webSocketMutex.Unlock()
 
-	if manager.webSocketConnection != nil {
-		manager.webSocketConnection.Close()
-		manager.webSocketConnection = nil
+	if instance._private.webSocketConnection != nil {
+		instance._private.webSocketConnection.Close()
+		instance._private.webSocketConnection = nil
 	}
 }
 
-func (manager *WebSocketManager) MaintainWebSocketConnection(applicationContext context.Context) {
+func (instance *WebSocketManager_t) maintainWebSocketConnection(applicationContext context.Context) {
 	for {
-		if manager.checkApplicationContextForTermination(applicationContext) {
+		if instance.checkApplicationContextForTermination(applicationContext) {
 			return
 		}
 
-		musicAssistantUrlString, musicAssistantTokenString, areCredentialsValid := manager.retrieveWebSocketCredentials()
+		musicAssistantUrlString, musicAssistantTokenString, areCredentialsValid := instance.retrieveWebSocketCredentials()
 		if !areCredentialsValid {
-			manager.pauseBeforeReconnectionAttempt(2)
+			instance.pauseBeforeReconnectionAttempt(2)
 			continue
 		}
 
-		webSocketEndpointString := manager.formatWebSocketUrl(musicAssistantUrlString)
-		activeSocketConnection, connectionError := manager.establishNetworkConnection(webSocketEndpointString)
+		webSocketEndpointString := instance.formatWebSocketUrl(musicAssistantUrlString)
+		activeSocketConnection, connectionError := instance.establishNetworkConnection(webSocketEndpointString)
 		if connectionError != nil {
-			manager.pauseBeforeReconnectionAttempt(5)
+			instance.pauseBeforeReconnectionAttempt(5)
 			continue
 		}
 
-		manager.executeAuthenticationSequence(activeSocketConnection, musicAssistantTokenString, applicationContext)
+		instance.executeAuthenticationSequence(activeSocketConnection, musicAssistantTokenString, applicationContext)
 	}
 }
 
-func (manager *WebSocketManager) checkApplicationContextForTermination(applicationContext context.Context) bool {
+func (instance *WebSocketManager_t) checkApplicationContextForTermination(applicationContext context.Context) bool {
 	select {
 	case <-applicationContext.Done():
 		return true
@@ -72,135 +72,137 @@ func (manager *WebSocketManager) checkApplicationContextForTermination(applicati
 	}
 }
 
-func (manager *WebSocketManager) pauseBeforeReconnectionAttempt(durationInSeconds time.Duration) {
+func (instance *WebSocketManager_t) pauseBeforeReconnectionAttempt(durationInSeconds time.Duration) {
 	time.Sleep(durationInSeconds * time.Second)
 }
 
-func (manager *WebSocketManager) retrieveWebSocketCredentials() (string, string, bool) {
+func (instance *WebSocketManager_t) retrieveWebSocketCredentials() (string, string, bool) {
 	var musicAssistantUrlString string
 	var musicAssistantTokenString string
 
-	manager.systemDataSource.Read(core.Global_MusicAssistantUrl, &musicAssistantUrlString)
-	manager.systemDataSource.Read(core.Global_MusicAssistantToken, &musicAssistantTokenString)
+	instance._private.systemDataSource.Read(core.Global_MusicAssistantUrl, &musicAssistantUrlString)
+	instance._private.systemDataSource.Read(core.Global_MusicAssistantToken, &musicAssistantTokenString)
 
 	areCredentialsValid := musicAssistantUrlString != "" && musicAssistantTokenString != ""
 	return musicAssistantUrlString, musicAssistantTokenString, areCredentialsValid
 }
 
-func (manager *WebSocketManager) formatWebSocketUrl(baseHttpUrlString string) string {
+func (instance *WebSocketManager_t) formatWebSocketUrl(baseHttpUrlString string) string {
 	formattedUrlString := strings.Replace(baseHttpUrlString, "http://", "ws://", 1)
 	formattedUrlString = strings.Replace(formattedUrlString, "https://", "wss://", 1)
 	formattedUrlString = strings.TrimRight(formattedUrlString, "/") + "/ws"
 	return formattedUrlString
 }
 
-func (manager *WebSocketManager) establishNetworkConnection(webSocketEndpointString string) (*websocket.Conn, error) {
+func (instance *WebSocketManager_t) establishNetworkConnection(webSocketEndpointString string) (*websocket.Conn, error) {
 	activeSocketConnection, _, dialError := websocket.DefaultDialer.Dial(webSocketEndpointString, nil)
 	if dialError != nil {
-		fmt.Printf("Music Assistant WebSocket offline, retrying... (%v)\n", dialError)
+		fmt.Printf("[WebSocket Manager]: Music Assistant WebSocket offline, retrying... (%v)\n", dialError)
 		return nil, dialError
 	}
 	return activeSocketConnection, nil
 }
 
-func (manager *WebSocketManager) executeAuthenticationSequence(activeSocketConnection *websocket.Conn, authenticationTokenString string, applicationContext context.Context) {
-	fmt.Println("Music Assistant WebSocket connected. Authenticating...")
+func (instance *WebSocketManager_t) executeAuthenticationSequence(activeSocketConnection *websocket.Conn, authenticationTokenString string, applicationContext context.Context) {
+	fmt.Println("[WebSocket Manager]: Music Assistant WebSocket connected. Authenticating...")
 
-	manager.initializeUnauthenticatedConnectionState(activeSocketConnection)
+	instance.initializeUnauthenticatedConnectionState(activeSocketConnection)
 
 	listenerTerminationChannel := make(chan struct{})
-	go manager.startBackgroundEventListener(activeSocketConnection, applicationContext, listenerTerminationChannel)
+	go instance.startBackgroundEventListener(activeSocketConnection, applicationContext, listenerTerminationChannel)
 
 	authenticationArguments := map[string]interface{}{
 		"token": authenticationTokenString,
 	}
-	_, authenticationError := manager.messageRouter.ExecuteRemoteProcedureCall("auth", authenticationArguments)
+	_, authenticationError := instance._private.messageRouter.ExecuteRemoteProcedureCall("auth", authenticationArguments)
 
 	if authenticationError != nil {
-		manager.handleAuthenticationFailure(authenticationError, listenerTerminationChannel)
+		instance.handleAuthenticationFailure(authenticationError, listenerTerminationChannel)
 		return
 	}
 
-	manager.markConnectionAsAuthenticated()
-	fmt.Println("Music Assistant WebSocket Stream Online & Authenticated!")
+	instance.markConnectionAsAuthenticated()
+	fmt.Println("[WebSocket Manager]: Music Assistant WebSocket Stream Online & Authenticated!")
 
-	manager.monitorConnectionLifecycle(listenerTerminationChannel, applicationContext)
+	instance.monitorConnectionLifecycle(listenerTerminationChannel, applicationContext)
 }
 
-func (manager *WebSocketManager) initializeUnauthenticatedConnectionState(activeSocketConnection *websocket.Conn) {
-	manager.webSocketMutex.Lock()
-	defer manager.webSocketMutex.Unlock()
+func (instance *WebSocketManager_t) initializeUnauthenticatedConnectionState(activeSocketConnection *websocket.Conn) {
+	instance._private.webSocketMutex.Lock()
+	defer instance._private.webSocketMutex.Unlock()
 
-	manager.webSocketConnection = activeSocketConnection
-	manager.isAuthenticated = false
+	instance._private.webSocketConnection = activeSocketConnection
+	instance._private.isAuthenticated = false
 }
 
-func (manager *WebSocketManager) markConnectionAsAuthenticated() {
-	manager.webSocketMutex.Lock()
-	defer manager.webSocketMutex.Unlock()
+func (instance *WebSocketManager_t) markConnectionAsAuthenticated() {
+	instance._private.webSocketMutex.Lock()
+	defer instance._private.webSocketMutex.Unlock()
 
-	manager.isAuthenticated = true
+	instance._private.isAuthenticated = true
 }
 
-func (manager *WebSocketManager) startBackgroundEventListener(activeSocketConnection *websocket.Conn, applicationContext context.Context, listenerTerminationChannel chan struct{}) {
-	manager.listenForServerEvents(activeSocketConnection, applicationContext)
+func (instance *WebSocketManager_t) startBackgroundEventListener(activeSocketConnection *websocket.Conn, applicationContext context.Context, listenerTerminationChannel chan struct{}) {
+	instance.listenForServerEvents(activeSocketConnection, applicationContext)
 	close(listenerTerminationChannel)
 }
 
-func (manager *WebSocketManager) handleAuthenticationFailure(authenticationError error, listenerTerminationChannel chan struct{}) {
-	fmt.Printf("Music Assistant WebSocket Auth Failed: %v\n", authenticationError)
-	manager.CloseActiveConnection()
+func (instance *WebSocketManager_t) handleAuthenticationFailure(authenticationError error, listenerTerminationChannel chan struct{}) {
+	fmt.Printf("[WebSocket Manager]: Music Assistant WebSocket Auth Failed: %v\n", authenticationError)
+	instance.CloseActiveConnection()
 	<-listenerTerminationChannel
-	manager.pauseBeforeReconnectionAttempt(2)
+	instance.pauseBeforeReconnectionAttempt(2)
 }
 
-func (manager *WebSocketManager) monitorConnectionLifecycle(listenerTerminationChannel chan struct{}, applicationContext context.Context) {
+func (instance *WebSocketManager_t) monitorConnectionLifecycle(listenerTerminationChannel chan struct{}, applicationContext context.Context) {
 	select {
 	case <-listenerTerminationChannel:
-		fmt.Println("Music Assistant WebSocket dropped unexpectedly. Reconnecting...")
+		fmt.Println("[WebSocket Manager]: Music Assistant WebSocket dropped unexpectedly. Reconnecting...")
 	case <-applicationContext.Done():
-		fmt.Println("Shutting down Music Assistant Client...")
-		manager.CloseActiveConnection()
+		fmt.Println("[WebSocket Manager]: Shutting down Music Assistant Client...")
+		instance.CloseActiveConnection()
 		<-listenerTerminationChannel
 		return
 	}
 
-	manager.resetConnectionState()
-	manager.pauseBeforeReconnectionAttempt(2)
+	instance.resetConnectionState()
+	instance.pauseBeforeReconnectionAttempt(2)
 }
 
-func (manager *WebSocketManager) resetConnectionState() {
-	manager.webSocketMutex.Lock()
-	defer manager.webSocketMutex.Unlock()
+func (instance *WebSocketManager_t) resetConnectionState() {
+	instance._private.webSocketMutex.Lock()
+	defer instance._private.webSocketMutex.Unlock()
 
-	manager.webSocketConnection = nil
-	manager.isAuthenticated = false
+	instance._private.webSocketConnection = nil
+	instance._private.isAuthenticated = false
 }
 
-func (manager *WebSocketManager) listenForServerEvents(activeSocketConnection *websocket.Conn, applicationContext context.Context) {
+func (instance *WebSocketManager_t) listenForServerEvents(activeSocketConnection *websocket.Conn, applicationContext context.Context) {
 	for {
-		if manager.checkApplicationContextForTermination(applicationContext) {
+		if instance.checkApplicationContextForTermination(applicationContext) {
 			return
 		}
 		_, incomingMessageBytes, readError := activeSocketConnection.ReadMessage()
 		if readError != nil {
 			return
 		}
-		manager.messageRouter.ProcessIncomingWebSocketPayload(incomingMessageBytes)
+		instance._private.messageRouter.ProcessIncomingWebSocketPayload(incomingMessageBytes)
 	}
 }
 
-func (manager *WebSocketManager) Init(ctx context.Context, dataSource database.DataSource, routerInstance *RpcMessageRouter) {
-	manager.systemDataSource = dataSource
-	manager.messageRouter = routerInstance
-
-	go manager.MaintainWebSocketConnection(ctx)
+type WebSocketManager_t struct {
+	_private struct {
+		systemDataSource    database.DataSource
+		messageRouter       *RpcMessageRouter_t
+		webSocketConnection *websocket.Conn
+		isAuthenticated     bool
+		webSocketMutex      sync.Mutex
+	}
 }
 
-type WebSocketManager struct {
-	systemDataSource    database.DataSource
-	messageRouter       *RpcMessageRouter
-	webSocketConnection *websocket.Conn
-	isAuthenticated     bool
-	webSocketMutex      sync.Mutex
+func (instance *WebSocketManager_t) Init(ctx context.Context, dataSource database.DataSource, routerInstance *RpcMessageRouter_t) {
+	instance._private.systemDataSource = dataSource
+	instance._private.messageRouter = routerInstance
+
+	go instance.maintainWebSocketConnection(ctx)
 }

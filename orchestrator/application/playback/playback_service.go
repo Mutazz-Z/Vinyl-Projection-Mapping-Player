@@ -23,17 +23,24 @@ func (instance *PlaybackApplicationService) startPlaybackWatchdog() {
 	if instance._private.playbackWatchdogTimer != nil {
 		instance._private.playbackWatchdogTimer.Stop()
 	}
-	instance._private.playbackWatchdogTimer = time.AfterFunc(instance._private.WatchdogTimeout, instance.handleWatchdogTimeout)
+	instance._private.playbackWatchdogTimer = time.AfterFunc(instance._private.WatchdogTimeout, instance.onWatchdogTimeout)
 }
 
-func (instance *PlaybackApplicationService) handleWatchdogTimeout() {
+func (instance *PlaybackApplicationService) onWatchdogTimeout() {
 	instance._private.watchdogMutex.Lock()
 	defer instance._private.watchdogMutex.Unlock()
+
+	var mediaPlayerState core.MediaPlaybackState_t
+	instance._private.systemDataSource.Read(core.Global_MediaPlaybackState, &mediaPlayerState)
+
+	if mediaPlayerState.State == core.PlayerState_Playing || mediaPlayerState.State == core.PlayerState_Paused {
+		return
+	}
 
 	fmt.Println("[Playback Service] Error: Target device failed to respond within timeout window.")
 
 	sendTimeoutErrorMessage := core.MediaPlaybackState_t{
-		State:       core.PlayerState_Error,
+		State:        core.PlayerState_Error,
 		ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
 	}
 	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, sendTimeoutErrorMessage)
@@ -49,37 +56,12 @@ func (instance *PlaybackApplicationService) cancelPlaybackWatchdog() {
 	}
 }
 
-func (instance *PlaybackApplicationService) pollPlayerStateLoop(applicationContext context.Context) {
-	pollingTicker := time.NewTicker(1 * time.Second)
-	defer pollingTicker.Stop()
-
-	for {
-		select {
-		case <-applicationContext.Done():
-			return
-		case <-pollingTicker.C:
-			instance.pollAndUpdatePlayerState()
-		}
-	}
-}
-
-func (instance *PlaybackApplicationService) pollAndUpdatePlayerState() {
-	playerState, fetchError := instance._private.activeMediaPlayer.UpdateState()
-	if fetchError != nil {
-		return
-	}
-
-	if playerState == core.PlayerState_Playing || playerState == core.PlayerState_Paused {
-		instance.cancelPlaybackWatchdog()
-	}
-}
-
 func (instance *PlaybackApplicationService) processScannedNfcTag(uid string) {
-	retrievedAlbumRecord := instance._private.AlbumLibrary.RetrieveAlbumByUid(uid)
+	retrievedAlbumRecord := instance._private.albumLibrary.RetrieveAlbumByUid(uid)
 
 	fmt.Printf("[Playback Service]: Starting %s by %s\n", retrievedAlbumRecord.MediaTitle, retrievedAlbumRecord.Artist)
 
-	playbackError := instance._private.activeMediaPlayer.PlayMedia(utils.GenerateUriForMedia(retrievedAlbumRecord.ItemId, retrievedAlbumRecord.Provider))
+	playbackError := instance._private.mediaPlayer.PlayMedia(utils.GenerateUriForMedia(retrievedAlbumRecord.ItemId, retrievedAlbumRecord.Provider))
 	if playbackError != nil {
 		fmt.Printf("[Playback Service] Error: Media player rejected play command. (%v)\n", playbackError)
 		return
@@ -100,7 +82,7 @@ func (instance *PlaybackApplicationService) onDataSourceChanged(dataSourceChange
 			if shelfStatus == core.ShelfStatus_Empty {
 				instance.cancelPlaybackWatchdog()
 				fmt.Println("[Playback Service]: Shelf is empty, stopping playback")
-				instance._private.activeMediaPlayer.StopMedia()
+				instance._private.mediaPlayer.StopMedia()
 			}
 		}
 	})
@@ -108,9 +90,9 @@ func (instance *PlaybackApplicationService) onDataSourceChanged(dataSourceChange
 
 type PlaybackApplicationService struct {
 	_private struct {
-		systemDataSource  database.DataSource
-		AlbumLibrary      database.AlbumLibrary
-		activeMediaPlayer musicassistant.MediaPlayer
+		systemDataSource database.DataSource
+		albumLibrary     database.AlbumLibrary
+		mediaPlayer      musicassistant.MusicAssistantPlayer_t
 
 		playbackWatchdogTimer *time.Timer
 		watchdogMutex         sync.Mutex
@@ -118,19 +100,16 @@ type PlaybackApplicationService struct {
 	}
 }
 
-func (instance *PlaybackApplicationService) Init(dataSource database.DataSource, AlbumLibrary database.AlbumLibrary, mediaPlayer musicassistant.MediaPlayer) {
+func (instance *PlaybackApplicationService) Init(dataSource database.DataSource, albumLibrary database.AlbumLibrary, mediaPlayer musicassistant.MusicAssistantPlayer_t) {
 	instance._private.systemDataSource = dataSource
-	instance._private.AlbumLibrary = AlbumLibrary
-	instance._private.activeMediaPlayer = mediaPlayer
+	instance._private.albumLibrary = albumLibrary
+	instance._private.mediaPlayer = mediaPlayer
 	instance._private.WatchdogTimeout = 15 * time.Second
 
 	dsChannel := instance._private.systemDataSource.Subscribe("datasource")
 	go instance.onDataSourceChanged(dsChannel)
-	go instance.pollPlayerStateLoop(context.Background())
-
 }
 
-func (instance *PlaybackApplicationService) StopPlugin(applicationContext context.Context) error {
+func (instance *PlaybackApplicationService) StopPlugin(applicationContext context.Context) {
 	instance.cancelPlaybackWatchdog()
-	return nil
 }

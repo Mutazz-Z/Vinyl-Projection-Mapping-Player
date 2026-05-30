@@ -11,68 +11,68 @@ import (
 	"vinyl-orchestrator/application/database"
 )
 
-func (router *RpcMessageRouter) ExecuteRemoteProcedureCall(procedureCommand string, commandArguments map[string]interface{}) (map[string]interface{}, error) {
-	activeConnection, isConnectionAuthenticated := router.connectionManager.RetrieveActiveConnectionState()
+func (instance *RpcMessageRouter_t) ExecuteRemoteProcedureCall(procedureCommand string, commandArguments map[string]interface{}) (map[string]interface{}, error) {
+	activeConnection, isConnectionAuthenticated := instance._private.webSocketManager.RetrieveActiveConnectionState()
 
-	connectionError := router.validateConnectionAndAuthenticationState(activeConnection, isConnectionAuthenticated, procedureCommand)
+	connectionError := instance.validateConnectionAndAuthenticationState(activeConnection, isConnectionAuthenticated, procedureCommand)
 	if connectionError != nil {
 		return nil, connectionError
 	}
 
-	messageIdentifier := atomic.AddUint64(&router.messageIdentifierCounter, 1)
+	messageIdentifier := atomic.AddUint64(&instance._private.messageIdentifierCounter, 1)
 	responseChannel := make(chan map[string]interface{}, 1)
 
-	router.registerPendingRequest(messageIdentifier, responseChannel)
-	defer router.removePendingRequest(messageIdentifier)
+	instance.registerPendingRequest(messageIdentifier, responseChannel)
+	defer instance.removePendingRequest(messageIdentifier)
 
-	procedurePayload := router.constructProcedurePayload(messageIdentifier, procedureCommand, commandArguments)
+	procedurePayload := instance.constructProcedurePayload(messageIdentifier, procedureCommand, commandArguments)
 
-	writeError := router.connectionManager.SendPayloadOverWebSocket(activeConnection, procedurePayload)
+	writeError := instance._private.webSocketManager.SendPayloadOverWebSocket(activeConnection, procedurePayload)
 	if writeError != nil {
 		return nil, writeError
 	}
 
-	return router.waitForProcedureResponseOrTimeout(responseChannel, procedureCommand)
+	return instance.waitForProcedureResponseOrTimeout(responseChannel, procedureCommand)
 }
 
-func (router *RpcMessageRouter) SendFireAndForgetCommand(procedureCommand string, commandArguments map[string]interface{}) error {
-	activeConnection, isConnectionAuthenticated := router.connectionManager.RetrieveActiveConnectionState()
+func (instance *RpcMessageRouter_t) SendFireAndForgetCommand(procedureCommand string, commandArguments map[string]interface{}) error {
+	activeConnection, isConnectionAuthenticated := instance._private.webSocketManager.RetrieveActiveConnectionState()
 
-	connectionError := router.validateConnectionAndAuthenticationState(activeConnection, isConnectionAuthenticated, procedureCommand)
+	connectionError := instance.validateConnectionAndAuthenticationState(activeConnection, isConnectionAuthenticated, procedureCommand)
 	if connectionError != nil {
 		return connectionError
 	}
 
-	messageIdentifier := atomic.AddUint64(&router.messageIdentifierCounter, 1)
-	procedurePayload := router.constructProcedurePayload(messageIdentifier, procedureCommand, commandArguments)
-	return router.connectionManager.SendPayloadOverWebSocket(activeConnection, procedurePayload)
+	messageIdentifier := atomic.AddUint64(&instance._private.messageIdentifierCounter, 1)
+	procedurePayload := instance.constructProcedurePayload(messageIdentifier, procedureCommand, commandArguments)
+	return instance._private.webSocketManager.SendPayloadOverWebSocket(activeConnection, procedurePayload)
 }
 
-func (router *RpcMessageRouter) validateConnectionAndAuthenticationState(activeConnection interface{}, isConnectionAuthenticated bool, procedureCommand string) error {
+func (instance *RpcMessageRouter_t) validateConnectionAndAuthenticationState(activeConnection interface{}, isConnectionAuthenticated bool, procedureCommand string) error {
 	if activeConnection == nil {
-		return fmt.Errorf("music assistant websocket is not connected")
+		return fmt.Errorf("[RPC Message Router]: music assistant websocket is not connected")
 	}
 
 	if !isConnectionAuthenticated && procedureCommand != "auth" {
-		return fmt.Errorf("music assistant websocket is currently authenticating, please try again")
+		return fmt.Errorf("[RPC Message Router]: music assistant websocket is currently authenticating, please try again")
 	}
 
 	return nil
 }
 
-func (router *RpcMessageRouter) registerPendingRequest(messageIdentifier uint64, responseChannel chan map[string]interface{}) {
-	router.requestsMutex.Lock()
-	defer router.requestsMutex.Unlock()
-	router.pendingRequests[messageIdentifier] = responseChannel
+func (instance *RpcMessageRouter_t) registerPendingRequest(messageIdentifier uint64, responseChannel chan map[string]interface{}) {
+	instance._private.requestsMutex.Lock()
+	defer instance._private.requestsMutex.Unlock()
+	instance._private.pendingRequests[messageIdentifier] = responseChannel
 }
 
-func (router *RpcMessageRouter) removePendingRequest(messageIdentifier uint64) {
-	router.requestsMutex.Lock()
-	defer router.requestsMutex.Unlock()
-	delete(router.pendingRequests, messageIdentifier)
+func (instance *RpcMessageRouter_t) removePendingRequest(messageIdentifier uint64) {
+	instance._private.requestsMutex.Lock()
+	defer instance._private.requestsMutex.Unlock()
+	delete(instance._private.pendingRequests, messageIdentifier)
 }
 
-func (router *RpcMessageRouter) constructProcedurePayload(messageIdentifier uint64, procedureCommand string, commandArguments map[string]interface{}) map[string]interface{} {
+func (instance *RpcMessageRouter_t) constructProcedurePayload(messageIdentifier uint64, procedureCommand string, commandArguments map[string]interface{}) map[string]interface{} {
 	procedurePayload := map[string]interface{}{
 		"message_id": messageIdentifier,
 		"command":    procedureCommand,
@@ -83,37 +83,37 @@ func (router *RpcMessageRouter) constructProcedurePayload(messageIdentifier uint
 	return procedurePayload
 }
 
-func (router *RpcMessageRouter) waitForProcedureResponseOrTimeout(responseChannel chan map[string]interface{}, procedureCommand string) (map[string]interface{}, error) {
+func (instance *RpcMessageRouter_t) waitForProcedureResponseOrTimeout(responseChannel chan map[string]interface{}, procedureCommand string) (map[string]interface{}, error) {
 	select {
 	case responseData := <-responseChannel:
 		if errorCode, hasErrorCode := responseData["error_code"]; hasErrorCode {
 			detailsString, _ := responseData["details"].(string)
-			return nil, fmt.Errorf("music assistant error %v: %s", errorCode, detailsString)
+			return nil, fmt.Errorf("[RPC Message Router]: music assistant error %v: %s", errorCode, detailsString)
 		}
 		return responseData, nil
 
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("timeout waiting for music assistant RPC response (Command: %s)", procedureCommand)
+		return nil, fmt.Errorf("[RPC Message Router]: timeout waiting for music assistant RPC response (Command: %s)", procedureCommand)
 	}
 }
 
-func (router *RpcMessageRouter) ProcessIncomingWebSocketPayload(incomingMessageBytes []byte) {
+func (instance *RpcMessageRouter_t) ProcessIncomingWebSocketPayload(incomingMessageBytes []byte) {
 	var incomingPayloadMap map[string]interface{}
 	decodeError := json.Unmarshal(incomingMessageBytes, &incomingPayloadMap)
 	if decodeError != nil {
 		return
 	}
 
-	messageIdentifier, isResponsePayload := router.extractMessageIdentifierFromPayload(incomingPayloadMap)
+	messageIdentifier, isResponsePayload := instance.extractMessageIdentifierFromPayload(incomingPayloadMap)
 
 	if isResponsePayload {
-		router.routePayloadToPendingRequest(messageIdentifier, incomingPayloadMap)
+		instance.routePayloadToPendingRequest(messageIdentifier, incomingPayloadMap)
 	} else {
-		router.broadcastServerEventToSystem(incomingPayloadMap)
+		instance.broadcastServerEventToSystem(incomingPayloadMap)
 	}
 }
 
-func (router *RpcMessageRouter) extractMessageIdentifierFromPayload(incomingPayloadMap map[string]interface{}) (uint64, bool) {
+func (instance *RpcMessageRouter_t) extractMessageIdentifierFromPayload(incomingPayloadMap map[string]interface{}) (uint64, bool) {
 	identifierValue, containsIdentifier := incomingPayloadMap["message_id"]
 	if !containsIdentifier || identifierValue == nil {
 		return 0, false
@@ -131,10 +131,10 @@ func (router *RpcMessageRouter) extractMessageIdentifierFromPayload(incomingPayl
 	return 0, false
 }
 
-func (router *RpcMessageRouter) routePayloadToPendingRequest(messageIdentifier uint64, incomingPayloadMap map[string]interface{}) {
-	router.requestsMutex.Lock()
-	responseChannel, requestExists := router.pendingRequests[messageIdentifier]
-	router.requestsMutex.Unlock()
+func (instance *RpcMessageRouter_t) routePayloadToPendingRequest(messageIdentifier uint64, incomingPayloadMap map[string]interface{}) {
+	instance._private.requestsMutex.Lock()
+	responseChannel, requestExists := instance._private.pendingRequests[messageIdentifier]
+	instance._private.requestsMutex.Unlock()
 
 	if requestExists {
 		responseChannel <- incomingPayloadMap
@@ -142,28 +142,30 @@ func (router *RpcMessageRouter) routePayloadToPendingRequest(messageIdentifier u
 	}
 
 	if errorValue, containsError := incomingPayloadMap["error"]; containsError {
-		fmt.Printf("Music Assistant rejected fire-and-forget command (msg %d): %v\n", messageIdentifier, errorValue)
+		fmt.Printf("[RPC Message Router]: Music Assistant rejected fire-and-forget command (msg %d): %v\n", messageIdentifier, errorValue)
 	}
 }
 
-func (router *RpcMessageRouter) broadcastServerEventToSystem(incomingPayloadMap map[string]interface{}) {
+func (instance *RpcMessageRouter_t) broadcastServerEventToSystem(incomingPayloadMap map[string]interface{}) {
 	if eventNameString, isEventStringValid := incomingPayloadMap["event"].(string); isEventStringValid {
 		eventDataPayload := incomingPayloadMap["data"]
 		specificEventTopicString := fmt.Sprintf("ma_event_%s", eventNameString)
-		router.systemDataSource.Publish(specificEventTopicString, eventDataPayload)
+		instance._private.systemDataSource.Publish(specificEventTopicString, eventDataPayload)
 	}
 }
 
-func (router *RpcMessageRouter) Init(dataSource database.DataSource, managerInstance *WebSocketManager) {
-	router.systemDataSource = dataSource
-	router.connectionManager = managerInstance
-	router.pendingRequests = make(map[uint64]chan map[string]interface{})
+type RpcMessageRouter_t struct {
+	_private struct {
+		systemDataSource         database.DataSource
+		webSocketManager         *WebSocketManager_t
+		messageIdentifierCounter uint64
+		pendingRequests          map[uint64]chan map[string]interface{}
+		requestsMutex            sync.Mutex
+	}
 }
 
-type RpcMessageRouter struct {
-	systemDataSource         database.DataSource
-	connectionManager        *WebSocketManager
-	messageIdentifierCounter uint64
-	pendingRequests          map[uint64]chan map[string]interface{}
-	requestsMutex            sync.Mutex
+func (instance *RpcMessageRouter_t) Init(dataSource database.DataSource, webSocketManager *WebSocketManager_t) {
+	instance._private.systemDataSource = dataSource
+	instance._private.webSocketManager = webSocketManager
+	instance._private.pendingRequests = make(map[uint64]chan map[string]interface{})
 }
