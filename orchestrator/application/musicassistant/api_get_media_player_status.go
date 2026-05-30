@@ -12,7 +12,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-type PlayerStateResult_t struct {
+type RawMediaPlayerStatus_t struct {
 	State       string  `mapstructure:"state"`
 	ElapsedTime float64 `mapstructure:"elapsed_time"`
 	CurrentItem struct {
@@ -40,7 +40,7 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 		return MediaPlayerStatus_t{}
 	}
 
-	var parsedState PlayerStateResult_t
+	var parsedState RawMediaPlayerStatus_t
 	mapstructure.Decode(rawResult, &parsedState)
 
 	return MediaPlayerStatus_t{

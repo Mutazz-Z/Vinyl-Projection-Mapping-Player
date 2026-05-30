@@ -10,7 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-type RawAlbumsInLibrary struct {
+type RawAlbumsInLibrary_t struct {
 	ItemId     string `json:"item_id" mapstructure:"item_id"`
 	Provider   string `json:"provider" mapstructure:"provider"`
 	MediaTitle string `json:"name" mapstructure:"name"`
@@ -26,7 +26,7 @@ type RawAlbumsInLibrary struct {
 	} `json:"metadata" mapstructure:"metadata"`
 }
 
-type AlbumsInLibrary struct {
+type AlbumsInLibrary_t struct {
 	ItemId     string `json:"item_id" mapstructure:"item_id"`
 	Provider   string `json:"provider" mapstructure:"provider"`
 	MediaTitle string `json:"media_title" mapstructure:"media_title"`
@@ -34,7 +34,7 @@ type AlbumsInLibrary struct {
 	CoverImage string `json:"cover_image" mapstructure:"cover_image"`
 }
 
-func (plugin *MusicAssistantPlugin) getAllAlbumsFromMusicAssistantLibrary() ([]AlbumsInLibrary, error) {
+func (plugin *MusicAssistantPlugin) getAllAlbumsFromMusicAssistantLibrary() ([]AlbumsInLibrary_t, error) {
 	response, err := plugin.messageRouter.ExecuteRemoteProcedureCall("music/albums/library_items", map[string]interface{}{})
 	if err != nil {
 		return nil, err
@@ -45,16 +45,16 @@ func (plugin *MusicAssistantPlugin) getAllAlbumsFromMusicAssistantLibrary() ([]A
 		return nil, fmt.Errorf("response did not contain a 'result' field")
 	}
 
-	var rawAlbums []RawAlbumsInLibrary
+	var rawAlbums []RawAlbumsInLibrary_t
 
 	err = mapstructure.Decode(rawResult, &rawAlbums)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode albums: %w", err)
 	}
 
-	var albums []AlbumsInLibrary
+	var albums []AlbumsInLibrary_t
 	for _, rawAlbum := range rawAlbums {
-		album := AlbumsInLibrary{
+		album := AlbumsInLibrary_t{
 			ItemId:     rawAlbum.ItemId,
 			Provider:   rawAlbum.Provider,
 			MediaTitle: rawAlbum.MediaTitle,

@@ -10,7 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-type RawAlbumTrackList struct {
+type RawAlbumTrackList_t struct {
 	Track    string `json:"name" mapstructure:"name"`
 	Duration int    `json:"duration" mapstructure:"duration"`
 	Metadata struct {
@@ -20,13 +20,13 @@ type RawAlbumTrackList struct {
 	} `json:"metadata"`
 }
 
-type AlbumTrackList struct {
+type AlbumTrackList_t struct {
 	Track      string `json:"track" mapstructure:"track"`
 	Duration   int    `json:"duration" mapstructure:"duration"`
 	CoverImage string `json:"cover_image" mapstructure:"cover_image"`
 }
 
-func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider string) ([]AlbumTrackList, error) {
+func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider string) ([]AlbumTrackList_t, error) {
 
 	response, err := plugin.messageRouter.ExecuteRemoteProcedureCall("music/albums/album_tracks", map[string]interface{}{
 		"item_id":                        itemId,
@@ -41,16 +41,16 @@ func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider st
 		return nil, fmt.Errorf("response did not contain a 'result' field")
 	}
 
-	var albumTrackList []RawAlbumTrackList
+	var albumTrackList []RawAlbumTrackList_t
 
 	err = mapstructure.Decode(rawResult, &albumTrackList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode albums: %w", err)
 	}
 
-	var result []AlbumTrackList
+	var result []AlbumTrackList_t
 	for i := range albumTrackList {
-		track := AlbumTrackList{
+		track := AlbumTrackList_t{
 			Track:    albumTrackList[i].Track,
 			Duration: albumTrackList[i].Duration,
 		}

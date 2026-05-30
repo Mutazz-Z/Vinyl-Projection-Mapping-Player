@@ -22,7 +22,7 @@ func (plugin *MusicAssistantPlugin) GetAllAlbumsInLibrary() (interface{}, error)
 	return plugin.getAllAlbumsFromMusicAssistantLibrary()
 }
 
-func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider string) ([]AlbumTrackList, error) {
+func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider string) ([]AlbumTrackList_t, error) {
 	return plugin.getAlbumTrackList(itemId, provider)
 }
 
