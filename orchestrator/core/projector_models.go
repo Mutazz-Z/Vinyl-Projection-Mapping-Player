@@ -1,11 +1,17 @@
 package core
 
 // typeshare
+type MediaPlaybackState_t struct {
+	State        PlayerState_t `json:"state"`
+	ErrorMessage string        `json:"error_message"`
+}
+
+// typeshare
 type ReaderStatus_t bool
 
 const (
-	EspReaderStatus_Offline ReaderStatus_t = false
-	EspReaderStatus_Online  ReaderStatus_t = true
+	ReaderStatus_Offline ReaderStatus_t = false
+	ReaderStatus_Online  ReaderStatus_t = true
 )
 
 // typeshare
@@ -20,10 +26,14 @@ const (
 type PlayerState_t uint8
 
 const (
-	PlayerState_Playing PlayerState_t = iota // 0
-	PlayerState_Unknown                      // 1
-	PlayerState_Stopped                      // 2
-	PlayerState_Error                        // 3
+	PlayerState_Playing PlayerState_t = iota
+	PlayerState_Paused
+	PlayerState_Idle
+	PlayerState_Buffering
+	PlayerState_Unknown
+	PlayerState_Stopped
+	PlayerState_Error
+	PlayerState_Off
 )
 
 // typeshare

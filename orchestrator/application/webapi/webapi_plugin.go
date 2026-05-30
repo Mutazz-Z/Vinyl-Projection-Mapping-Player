@@ -128,10 +128,10 @@ func (plugin *WebServerPlugin) handleVerifyReaderRequest(c *gin.Context) {
 		return
 	}
 
-	var status string
+	var status core.ReaderStatus_t
 	plugin.dataSource.Read(core.Global_ReaderConnectionStatus, &status)
 
-	if status == "online" {
+	if status == core.ReaderStatus_Online {
 		c.JSON(http.StatusOK, gin.H{"message": "Reader is online"})
 	} else {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Reader is offline"})

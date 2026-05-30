@@ -31,7 +31,7 @@ func (instance *MqttPlugin_t) handleDeviceStatus(client eclipseMqtt.Client, inco
 	var status core.ReaderStatus_t
 	json.Unmarshal(incomingMessage.Payload(), &status)
 
-	if status == core.EspReaderStatus_Online {
+	if status == core.ReaderStatus_Online {
 		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Online\n")
 	} else {
 		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Offline\n")

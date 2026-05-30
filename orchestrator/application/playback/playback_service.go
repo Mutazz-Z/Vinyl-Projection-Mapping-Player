@@ -30,9 +30,13 @@ func (instance *PlaybackApplicationService) handleWatchdogTimeout() {
 	instance._private.watchdogMutex.Lock()
 	defer instance._private.watchdogMutex.Unlock()
 
-	// TODO: Add visual error for communication failure
 	fmt.Println("[Playback Service] Error: Target device failed to respond within timeout window.")
-	instance._private.systemDataSource.Write(core.Global_ActiveRecordPlaybackState, "error")
+
+	sendTimeoutErrorMessage := core.MediaPlaybackState_t{
+		State:       core.PlayerState_Error,
+		ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
+	}
+	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, sendTimeoutErrorMessage)
 }
 
 func (instance *PlaybackApplicationService) cancelPlaybackWatchdog() {
@@ -54,19 +58,18 @@ func (instance *PlaybackApplicationService) pollPlayerStateLoop(applicationConte
 		case <-applicationContext.Done():
 			return
 		case <-pollingTicker.C:
-			instance.fetchAndPublishPlayerState()
+			instance.pollAndUpdatePlayerState()
 		}
 	}
 }
 
-func (instance *PlaybackApplicationService) fetchAndPublishPlayerState() {
-	playerStateString, fetchError := instance._private.activeMediaPlayer.GetState()
+func (instance *PlaybackApplicationService) pollAndUpdatePlayerState() {
+	playerState, fetchError := instance._private.activeMediaPlayer.UpdateState()
 	if fetchError != nil {
 		return
 	}
-	instance._private.systemDataSource.Write(core.Global_ActiveRecordPlaybackState, playerStateString)
 
-	if playerStateString == "playing" || playerStateString == "paused" {
+	if playerState == core.PlayerState_Playing || playerState == core.PlayerState_Paused {
 		instance.cancelPlaybackWatchdog()
 	}
 }

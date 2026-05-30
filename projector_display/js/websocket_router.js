@@ -28,7 +28,7 @@
 
             DS.OnDataSourceChanged = function (ctx, args) {
                 switch (args.variable) {
-                    case 'GLOBAL_ActiveRecordPlaybackState':
+                    case 'GLOBAL_MediaPlaybackState':
                         if (window.ProjectorPlayback?.handlePlaybackEvent) {
                             window.ProjectorPlayback.handlePlaybackEvent({ state: args.data });
                         }
@@ -98,7 +98,7 @@
                     handleVisualUpdate(parsedData);
                 }
 
-                const playbackState = await DS.read('GLOBAL_ActiveRecordPlaybackState');
+                const playbackState = await DS.read('GLOBAL_MediaPlaybackState');
                 if (playbackState && window.ProjectorPlayback?.handlePlaybackEvent) {
                     window.ProjectorPlayback.handlePlaybackEvent({ state: playbackState });
                 }

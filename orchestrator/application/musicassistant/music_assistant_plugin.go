@@ -3,6 +3,7 @@ package musicassistant
 import (
 	"context"
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/core"
 )
 
 func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
@@ -17,8 +18,8 @@ func (plugin *MusicAssistantPlugin) StopMedia() error {
 	return plugin.mediaPlayer.StopMedia()
 }
 
-func (plugin *MusicAssistantPlugin) GetState() (string, error) {
-	return plugin.mediaPlayer.GetState()
+func (plugin *MusicAssistantPlugin) UpdateState() (core.PlayerState_t, error) {
+	return plugin.mediaPlayer.UpdateState()
 }
 
 func (plugin *MusicAssistantPlugin) GetAllAlbumsInLibrary() (interface{}, error) {
@@ -38,7 +39,7 @@ func (plugin *MusicAssistantPlugin) Init(ctx context.Context, dataSource databas
 
 	plugin.messageRouter = &RpcMessageRouter{}
 	plugin.connectionManager = &WebSocketManager{}
-	plugin.mediaPlayer = &SystemMediaPlayer{}
+	plugin.mediaPlayer = &SystemMediaPlayer_t{}
 
 	plugin.messageRouter.Init(dataSource, plugin.connectionManager)
 	plugin.connectionManager.Init(ctx, dataSource, plugin.messageRouter)
@@ -54,5 +55,5 @@ type MusicAssistantPlugin struct {
 	systemDataSource  database.DataSource
 	connectionManager *WebSocketManager
 	messageRouter     *RpcMessageRouter
-	mediaPlayer       *SystemMediaPlayer
+	mediaPlayer       *SystemMediaPlayer_t
 }

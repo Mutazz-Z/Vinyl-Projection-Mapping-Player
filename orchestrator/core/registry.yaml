@@ -61,7 +61,7 @@ variables:
   - name: ReaderConnectionStatus
     storage: Volatile
     type: ReaderStatus_t
-    default: "EspReaderStatus_Offline"
+    default: "ReaderStatus_Offline"
 
   # ── Projector ────────────────────────────────────────────────────────────
   - name: CurrentProjectorData
@@ -100,10 +100,10 @@ variables:
     default: '""'
 
   # ── Active Record Shelf ──────────────────────────────────────────────────
-  - name: ActiveRecordPlaybackState
+  - name: MediaPlaybackState
     storage: Volatile
-    type: string
-    default: '"idle"'
+    type: MediaPlaybackState_t
+    default: 'MediaPlaybackState_t{State: PlayerState_Idle, ErrorMessage: ""}'
 
   - name: ActiveRecordTrackName
     storage: Volatile

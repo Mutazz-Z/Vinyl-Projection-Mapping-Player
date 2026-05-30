@@ -6,158 +6,161 @@ import (
 
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
+
+	"github.com/mitchellh/mapstructure"
 )
 
-func (player *SystemMediaPlayer) retrieveTargetPlayerIdentifier() (string, error) {
+func (instance *SystemMediaPlayer_t) retrieveTargetPlayerIdentifier() string {
 	var targetPlayerIdentifier string
-	player.systemDataSource.Read(core.Global_MusicAssistantTargetPlayerId, &targetPlayerIdentifier)
+	instance._private.systemDataSource.Read(core.Global_MusicAssistantTargetPlayerId, &targetPlayerIdentifier)
 
-	if targetPlayerIdentifier == "" {
-		return "", fmt.Errorf("player entity id not set")
-	}
-	return targetPlayerIdentifier, nil
+	return targetPlayerIdentifier
 }
 
-func (player *SystemMediaPlayer) PlayMedia(mediaResourceIdentifier string) error {
-	targetPlayerIdentifier, retrievalError := player.retrieveTargetPlayerIdentifier()
-	if retrievalError != nil {
-		return retrievalError
-	}
+func (instance *SystemMediaPlayer_t) PlayMedia(mediaUri string) error {
+	targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
 
 	commandArguments := map[string]interface{}{
 		"queue_id": targetPlayerIdentifier,
-		"media":    []string{mediaResourceIdentifier},
+		"media":    []string{mediaUri},
 	}
 
-	return player.messageRouter.SendFireAndForgetCommand("player_queues/play_media", commandArguments)
+	return instance._private.messageRouter.SendFireAndForgetCommand("player_queues/play_media", commandArguments)
 }
 
-func (player *SystemMediaPlayer) StopMedia() error {
-	targetPlayerIdentifier, retrievalError := player.retrieveTargetPlayerIdentifier()
-	if retrievalError != nil {
-		return retrievalError
-	}
+func (instance *SystemMediaPlayer_t) StopMedia() error {
+	targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
 
 	commandArguments := map[string]interface{}{
 		"queue_id": targetPlayerIdentifier,
 	}
 
-	return player.messageRouter.SendFireAndForgetCommand("player_queues/stop", commandArguments)
+	return instance._private.messageRouter.SendFireAndForgetCommand("player_queues/stop", commandArguments)
 }
 
-func (player *SystemMediaPlayer) GetState() (string, error) {
-	activeConnection, isConnectionAuthenticated := player.messageRouter.connectionManager.RetrieveActiveConnectionState()
-	if activeConnection == nil || !isConnectionAuthenticated {
-		return "idle", nil
+func (instance *SystemMediaPlayer_t) fetchRawPlayerState() (map[string]interface{}, error) {
+	activeConnection, isAuthenticated := instance._private.messageRouter.connectionManager.RetrieveActiveConnectionState()
+	if activeConnection == nil || !isAuthenticated {
+		return nil, fmt.Errorf("music assistant connection is offline or unauthenticated")
 	}
 
-	targetPlayerIdentifier, retrievalError := player.retrieveTargetPlayerIdentifier()
-	if retrievalError != nil {
-		return "", retrievalError
-	}
-
+	targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
 	commandArguments := map[string]interface{}{
 		"queue_id": targetPlayerIdentifier,
 	}
 
-	remoteProcedureCallResponseData, executionError := player.messageRouter.ExecuteRemoteProcedureCall("player_queues/get", commandArguments)
-	if executionError != nil {
-		return "", executionError
+	return instance._private.messageRouter.ExecuteRemoteProcedureCall("player_queues/get", commandArguments)
+}
+
+type PlayerStateResult_t struct {
+	State       string  `mapstructure:"state"`
+	ElapsedTime float64 `mapstructure:"elapsed_time"`
+	CurrentItem struct {
+		Duration float64 `mapstructure:"duration"`
+		Name     string  `mapstructure:"name"`
+	} `mapstructure:"current_item"`
+}
+
+func (instance *SystemMediaPlayer_t) parsePlayerStateResponse(rpcResponse map[string]interface{}) PlayerStateResult_t {
+	var parsedState PlayerStateResult_t
+	rawResult, ok := rpcResponse["result"]
+	if !ok {
+		return parsedState
+	}
+	
+	mapstructure.Decode(rawResult, &parsedState)
+	return parsedState
+}
+
+func (instance *SystemMediaPlayer_t) broadcastStateToDatabase(parsedState PlayerStateResult_t, typedState core.PlayerState_t) {
+	mediaPlaybackState := core.MediaPlaybackState_t{
+		State:        typedState,
+		ErrorMessage: "",
+	}
+	
+	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, mediaPlaybackState)
+	instance._private.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, parsedState.ElapsedTime)
+	instance._private.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, parsedState.CurrentItem.Duration)
+
+	if parsedState.CurrentItem.Name != "" {
+		instance._private.systemDataSource.Write(core.Global_ActiveRecordTrackName, parsedState.CurrentItem.Name)
+	}
+}
+
+func (instance *SystemMediaPlayer_t) UpdateState() (core.PlayerState_t, error) {
+	rawRpcResponse, err := instance.fetchRawPlayerState()
+	if err != nil {
+		return core.PlayerState_Unknown, err
 	}
 
-	return player.extractAndBroadcastState(remoteProcedureCallResponseData), nil
+	parsedState := instance.parsePlayerStateResponse(rawRpcResponse)
+	playerState := parsePlayerState(parsedState.State)
+
+	instance.broadcastStateToDatabase(parsedState, playerState)
+
+	return playerState, nil
 }
 
-type MediaPlayerInfo struct {
-	PlayerID    string `json:"player_id"`
-	DisplayName string `json:"display_name"`
+type AvailableMediaPlayers_t struct {
+	PlayerID    string `json:"player_id" mapstructure:"player_id"`
+	DisplayName string `json:"display_name" mapstructure:"display_name"`
 }
 
-func (player *SystemMediaPlayer) GetAvailablePlayers() (interface{}, error) {
-	responseData, executionError := player.messageRouter.ExecuteRemoteProcedureCall("players/all", nil)
+func (instance *SystemMediaPlayer_t) GetAvailablePlayers() (interface{}, error) {
+	responseData, executionError := instance._private.messageRouter.ExecuteRemoteProcedureCall("players/all", nil)
 	if executionError != nil {
 		return nil, executionError
 	}
 
-	rawResultArray, isArrayValid := responseData["result"].([]interface{})
-	if !isArrayValid {
-		return nil, fmt.Errorf("unexpected result format from players/all")
+	rawResult, ok := responseData["result"]
+	if !ok {
+		return nil, fmt.Errorf("response did not contain a 'result' field")
 	}
 
-	var availablePlayers []MediaPlayerInfo
-	for _, rawItem := range rawResultArray {
-		if playerMap, isMapValid := rawItem.(map[string]interface{}); isMapValid {
-			playerID, _ := playerMap["player_id"].(string)
-			displayName, _ := playerMap["display_name"].(string)
-
-			if displayName == "" {
-				displayName, _ = playerMap["name"].(string)
-			}
-
-			if playerID != "" {
-				availablePlayers = append(availablePlayers, MediaPlayerInfo{
-					PlayerID:    playerID,
-					DisplayName: displayName,
-				})
-			}
-		}
+	var availablePlayers []AvailableMediaPlayers_t
+	err := mapstructure.Decode(rawResult, &availablePlayers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode players: %w", err)
 	}
 
 	return availablePlayers, nil
 }
 
-func (player *SystemMediaPlayer) extractAndBroadcastState(remoteProcedureCallResponseData map[string]interface{}) string {
-	responseResultData, isMapValid := remoteProcedureCallResponseData["result"].(map[string]interface{})
-	if !isMapValid {
-		return "idle"
+func parsePlayerState(rawState string) core.PlayerState_t {
+	switch strings.ToLower(rawState) {
+	case "playing":
+		return core.PlayerState_Playing
+	case "paused":
+		return core.PlayerState_Paused
+	case "idle":
+		return core.PlayerState_Idle
+	case "buffering":
+		return core.PlayerState_Buffering
+	case "stopped":
+		return core.PlayerState_Stopped
+	case "off", "standby":
+		return core.PlayerState_Off
+	case "error":
+		return core.PlayerState_Error
+	default:
+		return core.PlayerState_Unknown
 	}
-
-	playerStateString, isStringValid := responseResultData["state"].(string)
-	if !isStringValid {
-		return "idle"
-	}
-	currentStateString := strings.ToLower(playerStateString)
-
-	var trackPositionInSeconds float64
-	var trackDurationInSeconds float64
-	var activeTrackNameString string
-
-	if elapsedSecondsValue, containsElapsedSeconds := responseResultData["elapsed_time"].(float64); containsElapsedSeconds {
-		trackPositionInSeconds = elapsedSecondsValue
-	}
-
-	if currentItemDataMap, containsCurrentItem := responseResultData["current_item"].(map[string]interface{}); containsCurrentItem {
-		if durationSecondsValue, containsDurationSeconds := currentItemDataMap["duration"].(float64); containsDurationSeconds {
-			trackDurationInSeconds = durationSecondsValue
-		}
-		if nameStringValue, containsNameString := currentItemDataMap["name"].(string); containsNameString {
-			activeTrackNameString = nameStringValue
-		}
-	}
-
-	player.systemDataSource.Write(core.Global_ActiveRecordPlaybackState, currentStateString)
-	player.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, trackPositionInSeconds)
-	player.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, trackDurationInSeconds)
-
-	if activeTrackNameString != "" {
-		player.systemDataSource.Write(core.Global_ActiveRecordTrackName, activeTrackNameString)
-	}
-
-	return currentStateString
 }
 
 type MediaPlayer interface {
 	PlayMedia(mediaUri string) error
 	StopMedia() error
-	GetState() (string, error)
+	UpdateState() (core.PlayerState_t, error)
 }
 
-func (player *SystemMediaPlayer) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter) {
-	player.systemDataSource = dataSource
-	player.messageRouter = routerInstance
+type SystemMediaPlayer_t struct {
+	_private struct {
+		systemDataSource database.DataSource
+		messageRouter    *RpcMessageRouter
+	}
 }
 
-type SystemMediaPlayer struct {
-	systemDataSource database.DataSource
-	messageRouter    *RpcMessageRouter
+func (instance *SystemMediaPlayer_t) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter) {
+	instance._private.systemDataSource = dataSource
+	instance._private.messageRouter = routerInstance
 }

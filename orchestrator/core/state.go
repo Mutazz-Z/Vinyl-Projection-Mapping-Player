@@ -67,7 +67,7 @@ const Global_FlutterWebUrl StateKey_t = "Global_FlutterWebUrl"
 func init() {
 	StateRegistry[Global_FlutterWebUrl] = StateMetadata{
 		StorageType: NonVolatile,
-		DefaultData: string("localhost"),
+		DefaultData: string(""),
 	}
 }
 
@@ -78,7 +78,7 @@ const Global_FlutterWebPort StateKey_t = "Global_FlutterWebPort"
 func init() {
 	StateRegistry[Global_FlutterWebPort] = StateMetadata{
 		StorageType: NonVolatile,
-		DefaultData: string("8080"),
+		DefaultData: string(""),
 	}
 }
 
@@ -155,7 +155,7 @@ const Global_ReaderConnectionStatus StateKey_t = "Global_ReaderConnectionStatus"
 func init() {
 	StateRegistry[Global_ReaderConnectionStatus] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: ReaderStatus_t(EspReaderStatus_Offline),
+		DefaultData: ReaderStatus_t(ReaderStatus_Offline),
 	}
 }
 
@@ -236,14 +236,14 @@ func init() {
 	}
 }
 
-// ── ActiveRecordPlaybackState ──────────────────────────────────
+// ── MediaPlaybackState ──────────────────────────────────
 
-const Global_ActiveRecordPlaybackState StateKey_t = "Global_ActiveRecordPlaybackState"
+const Global_MediaPlaybackState StateKey_t = "Global_MediaPlaybackState"
 
 func init() {
-	StateRegistry[Global_ActiveRecordPlaybackState] = StateMetadata{
+	StateRegistry[Global_MediaPlaybackState] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: string("idle"),
+		DefaultData: MediaPlaybackState_t(MediaPlaybackState_t{State: PlayerState_Idle, ErrorMessage: ""}),
 	}
 }
 

@@ -73,12 +73,12 @@ func (instance *DisplayApplicationService) onDataSourceChanged(dataSourceChanged
 				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, core.ProjectorData_t{PlayerState: core.PlayerState_Stopped})
 			}
 
-		case core.Global_ActiveRecordPlaybackState:
-			activeRecordPlaybackState := args.Data.(string)
-			if activeRecordPlaybackState == "error" {
+		case core.Global_MediaPlaybackState:
+			MediaPlaybackState := args.Data.(core.MediaPlaybackState_t)
+			if MediaPlaybackState.State == core.PlayerState_Error {
 				dataToSend := core.ProjectorData_t{
-					PlayerState:  core.PlayerState_Error,
-					ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
+					PlayerState:  MediaPlaybackState.State,
+					ErrorMessage: MediaPlaybackState.ErrorMessage,
 				}
 				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, dataToSend)
 			}

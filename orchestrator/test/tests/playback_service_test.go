@@ -138,7 +138,7 @@ package tests
 // 		t.Fatal("Watchdog timeout event was not published within the expected window.")
 // 	}
 
-// 	require.Equal(t, "error", playbackServiceTestContext.dataSource.Storage["GLOBAL_ActiveRecordPlaybackState"])
+// 	require.Equal(t, "error", playbackServiceTestContext.dataSource.Storage["GLOBAL_MediaPlaybackState"])
 // }
 
 // func TestPlaybackService_HandlesPlayerRejection(t *testing.T) {
