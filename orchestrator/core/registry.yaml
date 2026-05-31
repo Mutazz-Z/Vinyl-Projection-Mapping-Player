@@ -67,12 +67,17 @@ variables:
   - name: CurrentProjectorData
     storage: Volatile
     type: ProjectorData_t
-    default: "ProjectorData_t{PlayerState: PlayerState_Stopped}"
+    default: "ProjectorData_t{VisualDataState: VisualDataState_DisplayIdle}"
 
   - name: ProjectorHeartbeatSignal
     storage: Volatile
     type: interface{}
     default: nil
+
+  - name: DefinedProjectorErrorMessage
+    storage: Volatile
+    type: string
+    default: '""'
 
   - name: ProjectorHeartbeat
     storage: Volatile
@@ -103,7 +108,7 @@ variables:
   - name: MediaPlaybackState
     storage: Volatile
     type: MediaPlaybackState_t
-    default: 'MediaPlaybackState_t{State: PlayerState_Idle, ErrorMessage: ""}'
+    default: 'PlayerState_Idle'
 
   - name: ActiveRecordTrackName
     storage: Volatile

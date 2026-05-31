@@ -33,17 +33,14 @@ func (instance *PlaybackApplicationService) onWatchdogTimeout() {
 	var mediaPlayerState core.MediaPlaybackState_t
 	instance._private.systemDataSource.Read(core.Global_MediaPlaybackState, &mediaPlayerState)
 
-	if mediaPlayerState.State == core.PlayerState_Playing || mediaPlayerState.State == core.PlayerState_Paused {
+	if mediaPlayerState == core.PlayerState_Playing || mediaPlayerState == core.PlayerState_Paused {
 		return
 	}
 
 	fmt.Println("[Playback Service] Error: Target device failed to respond within timeout window.")
 
-	sendTimeoutErrorMessage := core.MediaPlaybackState_t{
-		State:        core.PlayerState_Error,
-		ErrorMessage: "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again.",
-	}
-	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, sendTimeoutErrorMessage)
+	sendTimeoutErrorMessage := "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again."
+	instance._private.systemDataSource.Write(core.Global_DefinedProjectorErrorMessage, sendTimeoutErrorMessage)
 }
 
 func (instance *PlaybackApplicationService) cancelPlaybackWatchdog() {

@@ -52,12 +52,7 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
 	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
 
-	mediaPlaybackState := core.MediaPlaybackState_t{
-		State:        mediaPlayerStatus.State,
-		ErrorMessage: "",
-	}
-
-	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, mediaPlaybackState)
+	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, mediaPlayerStatus.State)
 	instance._private.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
 	instance._private.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
 

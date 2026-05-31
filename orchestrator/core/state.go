@@ -166,7 +166,7 @@ const Global_CurrentProjectorData StateKey_t = "Global_CurrentProjectorData"
 func init() {
 	StateRegistry[Global_CurrentProjectorData] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: ProjectorData_t(ProjectorData_t{PlayerState: PlayerState_Stopped}),
+		DefaultData: ProjectorData_t(ProjectorData_t{VisualDataState: VisualDataState_DisplayIdle}),
 	}
 }
 
@@ -178,6 +178,17 @@ func init() {
 	StateRegistry[Global_ProjectorHeartbeatSignal] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: interface{}(nil),
+	}
+}
+
+// ── DefinedProjectorErrorMessage ──────────────────────────────────
+
+const Global_DefinedProjectorErrorMessage StateKey_t = "Global_DefinedProjectorErrorMessage"
+
+func init() {
+	StateRegistry[Global_DefinedProjectorErrorMessage] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: string(""),
 	}
 }
 
@@ -243,7 +254,7 @@ const Global_MediaPlaybackState StateKey_t = "Global_MediaPlaybackState"
 func init() {
 	StateRegistry[Global_MediaPlaybackState] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: MediaPlaybackState_t(MediaPlaybackState_t{State: PlayerState_Idle, ErrorMessage: ""}),
+		DefaultData: MediaPlaybackState_t(PlayerState_Idle),
 	}
 }
 

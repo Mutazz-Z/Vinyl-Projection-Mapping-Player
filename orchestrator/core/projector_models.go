@@ -1,10 +1,14 @@
 package core
 
 // typeshare
-type MediaPlaybackState_t struct {
-	State        PlayerState_t `json:"state"`
-	ErrorMessage string        `json:"error_message"`
-}
+type VisualDataState_t uint8
+
+const (
+	VisualDataState_DisplayAlbumVisuals VisualDataState_t = iota
+	VisualDataState_DisplayErrorMessage
+	VisualDataState_DisplayTagRegistration
+	VisualDataState_DisplayIdle
+)
 
 // typeshare
 type ReaderStatus_t bool
@@ -23,17 +27,17 @@ const (
 )
 
 // typeshare
-type PlayerState_t uint8
+type MediaPlaybackState_t uint8
 
 const (
-	PlayerState_Playing PlayerState_t = iota
+	PlayerState_Playing MediaPlaybackState_t = iota
 	PlayerState_Paused
 	PlayerState_Idle
 	PlayerState_Buffering
 	PlayerState_Unknown
 	PlayerState_Stopped
 	PlayerState_Error
-	PlayerState_Off
+	PlayerState_Offline
 )
 
 // typeshare
@@ -54,8 +58,8 @@ type VinylRecordTagData_t struct {
 
 // typeshare
 type ProjectorData_t struct {
-	TagData        VinylRecordTagData_t `json:"tag_data"`
-	PlayerState    PlayerState_t        `json:"player_state"`
-	RegisterTagUrl string               `json:"register_tag_url"`
-	ErrorMessage   string               `json:"error_message"`
+	TagData         VinylRecordTagData_t `json:"tag_data"`
+	VisualDataState VisualDataState_t    `json:"visual_data_state"`
+	RegisterTagUrl  string               `json:"register_tag_url"`
+	ErrorMessage    string               `json:"error_message"`
 }

@@ -22,10 +22,10 @@ type RawMediaPlayerStatus_t struct {
 }
 
 type MediaPlayerStatus_t struct {
-	State         core.PlayerState_t `json:"state"`
-	ElapsedTime   float64            `json:"elapsed_time"`
-	TotalDuration float64            `json:"total_duration"`
-	TrackName     string             `json:"track_name"`
+	State         core.MediaPlaybackState_t `json:"state"`
+	ElapsedTime   float64                   `json:"elapsed_time"`
+	TotalDuration float64                   `json:"total_duration"`
+	TrackName     string                    `json:"track_name"`
 }
 
 func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier string) MediaPlayerStatus_t {
@@ -51,7 +51,7 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 	}
 }
 
-func parsePlayerState(rawState string) core.PlayerState_t {
+func parsePlayerState(rawState string) core.MediaPlaybackState_t {
 	switch strings.ToLower(rawState) {
 	case "playing":
 		return core.PlayerState_Playing
@@ -64,7 +64,7 @@ func parsePlayerState(rawState string) core.PlayerState_t {
 	case "stopped":
 		return core.PlayerState_Stopped
 	case "off", "standby":
-		return core.PlayerState_Off
+		return core.PlayerState_Offline
 	case "error":
 		return core.PlayerState_Error
 	default:
