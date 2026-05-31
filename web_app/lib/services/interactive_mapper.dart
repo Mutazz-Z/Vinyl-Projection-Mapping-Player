@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/services/system_data_source.dart';
 
 class InteractiveMapper extends StatefulWidget {
@@ -75,7 +76,7 @@ class InteractiveMapperState extends State<InteractiveMapper> {
         },
       ];
 
-      widget.systemDataSource.write('GLOBAL_ProjectorHeartbeatSignal', {
+      widget.systemDataSource.write(globalProjectorHeartbeatSignal, {
         'action': 'layout',
         'targetId': widget.targetId,
         'data': layout,

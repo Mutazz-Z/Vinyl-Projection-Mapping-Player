@@ -13,7 +13,7 @@ import (
 )
 
 type SQLiteDataSource struct {
-	connection *sql.DB
+	connection       *sql.DB
 	memoryCache      map[core.StateKey_t]interface{}
 	cacheMutex       sync.RWMutex
 	eventSubscribers map[string][]chan Event
@@ -83,6 +83,24 @@ func (dataSource *SQLiteDataSource) Write(key core.StateKey_t, value interface{}
 	if !isRegistered {
 		return errors.New("unregistered configuration key provided")
 	}
+
+	if definition.DefaultData != nil && value != nil {
+		expectedType := reflect.TypeOf(definition.DefaultData)
+		actualType := reflect.TypeOf(value)
+
+		if expectedType != actualType {
+			if actualType.ConvertibleTo(expectedType) {
+				value = reflect.ValueOf(value).Convert(expectedType).Interface()
+			} else {
+				jsonBytes, _ := json.Marshal(value)
+				targetPtr := reflect.New(expectedType)
+				if err := json.Unmarshal(jsonBytes, targetPtr.Interface()); err == nil {
+					value = targetPtr.Elem().Interface()
+				}
+			}
+		}
+	}
+	// ----------------------------------------------
 
 	dataSource.cacheMutex.Lock()
 	dataSource.memoryCache[key] = value

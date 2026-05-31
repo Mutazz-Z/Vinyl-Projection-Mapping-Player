@@ -6,6 +6,7 @@ package musicassistant
 
 import (
 	"fmt"
+	"vinyl-orchestrator/typedefs"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -26,15 +27,7 @@ type RawAlbumsInLibrary_t struct {
 	} `json:"metadata" mapstructure:"metadata"`
 }
 
-type AlbumsInLibrary_t struct {
-	ItemId     string `json:"item_id" mapstructure:"item_id"`
-	Provider   string `json:"provider" mapstructure:"provider"`
-	MediaTitle string `json:"media_title" mapstructure:"media_title"`
-	Artist     string `json:"artist" mapstructure:"artist"`
-	CoverImage string `json:"cover_image" mapstructure:"cover_image"`
-}
-
-func (plugin *MusicAssistantPlugin) getAllAlbumsFromMusicAssistantLibrary() ([]AlbumsInLibrary_t, error) {
+func (plugin *MusicAssistantPlugin) getAllAlbumsFromMusicAssistantLibrary() ([]typedefs.AlbumsInLibrary_t, error) {
 	response, err := plugin.messageRouter.ExecuteRemoteProcedureCall("music/albums/library_items", map[string]interface{}{})
 	if err != nil {
 		return nil, err
@@ -52,9 +45,9 @@ func (plugin *MusicAssistantPlugin) getAllAlbumsFromMusicAssistantLibrary() ([]A
 		return nil, fmt.Errorf("failed to decode albums: %w", err)
 	}
 
-	var albums []AlbumsInLibrary_t
+	var albums []typedefs.AlbumsInLibrary_t
 	for _, rawAlbum := range rawAlbums {
-		album := AlbumsInLibrary_t{
+		album := typedefs.AlbumsInLibrary_t{
 			ItemId:     rawAlbum.ItemId,
 			Provider:   rawAlbum.Provider,
 			MediaTitle: rawAlbum.MediaTitle,

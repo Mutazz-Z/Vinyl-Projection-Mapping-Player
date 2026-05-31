@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/theme/app_theme.dart';
 
@@ -30,7 +31,7 @@ class _DebugScreenState extends State<DebugScreen> {
     }
 
     try {
-      systemDataSource.write('GLOBAL_LastKnownUidScanned', uid);
+      systemDataSource.write(globalLastKnownUidScanned, uid);
 
       ScaffoldMessenger.of(
         context,
@@ -44,7 +45,7 @@ class _DebugScreenState extends State<DebugScreen> {
 
   void _mockRemoveTag() {
     try {
-      systemDataSource.write('GLOBAL_CurrentShelfStatus', 'empty');
+      systemDataSource.write(globalCurrentShelfStatus, false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mocked record removal status sent.')),

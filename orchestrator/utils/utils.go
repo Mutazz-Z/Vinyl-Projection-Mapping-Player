@@ -42,3 +42,17 @@ func GetLocalIP() string {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP.String()
 }
+
+/*
+ * Writes a value to the data source using a typed key
+ */
+func Write[T any](dataSource database.DataSource, typedKey core.TypedKey[T], value T) error {
+	return dataSource.Write(typedKey.Key, value)
+}
+
+/*
+ * Reads a value from the data source using a typed key
+ */
+func Read[T any](dataSource database.DataSource, typedKey core.TypedKey[T], dest *T) error {
+	return dataSource.Read(typedKey.Key, dest)
+}

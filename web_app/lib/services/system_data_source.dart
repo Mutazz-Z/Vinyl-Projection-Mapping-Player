@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:web_app/factories/typed_key.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-class DataSourceChangedArgs {
+class DataSourceChangedArgs<T> {
   final String variable;
-  final dynamic data;
-  DataSourceChangedArgs({required this.variable, this.data});
+  final T data;
+  DataSourceChangedArgs({required this.variable, required this.data});
 }
 
 class SystemDataSource {
@@ -17,15 +18,15 @@ class SystemDataSource {
   int _reqIdCounter = 0;
   final Map<String, Completer<dynamic>> _pendingReads = {};
 
-  final StreamController<DataSourceChangedArgs> _updatesController =
-      StreamController<DataSourceChangedArgs>.broadcast();
+  final StreamController<DataSourceChangedArgs<dynamic>> _updatesController =
+      StreamController<DataSourceChangedArgs<dynamic>>.broadcast();
 
   SystemDataSource({required this.host, this.port = 8099});
 
   String get orchestratorHost => host;
   String get httpBaseUrl => 'http://$host:$port';
 
-  Stream<DataSourceChangedArgs> get onDataSourceChanged =>
+  Stream<DataSourceChangedArgs<dynamic>> get onDataSourceChanged =>
       _updatesController.stream;
 
   void connect() {
@@ -42,7 +43,8 @@ class SystemDataSource {
             _updatesController.add(
               DataSourceChangedArgs(
                 variable: payload['variable'],
-                data: payload['data'],
+                data:
+                    payload['data'], // You can add generic matching here later if needed
               ),
             );
             return;
@@ -79,7 +81,8 @@ class SystemDataSource {
     _channel = null;
   }
 
-  Future<dynamic> read(String key) {
+  // --- STRICT GENERIC READ ---
+  Future<T> read<T>(TypedKey<T> typedKey) async {
     if (_channel == null) return Future.error('Not connected');
 
     final reqId = 'req_${++_reqIdCounter}';
@@ -87,23 +90,43 @@ class SystemDataSource {
     _pendingReads[reqId] = completer;
 
     _channel!.sink.add(
-      jsonEncode({'action': 'read', 'key': key, 'req_id': reqId}),
+      jsonEncode({'action': 'read', 'key': typedKey.keyName, 'req_id': reqId}),
     );
 
-    return completer.future.timeout(
+    final rawValue = await completer.future.timeout(
       const Duration(seconds: 5),
       onTimeout: () {
         _pendingReads.remove(reqId);
-        throw TimeoutException('Read request timed out for key: $key');
+        throw TimeoutException(
+          'Read request timed out for key: ${typedKey.keyName}',
+        );
       },
     );
+
+    // If it's a generated struct, parse it automatically
+    if (typedKey.fromJson != null && rawValue != null) {
+      return typedKey.fromJson!(rawValue);
+    }
+
+    // Otherwise it's a primitive (String, int, double)
+    return rawValue as T;
   }
 
-  void write(String key, dynamic value) {
+  // --- STRICT GENERIC WRITE ---
+  void write<T>(TypedKey<T> typedKey, T value) {
     if (_channel == null) return;
 
+    // If it's a struct, convert it to JSON map before sending over WebSocket
+    final payloadValue = typedKey.toJson != null
+        ? typedKey.toJson!(value)
+        : value;
+
     _channel!.sink.add(
-      jsonEncode({'action': 'write', 'key': key, 'value': value}),
+      jsonEncode({
+        'action': 'write',
+        'key': typedKey.keyName,
+        'value': payloadValue,
+      }),
     );
   }
 }

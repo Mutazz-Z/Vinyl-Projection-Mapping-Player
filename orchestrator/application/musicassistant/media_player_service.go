@@ -11,11 +11,13 @@ import (
 
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/typedefs"
+	"vinyl-orchestrator/utils"
 )
 
 func (instance *SystemMediaPlayer_t) retrieveTargetPlayerIdentifier() string {
 	var targetPlayerIdentifier string
-	instance._private.systemDataSource.Read(core.Global_MusicAssistantTargetPlayerId, &targetPlayerIdentifier)
+	utils.Read(instance._private.systemDataSource, core.Global_MusicAssistantTargetPlayerId, &targetPlayerIdentifier)
 
 	return targetPlayerIdentifier
 }
@@ -52,16 +54,16 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
 	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
 
-	instance._private.systemDataSource.Write(core.Global_MediaPlaybackState, mediaPlayerStatus.State)
-	instance._private.systemDataSource.Write(core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
-	instance._private.systemDataSource.Write(core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
+	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, mediaPlayerStatus.State)
+	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
+	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
 
 	if mediaPlayerStatus.TrackName != "" {
-		instance._private.systemDataSource.Write(core.Global_ActiveRecordTrackName, mediaPlayerStatus.TrackName)
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveRecordTrackName, mediaPlayerStatus.TrackName)
 	}
 }
 
-func (instance *SystemMediaPlayer_t) GetAvailablePlayers() (interface{}, error) {
+func (instance *SystemMediaPlayer_t) GetAvailablePlayers() ([]typedefs.AvailableMediaPlayers_t, error) {
 	return instance.getAvailablePlayers()
 }
 

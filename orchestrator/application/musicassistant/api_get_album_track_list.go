@@ -6,6 +6,7 @@ package musicassistant
 
 import (
 	"fmt"
+	"vinyl-orchestrator/typedefs"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -20,13 +21,7 @@ type RawAlbumTrackList_t struct {
 	} `json:"metadata"`
 }
 
-type AlbumTrackList_t struct {
-	Track      string `json:"track" mapstructure:"track"`
-	Duration   int    `json:"duration" mapstructure:"duration"`
-	CoverImage string `json:"cover_image" mapstructure:"cover_image"`
-}
-
-func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider string) ([]AlbumTrackList_t, error) {
+func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider string) ([]typedefs.AlbumTrackList_t, error) {
 
 	response, err := plugin.messageRouter.ExecuteRemoteProcedureCall("music/albums/album_tracks", map[string]interface{}{
 		"item_id":                        itemId,
@@ -48,9 +43,9 @@ func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider st
 		return nil, fmt.Errorf("failed to decode albums: %w", err)
 	}
 
-	var result []AlbumTrackList_t
+	var result []typedefs.AlbumTrackList_t
 	for i := range albumTrackList {
-		track := AlbumTrackList_t{
+		track := typedefs.AlbumTrackList_t{
 			Track:    albumTrackList[i].Track,
 			Duration: albumTrackList[i].Duration,
 		}

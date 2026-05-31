@@ -6,16 +6,12 @@ package musicassistant
 
 import (
 	"fmt"
+	"vinyl-orchestrator/typedefs"
 
 	"github.com/mitchellh/mapstructure"
 )
 
-type AvailableMediaPlayers_t struct {
-	PlayerID    string `json:"player_id" mapstructure:"player_id"`
-	DisplayName string `json:"display_name" mapstructure:"display_name"`
-}
-
-func (instance *SystemMediaPlayer_t) getAvailablePlayers() (interface{}, error) {
+func (instance *SystemMediaPlayer_t) getAvailablePlayers() ([]typedefs.AvailableMediaPlayers_t, error) {
 	responseData, executionError := instance._private.messageRouter.ExecuteRemoteProcedureCall("players/all", nil)
 	if executionError != nil {
 		return nil, executionError
@@ -26,7 +22,7 @@ func (instance *SystemMediaPlayer_t) getAvailablePlayers() (interface{}, error) 
 		return nil, fmt.Errorf("response did not contain a 'result' field")
 	}
 
-	var availablePlayers []AvailableMediaPlayers_t
+	var availablePlayers []typedefs.AvailableMediaPlayers_t
 	err := mapstructure.Decode(rawResult, &availablePlayers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode players: %w", err)

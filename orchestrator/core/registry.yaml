@@ -55,19 +55,19 @@ variables:
 
   - name: CurrentShelfStatus
     storage: Volatile
-    type: ShelfStatus_t
-    default: "ShelfStatus_Empty"
+    type: typedefs.ShelfStatus_t
+    default: "typedefs.ShelfStatus_Empty"
 
   - name: ReaderConnectionStatus
     storage: Volatile
-    type: ReaderStatus_t
-    default: "ReaderStatus_Offline"
+    type: typedefs.ReaderStatus_t
+    default: "typedefs.ReaderStatus_Offline"
 
   # ── Projector ────────────────────────────────────────────────────────────
   - name: CurrentProjectorData
     storage: Volatile
-    type: ProjectorData_t
-    default: "ProjectorData_t{VisualDataState: VisualDataState_DisplayIdle}"
+    type: typedefs.ProjectorData_t
+    default: "typedefs.ProjectorData_t{VisualDataState: typedefs.VisualDataState_DisplayIdle}"
 
   - name: ProjectorHeartbeatSignal
     storage: Volatile
@@ -107,8 +107,8 @@ variables:
   # ── Active Record Shelf ──────────────────────────────────────────────────
   - name: MediaPlaybackState
     storage: Volatile
-    type: MediaPlaybackState_t
-    default: 'PlayerState_Idle'
+    type: typedefs.MediaPlaybackState_t
+    default: "typedefs.PlayerState_Idle"
 
   - name: ActiveRecordTrackName
     storage: Volatile

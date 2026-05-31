@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:web_app/factories/albums_in_library.dart';
-import 'package:web_app/factories/album_tracklist.dart';
-import 'package:web_app/factories/available_players.dart';
+import 'package:web_app/factories/state.dart';
 import '../models/music_assistant_models.dart';
 import '../models/vinyl_album_record.dart';
 import 'package:web_app/main.dart';
@@ -30,7 +28,7 @@ class OrchestratorApiClient {
   /*
    Grabs list of available players from Music Assistant
   */
-  Future<List<AvailablePlayers>> getAvailablePlayers() async {
+  Future<List<AvailableMediaPlayers_t>> getAvailablePlayers() async {
     try {
       final response = await http.get(
         Uri.parse('http://$globalOrchestratorHostAddress:8099/api/players/'),
@@ -39,7 +37,7 @@ class OrchestratorApiClient {
       if (response.statusCode == 200) {
         final List<dynamic> decodedJson = jsonDecode(response.body);
         return decodedJson
-            .map((json) => AvailablePlayers.fromJson(json))
+            .map((json) => AvailableMediaPlayers_t.fromJson(json))
             .toList();
       } else {
         throw Exception(
@@ -180,7 +178,8 @@ class OrchestratorApiClient {
   /*
    Fetches all albums from our Music Assistant library
   */
-  Future<List<AlbumsInLibrary>> getAllAlbumsFromMusicAssistantLibrary() async {
+  Future<List<AlbumsInLibrary_t>>
+  getAllAlbumsFromMusicAssistantLibrary() async {
     try {
       final response = await http.get(
         Uri.parse('http://$globalOrchestratorHostAddress:8099/api/library/'),
@@ -189,7 +188,7 @@ class OrchestratorApiClient {
       if (response.statusCode == 200) {
         final List<dynamic> decodedData = jsonDecode(response.body);
         return decodedData
-            .map((json) => AlbumsInLibrary.fromJson(json))
+            .map((json) => AlbumsInLibrary_t.fromJson(json))
             .toList();
       }
     } catch (error) {
@@ -201,7 +200,7 @@ class OrchestratorApiClient {
   /*
    Fetches the tracklist and metadata for a given album in our Music Assistant library
   */
-  Future<List<AlbumTrackList>> fetchAlbumTrackList(
+  Future<List<AlbumTrackList_t>> fetchAlbumTrackList(
     String itemId,
     String provider,
   ) async {
@@ -213,7 +212,9 @@ class OrchestratorApiClient {
       );
       if (response.statusCode == 200) {
         List<dynamic> rawList = jsonDecode(response.body);
-        List<AlbumTrackList> tracks = AlbumTrackList.fromJsonList(rawList);
+        List<AlbumTrackList_t> tracks = rawList
+            .map((jsonItem) => AlbumTrackList_t.fromJson(jsonItem))
+            .toList();
         return tracks;
       }
     } catch (error) {

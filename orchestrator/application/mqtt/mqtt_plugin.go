@@ -13,6 +13,8 @@ import (
 
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/typedefs"
+	"vinyl-orchestrator/utils"
 
 	eclipseMqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -28,16 +30,16 @@ func (instance *MqttPlugin_t) handleLostConnection(disconnectedClient eclipseMqt
 }
 
 func (instance *MqttPlugin_t) handleDeviceStatus(client eclipseMqtt.Client, incomingMessage eclipseMqtt.Message) {
-	var status core.ReaderStatus_t
+	var status typedefs.ReaderStatus_t
 	json.Unmarshal(incomingMessage.Payload(), &status)
 
-	if status == core.ReaderStatus_Online {
+	if status == typedefs.ReaderStatus_Online {
 		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Online\n")
 	} else {
 		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Offline\n")
 	}
 
-	instance._private.systemDataSource.Write(core.Global_ReaderConnectionStatus, status)
+	utils.Write(instance._private.systemDataSource, core.Global_ReaderConnectionStatus, status)
 }
 
 func (instance *MqttPlugin_t) startWatchdogTimer() {
@@ -49,7 +51,7 @@ func (instance *MqttPlugin_t) startWatchdogTimer() {
 	}
 
 	instance._private.watchdogTimer = time.AfterFunc(instance._private.WatchdogTimeout, func() {
-		instance._private.systemDataSource.Write(core.Global_CurrentShelfStatus, core.ShelfStatus_Empty)
+		utils.Write(instance._private.systemDataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Empty)
 		instance._private.watchdogExpired = true
 	})
 }
@@ -58,18 +60,18 @@ func (instance *MqttPlugin_t) checkUidAgainstLibrary(uid string) {
 	exists := instance._private.AlbumLibrary.CheckUidExistsInLibrary(uid)
 	if !exists {
 		fmt.Printf("[Mqtt Plugin]: Unknown Tag %s, writing to registry for registration\n", uid)
-		instance._private.systemDataSource.Write(core.Global_LastUnknownUidScanned, uid)
+		utils.Write(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, uid)
 	} else {
 		fmt.Printf("[Mqtt Plugin]: Scanned Tag %s\n", uid)
-		instance._private.systemDataSource.Write(core.Global_LastKnownUidScanned, uid)
+		utils.Write(instance._private.systemDataSource, core.Global_LastKnownUidScanned, uid)
 	}
-	instance._private.systemDataSource.Write(core.Global_CurrentShelfStatus, core.ShelfStatus_Occupied)
+	utils.Write(instance._private.systemDataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Occupied)
 }
 
 func (instance *MqttPlugin_t) scannedUidIsTheSameAsPreviousAndWatchdogNotExpired(uid string) bool {
 	var previousKnownUidScanned, previousUnknownUidScanned string
-	instance._private.systemDataSource.Read(core.Global_LastKnownUidScanned, &previousKnownUidScanned)
-	instance._private.systemDataSource.Read(core.Global_LastUnknownUidScanned, &previousUnknownUidScanned)
+	utils.Read(instance._private.systemDataSource, core.Global_LastKnownUidScanned, &previousKnownUidScanned)
+	utils.Read(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, &previousUnknownUidScanned)
 
 	return (previousKnownUidScanned == uid || previousUnknownUidScanned == uid) && !instance._private.watchdogExpired
 }
@@ -78,7 +80,7 @@ func (instance *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client, i
 	var vinylShelfMessage VinylShelfMessage_t
 	json.Unmarshal(incomingMessage.Payload(), &vinylShelfMessage)
 
-	if vinylShelfMessage.ShelfStatus == core.ShelfStatus_Occupied {
+	if vinylShelfMessage.ShelfStatus == typedefs.ShelfStatus_Occupied {
 		if instance._private.watchdogTimer != nil {
 			instance._private.watchdogTimer.Stop()
 		}
@@ -99,15 +101,15 @@ func (instance *MqttPlugin_t) getBrokerServer() string {
 	var mqttHostAddress string
 	var mqttTcpPort int
 
-	instance._private.systemDataSource.Read(core.Global_MqttBrokerHostAddress, &mqttHostAddress)
-	instance._private.systemDataSource.Read(core.Global_MqttTcpPort, &mqttTcpPort)
+	utils.Read(instance._private.systemDataSource, core.Global_MqttBrokerHostAddress, &mqttHostAddress)
+	utils.Read(instance._private.systemDataSource, core.Global_MqttTcpPort, &mqttTcpPort)
 
 	return fmt.Sprintf("tcp://%s:%d", mqttHostAddress, mqttTcpPort)
 }
 
 type VinylShelfMessage_t struct {
 	UidScanned  string             `json:"uid"`
-	ShelfStatus core.ShelfStatus_t `json:"shelfStatus"`
+	ShelfStatus typedefs.ShelfStatus_t `json:"shelfStatus"`
 }
 
 type MqttPlugin_t struct {

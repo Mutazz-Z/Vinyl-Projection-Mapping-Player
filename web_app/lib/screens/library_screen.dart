@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:web_app/factories/album_tracklist.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:web_app/widgets/new_widgets/text_field.dart';
@@ -79,7 +79,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           initialTracks: (albumRecord['track_list'] as List<dynamic>?)
               ?.map(
                 (track) =>
-                    AlbumTrackList.fromJson(track as Map<String, dynamic>),
+                    AlbumTrackList_t.fromJson(track as Map<String, dynamic>),
               )
               .toList(),
           itemId: albumRecord['item_id'] as String?,

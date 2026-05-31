@@ -13,6 +13,7 @@ import (
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/application/musicassistant"
 	"vinyl-orchestrator/core"
+	"vinyl-orchestrator/typedefs"
 	"vinyl-orchestrator/utils"
 )
 
@@ -30,17 +31,17 @@ func (instance *PlaybackApplicationService) onWatchdogTimeout() {
 	instance._private.watchdogMutex.Lock()
 	defer instance._private.watchdogMutex.Unlock()
 
-	var mediaPlayerState core.MediaPlaybackState_t
-	instance._private.systemDataSource.Read(core.Global_MediaPlaybackState, &mediaPlayerState)
+	var mediaPlayerState typedefs.MediaPlaybackState_t
+	utils.Read(instance._private.systemDataSource, core.Global_MediaPlaybackState, &mediaPlayerState)
 
-	if mediaPlayerState == core.PlayerState_Playing || mediaPlayerState == core.PlayerState_Paused {
+	if mediaPlayerState == typedefs.PlayerState_Playing || mediaPlayerState == typedefs.PlayerState_Paused {
 		return
 	}
 
 	fmt.Println("[Playback Service] Error: Target device failed to respond within timeout window.")
 
 	sendTimeoutErrorMessage := "Playback failed to start\n\nTarget device did not respond in time. Please check its connection and try again."
-	instance._private.systemDataSource.Write(core.Global_DefinedProjectorErrorMessage, sendTimeoutErrorMessage)
+	utils.Write(instance._private.systemDataSource, core.Global_DefinedProjectorErrorMessage, sendTimeoutErrorMessage)
 }
 
 func (instance *PlaybackApplicationService) cancelPlaybackWatchdog() {
@@ -70,13 +71,13 @@ func (instance *PlaybackApplicationService) onDataSourceChanged(dataSourceChange
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
-		case core.Global_LastKnownUidScanned:
+		case core.Global_LastKnownUidScanned.Key:
 			currentUid, _ := args.Data.(string)
 			instance.processScannedNfcTag(currentUid)
 
-		case core.Global_CurrentShelfStatus:
-			shelfStatus, _ := args.Data.(core.ShelfStatus_t)
-			if shelfStatus == core.ShelfStatus_Empty {
+		case core.Global_CurrentShelfStatus.Key:
+			shelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)
+			if shelfStatus == typedefs.ShelfStatus_Empty {
 				instance.cancelPlaybackWatchdog()
 				fmt.Println("[Playback Service]: Shelf is empty, stopping playback")
 				instance._private.mediaPlayer.StopMedia()

@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:web_app/factories/available_players.dart';
 import 'package:web_app/main.dart';
-import 'package:web_app/models/music_assistant_models.dart';
 import 'package:web_app/widgets/new_widgets/pill_dropdown.dart';
 import 'package:web_app/widgets/new_widgets/pill_button.dart';
 import 'package:web_app/widgets/new_widgets/text_field.dart';
 import 'package:web_app/services/interactive_mapper.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -24,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _mqttPortController;
   late final TextEditingController _siteUrlController;
 
-  List<AvailablePlayers> _availablePlayers = [];
+  List<AvailableMediaPlayers_t> _availablePlayers = [];
   String? _selectedPlayerId;
 
   bool _isLoading = true;
@@ -137,11 +136,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final players = await orchestratorApiClient.getAvailablePlayers();
 
     try {
-      final w = await systemDataSource.read(
-        'GLOBAL_TargetDisplayWidthInPixels',
-      );
+      final w = await systemDataSource.read(globalTargetDisplayWidthInPixels);
       final h = await systemDataSource.read(
-        'GLOBAL_TargetDisplayHeightInPixels',
+        globalMusicAssistantTargetPlayerId,
       );
       _projectorWidth = double.tryParse(w?.toString() ?? '') ?? 1920;
       _projectorHeight = double.tryParse(h?.toString() ?? '') ?? 1080;
@@ -150,7 +147,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _heightController.text = _projectorHeight.round().toString();
 
       final stored = await systemDataSource.read(
-        'GLOBAL_CurrentMaptasticProjectorPositions',
+        globalCurrentMaptasticProjectorPositions,
       );
       if (stored != null && stored.toString().isNotEmpty) {
         List<dynamic> layoutData = (stored is String)
@@ -179,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _availablePlayers = players;
         if (_selectedPlayerId != null &&
             _selectedPlayerId!.isNotEmpty &&
-            !_availablePlayers.any((p) => p.playerId == _selectedPlayerId)) {
+            !_availablePlayers.any((p) => p.playerID == _selectedPlayerId)) {
           _selectedPlayerId = null;
         }
         _isLoading = false;
@@ -196,14 +193,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _discoveredProjectors.clear();
       _targetProjectorId = 'all';
     });
-    systemDataSource.write('GLOBAL_ProjectorHeartbeatSignal', {
+    systemDataSource.write(globalProjectorHeartbeatSignal, {
       'action': 'ping',
       'ts': DateTime.now().millisecondsSinceEpoch,
     });
   }
 
   void _toggleProjectorUI() {
-    systemDataSource.write('GLOBAL_ProjectorHeartbeatSignal', {
+    systemDataSource.write(globalProjectorHeartbeatSignal, {
       'action': 'toggle',
       'targetId': _targetProjectorId,
       'ts': DateTime.now().millisecondsSinceEpoch,
@@ -400,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       ];
       systemDataSource.write(
-        'GLOBAL_CurrentMaptasticProjectorPositions',
+        globalCurrentMaptasticProjectorPositions,
         jsonEncode(layout),
       );
     });
@@ -456,7 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ];
 
     systemDataSource.write(
-      'GLOBAL_SavedMaptasticProjectorPositions',
+      globalSavedMaptasticProjectorPositions,
       jsonEncode(layout),
     );
 
@@ -472,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadPreset() async {
     try {
       final stored = await systemDataSource.read(
-        'GLOBAL_SavedMaptasticProjectorPositions',
+        globalSavedMaptasticProjectorPositions,
       );
       if (stored == null || stored.toString().isEmpty) {
         if (mounted) {
@@ -591,8 +588,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     prefixIcon: Icons.music_note,
                     items: _availablePlayers.map((player) {
                       return DropdownMenuItem<String>(
-                        value: player.playerId,
-                        child: Text(player.friendlyName),
+                        value: player.playerID,
+                        child: Text(player.displayName),
                       );
                     }).toList(),
                     onChanged: (val) {

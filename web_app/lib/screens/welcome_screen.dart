@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:web_app/factories/available_players.dart';
-import 'package:web_app/models/music_assistant_models.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/theme/app_theme.dart';
 import 'package:web_app/utils/generate_yaml.dart';
 import 'package:web_app/widgets/new_widgets/album_marquee.dart';
@@ -26,7 +25,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   late final TextEditingController _musicAssistantTokenController;
 
   late final TextEditingController _mediaPlayerController;
-  List<AvailablePlayers> _availablePlayers = [];
+  List<AvailableMediaPlayers_t> _availablePlayers = [];
   String? _selectedPlayerId;
   List<String> _albumCovers = [];
 
@@ -100,10 +99,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         _availablePlayers = players;
 
         if (_availablePlayers.length == 1) {
-          _selectedPlayerId = _availablePlayers.first.playerId;
+          _selectedPlayerId = _availablePlayers.first.playerID;
           _mediaPlayerController.text = _selectedPlayerId!;
         } else if (_availablePlayers.any(
-          (p) => p.playerId == _mediaPlayerController.text,
+          (p) => p.playerID == _mediaPlayerController.text,
         )) {
           _selectedPlayerId = _mediaPlayerController.text;
         } else {
@@ -367,14 +366,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final player = _availablePlayers[index];
-                      final isSelected = _selectedPlayerId == player.playerId;
+                      final isSelected = _selectedPlayerId == player.playerID;
                       return PlayerSelectionTile(
-                        playerName: player.friendlyName,
+                        playerName: player.displayName,
                         isSelected: isSelected,
                         onTap: () {
                           setState(() {
-                            _selectedPlayerId = player.playerId;
-                            _mediaPlayerController.text = player.playerId;
+                            _selectedPlayerId = player.playerID;
+                            _mediaPlayerController.text = player.playerID;
                           });
                         },
                       );

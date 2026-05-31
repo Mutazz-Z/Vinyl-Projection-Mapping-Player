@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/main.dart';
 
 class MusicAssistantSettings {
@@ -14,11 +15,11 @@ class MusicAssistantSettings {
 
   Future<void> load() async {
     try {
-      musicAssistantUrlString = (await systemDataSource.read('GLOBAL_MusicAssistantUrl')).toString();
-      musicAssistantTokenString = (await systemDataSource.read('GLOBAL_MusicAssistantToken')).toString();
-      musicAssistantPlayerIdString = (await systemDataSource.read('GLOBAL_MusicAssistantTargetPlayerId')).toString();
-      mqttHostAddressString = (await systemDataSource.read('GLOBAL_MqttBrokerHostAddress')).toString();
-      mqttWebSocketPortNumber = await systemDataSource.read('GLOBAL_MqttWebSocketPort');
+      musicAssistantUrlString = (await systemDataSource.read(globalMusicAssistantUrl)).toString();
+      musicAssistantTokenString = (await systemDataSource.read(globalMusicAssistantToken)).toString();
+      musicAssistantPlayerIdString = (await systemDataSource.read(globalMusicAssistantTargetPlayerId)).toString();
+      mqttHostAddressString = (await systemDataSource.read(globalMqttBrokerHostAddress)).toString();
+      mqttWebSocketPortNumber = await systemDataSource.read(globalMqttWebSocketPort);
  
     } catch (error) {
       debugPrint('CRITICAL: Failed to load settings from registry: $error');
@@ -39,12 +40,12 @@ class MusicAssistantSettings {
     mqttWebSocketPortNumber = targetMqttWebSocketPort;
 
     try {
-      systemDataSource.write('GLOBAL_MusicAssistantUrl', musicAssistantUrlString);
-      systemDataSource.write('GLOBAL_MusicAssistantToken', musicAssistantTokenString);
-      systemDataSource.write('GLOBAL_MusicAssistantTargetPlayerId', musicAssistantPlayerIdString);
-      systemDataSource.write('GLOBAL_MqttBrokerHostAddress', mqttHostAddressString);
-      systemDataSource.write('GLOBAL_MqttWebSocketPort', mqttWebSocketPortNumber);
-      systemDataSource.write('GLOBAL_MqttTcpPort', 1883);
+      systemDataSource.write(globalMusicAssistantUrl, musicAssistantUrlString);
+      systemDataSource.write(globalMusicAssistantToken, musicAssistantTokenString);
+      systemDataSource.write(globalMusicAssistantTargetPlayerId, musicAssistantPlayerIdString);
+      systemDataSource.write(globalMqttBrokerHostAddress, mqttHostAddressString);
+      systemDataSource.write(globalMqttWebSocketPort, mqttWebSocketPortNumber);
+      systemDataSource.write(globalMqttTcpPort, 1883);
 
       await Future.delayed(const Duration(milliseconds: 150));
     } catch (error) {

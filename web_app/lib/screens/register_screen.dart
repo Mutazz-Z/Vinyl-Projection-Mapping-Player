@@ -2,9 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
-import 'package:web_app/factories/album_tracklist.dart';
-import 'package:web_app/factories/albums_in_library.dart';
-import 'package:web_app/factories/saved_tag.dart';
+import 'package:web_app/factories/state.dart';
 import 'package:web_app/main.dart';
 import 'package:web_app/services/orchestrator_api_client.dart';
 import 'package:web_app/theme/app_theme.dart';
@@ -18,7 +16,7 @@ class RegisterScreen extends StatefulWidget {
   final String uid;
   final String? initialArtist;
   final String? initialAlbum;
-  final List<AlbumTrackList>? initialTracks;
+  final List<AlbumTrackList_t>? initialTracks;
   final String? itemId;
   final String? provider;
   final String? initialInnerRecordColor;
@@ -56,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String _albumName = '';
   String _artistName = '';
-  List<AlbumTrackList> _trackList = [];
+  List<AlbumTrackList_t> _trackList = [];
   String _coverArtUrl = '';
   String _tagUid = '';
   String _itemId = '';
@@ -76,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final OrchestratorApiClient _apiClient = OrchestratorApiClient();
 
-  List<AlbumsInLibrary> _maAlbums = [];
+  List<AlbumsInLibrary_t> _maAlbums = [];
   bool _isLoadingDetails = false;
 
   static const double _columnBreakpoint = 800.0;
@@ -135,7 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _onAlbumSelected(AlbumsInLibrary selectedAlbum) async {
+  Future<void> _onAlbumSelected(AlbumsInLibrary_t selectedAlbum) async {
     setState(() {
       _albumName = selectedAlbum.mediaTitle;
       _artistName = selectedAlbum.artist;
@@ -207,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _saveRecord() async {
     setState(() => _isSaving = true);
 
-    final VinylRecordTagData recordPayload = VinylRecordTagData(
+    final VinylRecordTagData_t recordPayload = VinylRecordTagData_t(
       tagUid: widget.uid,
       artist: _artistName,
       mediaTitle: _albumName,
@@ -369,19 +367,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 24),
 
-          Autocomplete<AlbumsInLibrary>(
-            displayStringForOption: (AlbumsInLibrary option) =>
+          Autocomplete<AlbumsInLibrary_t>(
+            displayStringForOption: (AlbumsInLibrary_t option) =>
                 option.mediaTitle,
 
             optionsBuilder: (TextEditingValue textEditingValue) {
               if (textEditingValue.text.isEmpty) {
-                return const Iterable<AlbumsInLibrary>.empty();
+                return const Iterable<AlbumsInLibrary_t>.empty();
               }
               final String query = textEditingValue.text.toLowerCase();
 
               return _maAlbums
                   .where(
-                    (AlbumsInLibrary album) =>
+                    (AlbumsInLibrary_t album) =>
                         album.mediaTitle.toLowerCase().contains(query),
                   )
                   .take(10);

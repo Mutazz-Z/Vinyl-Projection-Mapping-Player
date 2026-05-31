@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/typedefs"
 )
 
-func (plugin *MusicAssistantPlugin) GetAvailablePlayers() (interface{}, error) {
+func (plugin *MusicAssistantPlugin) GetAvailablePlayers() ([]typedefs.AvailableMediaPlayers_t, error) {
 	return plugin.mediaPlayer.GetAvailablePlayers()
 }
 
@@ -22,7 +23,7 @@ func (plugin *MusicAssistantPlugin) GetAllAlbumsInLibrary() (interface{}, error)
 	return plugin.getAllAlbumsFromMusicAssistantLibrary()
 }
 
-func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider string) ([]AlbumTrackList_t, error) {
+func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider string) ([]typedefs.AlbumTrackList_t, error) {
 	return plugin.getAlbumTrackList(itemId, provider)
 }
 
@@ -62,7 +63,7 @@ func (plugin *MusicAssistantPlugin) Init(ctx context.Context, dataSource databas
 }
 
 type MusicAssistantPlayer_t interface {
-	GetAvailablePlayers() (interface{}, error)
+	GetAvailablePlayers() ([]typedefs.AvailableMediaPlayers_t, error)
 	PlayMedia(mediaResourceIdentifier string) error
 	StopMedia() error
 }
