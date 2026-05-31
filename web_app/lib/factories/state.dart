@@ -22,20 +22,20 @@ class AlbumsInLibrary_t {
 
   factory AlbumsInLibrary_t.fromJson(Map<String, dynamic> json) {
     return AlbumsInLibrary_t(
-      itemId: json['itemId'],
-      provider: json['provider'],
-      mediaTitle: json['mediaTitle'],
-      artist: json['artist'],
-      coverImage: json['coverImage'],
+      itemId: json['item_id']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      mediaTitle: json['media_title']?.toString() ?? '',
+      artist: json['artist']?.toString() ?? '',
+      coverImage: json['cover_image']?.toString() ?? '',
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'itemId': itemId,
+      'item_id': itemId,
       'provider': provider,
-      'mediaTitle': mediaTitle,
+      'media_title': mediaTitle,
       'artist': artist,
-      'coverImage': coverImage,
+      'cover_image': coverImage,
     };
   }
 }
@@ -51,14 +51,14 @@ class AvailableMediaPlayers_t {
 
   factory AvailableMediaPlayers_t.fromJson(Map<String, dynamic> json) {
     return AvailableMediaPlayers_t(
-      playerID: json['playerID'],
-      displayName: json['displayName'],
+      playerID: json['player_id']?.toString() ?? '',
+      displayName: json['display_name']?.toString() ?? '',
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'playerID': playerID,
-      'displayName': displayName,
+      'player_id': playerID,
+      'display_name': displayName,
     };
   }
 }
@@ -76,16 +76,16 @@ class AlbumTrackList_t {
 
   factory AlbumTrackList_t.fromJson(Map<String, dynamic> json) {
     return AlbumTrackList_t(
-      track: json['track'],
-      duration: json['duration'],
-      coverImage: json['coverImage'],
+      track: json['track']?.toString() ?? '',
+      duration: json['duration'] ?? 0,
+      coverImage: json['cover_image']?.toString() ?? '',
     );
   }
   Map<String, dynamic> toJson() {
     return {
       'track': track,
       'duration': duration,
-      'coverImage': coverImage,
+      'cover_image': coverImage,
     };
   }
 }
@@ -121,34 +121,34 @@ class VinylRecordTagData_t {
 
   factory VinylRecordTagData_t.fromJson(Map<String, dynamic> json) {
     return VinylRecordTagData_t(
-      tagUid: json['tagUid'],
-      itemId: json['itemId'],
-      provider: json['provider'],
-      mediaTitle: json['mediaTitle'],
-      artist: json['artist'],
-      trackList: (json['trackList'] as List?)?.map((e) => AlbumTrackList_t.fromJson(e)).toList() ?? [],
-      coverImage: json['coverImage'],
-      labelColor: json['labelColor'],
-      labelImage: json['labelImage'],
-      outerRingColor: json['outerRingColor'],
-      outerRingImage: json['outerRingImage'],
-      projectionOverlay: json['projectionOverlay'],
+      tagUid: json['tag_uid']?.toString() ?? '',
+      itemId: json['item_id']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      mediaTitle: json['media_title']?.toString() ?? '',
+      artist: json['artist']?.toString() ?? '',
+      trackList: (json['track_list'] as List?)?.map((e) => AlbumTrackList_t.fromJson(e)).toList() ?? [],
+      coverImage: json['cover_image']?.toString() ?? '',
+      labelColor: json['label_color']?.toString() ?? '',
+      labelImage: json['label_image']?.toString() ?? '',
+      outerRingColor: json['outer_ring_color']?.toString() ?? '',
+      outerRingImage: json['outer_ring_image']?.toString() ?? '',
+      projectionOverlay: json['projection_overlay']?.toString() ?? '',
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'tagUid': tagUid,
-      'itemId': itemId,
+      'tag_uid': tagUid,
+      'item_id': itemId,
       'provider': provider,
-      'mediaTitle': mediaTitle,
+      'media_title': mediaTitle,
       'artist': artist,
-      'trackList': trackList.map((e) => e.toJson()).toList(),
-      'coverImage': coverImage,
-      'labelColor': labelColor,
-      'labelImage': labelImage,
-      'outerRingColor': outerRingColor,
-      'outerRingImage': outerRingImage,
-      'projectionOverlay': projectionOverlay,
+      'track_list': trackList.map((e) => e.toJson()).toList(),
+      'cover_image': coverImage,
+      'label_color': labelColor,
+      'label_image': labelImage,
+      'outer_ring_color': outerRingColor,
+      'outer_ring_image': outerRingImage,
+      'projection_overlay': projectionOverlay,
     };
   }
 }
@@ -168,18 +168,18 @@ class ProjectorData_t {
 
   factory ProjectorData_t.fromJson(Map<String, dynamic> json) {
     return ProjectorData_t(
-      tagData: VinylRecordTagData_t.fromJson(json['tagData'] ?? {}),
-      visualDataState: json['visualDataState'],
-      registerTagUrl: json['registerTagUrl'],
-      errorMessage: json['errorMessage'],
+      tagData: VinylRecordTagData_t.fromJson(json['tag_data'] ?? {}),
+      visualDataState: json['visual_data_state'] ?? 0,
+      registerTagUrl: json['register_tag_url']?.toString() ?? '',
+      errorMessage: json['error_message']?.toString() ?? '',
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'tagData': tagData.toJson(),
-      'visualDataState': visualDataState,
-      'registerTagUrl': registerTagUrl,
-      'errorMessage': errorMessage,
+      'tag_data': tagData.toJson(),
+      'visual_data_state': visualDataState,
+      'register_tag_url': registerTagUrl,
+      'error_message': errorMessage,
     };
   }
 }

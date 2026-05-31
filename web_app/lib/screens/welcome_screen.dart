@@ -92,28 +92,37 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (!mounted) return;
 
     if (connectionResult.success) {
-      final players = await orchestratorApiClient.getAvailablePlayers();
+      await Future.delayed(const Duration(seconds: 2));
 
-      setState(() {
-        _isTestingConnectionState = false;
-        _availablePlayers = players;
+      try {
+        final players = await orchestratorApiClient.getAvailablePlayers();
 
-        if (_availablePlayers.length == 1) {
-          _selectedPlayerId = _availablePlayers.first.playerID;
-          _mediaPlayerController.text = _selectedPlayerId!;
-        } else if (_availablePlayers.any(
-          (p) => p.playerID == _mediaPlayerController.text,
-        )) {
-          _selectedPlayerId = _mediaPlayerController.text;
-        } else {
-          _selectedPlayerId = null;
-        }
-      });
+        setState(() {
+          _isTestingConnectionState = false;
+          _availablePlayers = players;
 
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOutCubic,
-      );
+          if (_availablePlayers.length == 1) {
+            _selectedPlayerId = _availablePlayers.first.playerID;
+            _mediaPlayerController.text = _selectedPlayerId!;
+          } else if (_availablePlayers.any(
+            (p) => p.playerID == _mediaPlayerController.text,
+          )) {
+            _selectedPlayerId = _mediaPlayerController.text;
+          } else {
+            _selectedPlayerId = null;
+          }
+        });
+
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOutCubic,
+        );
+      } catch (e) {
+        setState(() => _isTestingConnectionState = false);
+        _showErrorDialog(
+          'Connected successfully, but failed to fetch players. The server might still be booting up. Try clicking Get Connected again in a few seconds.\n\nDetails: $e',
+        );
+      }
     } else {
       setState(() => _isTestingConnectionState = false);
       _showErrorDialog(connectionResult.message);

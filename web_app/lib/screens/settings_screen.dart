@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadAllData();
 
     _eventSub = systemDataSource.onDataSourceChanged.listen((args) {
-      if (args.variable == 'GLOBAL_ProjectorHeartbeat' && args.data != null) {
+      if (args.variable == globalProjectorHeartbeat.keyName && args.data != null) {
         final data = args.data;
         if (mounted && data['id'] != null) {
           setState(() {

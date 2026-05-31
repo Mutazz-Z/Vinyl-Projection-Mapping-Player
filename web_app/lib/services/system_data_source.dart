@@ -44,7 +44,7 @@ class SystemDataSource {
               DataSourceChangedArgs(
                 variable: payload['variable'],
                 data:
-                    payload['data'], // You can add generic matching here later if needed
+                    payload['data'],
               ),
             );
             return;

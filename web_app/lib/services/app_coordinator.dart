@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:web_app/factories/state.dart';
 import '../models/enums.dart';
 import '../screens/register_screen.dart';
 import 'system_data_source.dart';
@@ -10,16 +11,13 @@ class AppCoordinator {
   String _lastPlaybackEventFingerprint = '';
   DateTime? _lastPlaybackEventAt;
 
-  AppCoordinator({
-    required this.dataSource,
-    required this.navigatorKey,
-  });
+  AppCoordinator({required this.dataSource, required this.navigatorKey});
 
   void start() {
     dataSource.onDataSourceChanged.listen((args) {
-      if (args.variable == 'GLOBAL_LastUnknownUidScanned') {
+      if (args.variable == globalLastUnknownUidScanned.keyName) {
         _handleRegistrationRequest(args.data.toString());
-      } else if (args.variable == 'GLOBAL_CurrentProjectorData') {
+      } else if (args.variable == globalCurrentProjectorData.keyName) {
         _handleVisualPlaybackEvent(args.data);
       }
     });
@@ -30,7 +28,9 @@ class AppCoordinator {
   void _handleRegistrationRequest(String uid) {
     if (uid.isEmpty) return;
     debugPrint('AppCoordinator: Registration trigger received for UID "$uid".');
-    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => RegisterScreen(uid: uid)));
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => RegisterScreen(uid: uid)),
+    );
   }
 
   void _handleVisualPlaybackEvent(dynamic decodedPayload) {

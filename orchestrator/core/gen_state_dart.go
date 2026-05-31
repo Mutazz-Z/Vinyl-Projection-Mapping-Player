@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -122,7 +123,9 @@ func main() {
 				structName := ts.Name.Name
 				dartClasses.WriteString(fmt.Sprintf("class %s {\n", structName))
 
+				// --- 1. Define Fields ---
 				type fieldData struct {
+					DartName string
 					JsonKey  string
 					GoType   string
 					DartType string
@@ -133,15 +136,25 @@ func main() {
 					fieldName := field.Names[0].Name
 					goTypeName := getTypeName(field.Type)
 					dartTypeName := toDartType(goTypeName)
-					jsonKey := strings.ToLower(fieldName[:1]) + fieldName[1:]
 
-					dartClasses.WriteString(fmt.Sprintf("  final %s %s;\n", dartTypeName, jsonKey))
-					fields = append(fields, fieldData{JsonKey: jsonKey, GoType: goTypeName, DartType: dartTypeName})
+					dartName := strings.ToLower(fieldName[:1]) + fieldName[1:]
+					jsonKey := dartName
+
+					if field.Tag != nil {
+						tagRaw := strings.Trim(field.Tag.Value, "`")
+						if parsedJson := reflect.StructTag(tagRaw).Get("json"); parsedJson != "" {
+							jsonKey = strings.Split(parsedJson, ",")[0]
+						}
+					}
+
+					dartClasses.WriteString(fmt.Sprintf("  final %s %s;\n", dartTypeName, dartName))
+					fields = append(fields, fieldData{DartName: dartName, JsonKey: jsonKey, GoType: goTypeName, DartType: dartTypeName})
 				}
 
+				// --- 2. Constructor ---
 				dartClasses.WriteString(fmt.Sprintf("\n  %s({\n", structName))
 				for _, f := range fields {
-					dartClasses.WriteString(fmt.Sprintf("    required this.%s,\n", f.JsonKey))
+					dartClasses.WriteString(fmt.Sprintf("    required this.%s,\n", f.DartName))
 				}
 				dartClasses.WriteString("  });\n\n")
 
@@ -152,27 +165,36 @@ func main() {
 					if isList {
 						innerType := f.GoType[2:]
 						if isCustomStruct(innerType) {
-							dartClasses.WriteString(fmt.Sprintf("      %s: (json['%s'] as List?)?.map((e) => %s.fromJson(e)).toList() ?? [],\n", f.JsonKey, f.JsonKey, toDartType(innerType)))
+							dartClasses.WriteString(fmt.Sprintf("      %s: (json['%s'] as List?)?.map((e) => %s.fromJson(e)).toList() ?? [],\n", f.DartName, f.JsonKey, toDartType(innerType)))
 						} else {
-							dartClasses.WriteString(fmt.Sprintf("      %s: List<%s>.from(json['%s'] ?? []),\n", f.JsonKey, toDartType(innerType), f.JsonKey))
+							dartClasses.WriteString(fmt.Sprintf("      %s: List<%s>.from(json['%s'] ?? []),\n", f.DartName, toDartType(innerType), f.JsonKey))
 						}
 					} else if isCustomStruct(f.GoType) {
-						dartClasses.WriteString(fmt.Sprintf("      %s: %s.fromJson(json['%s'] ?? {}),\n", f.JsonKey, f.DartType, f.JsonKey))
+						dartClasses.WriteString(fmt.Sprintf("      %s: %s.fromJson(json['%s'] ?? {}),\n", f.DartName, f.DartType, f.JsonKey))
+					} else if f.DartType == "String" {
+						dartClasses.WriteString(fmt.Sprintf("      %s: json['%s']?.toString() ?? '',\n", f.DartName, f.JsonKey))
+					} else if f.DartType == "int" {
+						dartClasses.WriteString(fmt.Sprintf("      %s: json['%s'] ?? 0,\n", f.DartName, f.JsonKey))
+					} else if f.DartType == "double" {
+						dartClasses.WriteString(fmt.Sprintf("      %s: (json['%s'] ?? 0.0).toDouble(),\n", f.DartName, f.JsonKey))
+					} else if f.DartType == "bool" {
+						dartClasses.WriteString(fmt.Sprintf("      %s: json['%s'] ?? false,\n", f.DartName, f.JsonKey))
 					} else {
-						dartClasses.WriteString(fmt.Sprintf("      %s: json['%s'],\n", f.JsonKey, f.JsonKey))
+						dartClasses.WriteString(fmt.Sprintf("      %s: json['%s'],\n", f.DartName, f.JsonKey))
 					}
 				}
 				dartClasses.WriteString("    );\n  }\n")
 
+				// --- 4. toJson ---
 				dartClasses.WriteString("  Map<String, dynamic> toJson() {\n    return {\n")
 				for _, f := range fields {
 					isList := strings.HasPrefix(f.GoType, "[]")
 					if isList && isCustomStruct(f.GoType[2:]) {
-						dartClasses.WriteString(fmt.Sprintf("      '%s': %s.map((e) => e.toJson()).toList(),\n", f.JsonKey, f.JsonKey))
+						dartClasses.WriteString(fmt.Sprintf("      '%s': %s.map((e) => e.toJson()).toList(),\n", f.JsonKey, f.DartName))
 					} else if isCustomStruct(f.GoType) {
-						dartClasses.WriteString(fmt.Sprintf("      '%s': %s.toJson(),\n", f.JsonKey, f.JsonKey))
+						dartClasses.WriteString(fmt.Sprintf("      '%s': %s.toJson(),\n", f.JsonKey, f.DartName))
 					} else {
-						dartClasses.WriteString(fmt.Sprintf("      '%s': %s,\n", f.JsonKey, f.JsonKey))
+						dartClasses.WriteString(fmt.Sprintf("      '%s': %s,\n", f.JsonKey, f.DartName))
 					}
 				}
 				dartClasses.WriteString("    };\n  }\n")
