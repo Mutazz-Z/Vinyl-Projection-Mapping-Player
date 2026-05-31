@@ -5,11 +5,9 @@
 package utils
 
 import (
-	"vinyl-orchestrator/core"
-)
-
-import (
+	"net"
 	"vinyl-orchestrator/application/database"
+	"vinyl-orchestrator/core"
 )
 
 /*
@@ -30,4 +28,17 @@ func ListenToDataSourceEvents(dsChannel <-chan database.Event, handler func(args
  */
 func GenerateUriForMedia(itemId string, provider string) string {
 	return provider + "://album/" + itemId
+}
+
+/*
+ * Determines the local IP address of the machine
+ */
+func GetLocalIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "localhost"
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
 }

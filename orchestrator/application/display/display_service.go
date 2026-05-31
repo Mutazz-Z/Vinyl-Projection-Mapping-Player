@@ -6,7 +6,6 @@ package display
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 
 	"vinyl-orchestrator/application/database"
@@ -25,62 +24,57 @@ func (instance *DisplayApplicationService) sendDataToProjectorForKnownTag(uid st
 	instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
 }
 
-func getLocalIP() string {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return "localhost"
-	}
-	defer conn.Close()
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP.String()
-}
-
 func (instance *DisplayApplicationService) sendDataToProjectorForUnknownTag(uid string) {
 
 	var flutterUrl string
 	instance._private.systemDataSource.Read(core.Global_FlutterWebUrl, &flutterUrl)
 
 	if flutterUrl == "" {
-		flutterUrl = getLocalIP()
+		flutterUrl = utils.GetLocalIP()
 	}
 
 	formattedUrl := fmt.Sprintf("http://%s/?uid=%s", flutterUrl, url.QueryEscape(uid))
-	payload := core.ProjectorData_t{
+	unKnownTagQRCodeData := core.ProjectorData_t{
 		PlayerState:    core.PlayerState_Unknown,
 		TagData:        core.VinylRecordTagData_t{TagUid: uid},
 		RegisterTagUrl: formattedUrl,
 	}
 
-	instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, payload)
+	instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, unKnownTagQRCodeData)
 }
 
 func (instance *DisplayApplicationService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
+
 		case core.Global_LastKnownUidScanned:
 			currentUid := args.Data.(string)
+
 			instance.sendDataToProjectorForKnownTag(currentUid)
 
 		case core.Global_LastUnknownUidScanned:
-			LastUnknownUidScanned := args.Data.(string)
-			instance.sendDataToProjectorForUnknownTag(LastUnknownUidScanned)
+			lastUnknownUidScanned := args.Data.(string)
+
+			instance.sendDataToProjectorForUnknownTag(lastUnknownUidScanned)
 
 		case core.Global_CurrentShelfStatus:
 			shelfStatus := args.Data.(core.ShelfStatus_t)
 			if shelfStatus == core.ShelfStatus_Empty {
 				fmt.Println("[Display Service]: Shelf is empty, clearing visuals")
+
 				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, core.ProjectorData_t{PlayerState: core.PlayerState_Stopped})
 			}
 
 		case core.Global_MediaPlaybackState:
-			MediaPlaybackState := args.Data.(core.MediaPlaybackState_t)
-			if MediaPlaybackState.State == core.PlayerState_Error {
-				dataToSend := core.ProjectorData_t{
-					PlayerState:  MediaPlaybackState.State,
-					ErrorMessage: MediaPlaybackState.ErrorMessage,
+			mediaPlaybackState := args.Data.(core.MediaPlaybackState_t)
+			
+			if mediaPlaybackState.State == core.PlayerState_Error {
+				errorMessageData := core.ProjectorData_t{
+					PlayerState:  mediaPlaybackState.State,
+					ErrorMessage: mediaPlaybackState.ErrorMessage,
 				}
-				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, dataToSend)
+				instance._private.systemDataSource.Write(core.Global_CurrentProjectorData, errorMessageData)
 			}
 		}
 	})
