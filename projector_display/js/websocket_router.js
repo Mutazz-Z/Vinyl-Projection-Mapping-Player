@@ -79,12 +79,6 @@
                             }
                         }
                         break;
-                    case Global_ActiveTrackLyrics.key:
-                        if (window.ProjectorPlayback && window.ProjectorPlayback.updateLyrics) {
-                            const typedLyrics = Global_ActiveTrackLyrics.fromJson(parseJsonIfString(data));
-                            window.ProjectorPlayback.updateLyrics(typedLyrics);
-                        }
-                        break;
                 }
             });
 
@@ -99,11 +93,6 @@
                 const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
                 if (playbackState && window.ProjectorPlayback?.handlePlaybackEvent) {
                     window.ProjectorPlayback.handlePlaybackEvent({ state: playbackState });
-                }
-
-                const initialLyrics = await DataSource_Read(dataSource, Global_ActiveTrackLyrics);
-                if (window.ProjectorPlayback?.updateLyrics) {
-                    window.ProjectorPlayback.updateLyrics(initialLyrics);
                 }
             } catch (error) {
                 console.warn('Could not fetch initial projector state. Waiting for next event...', error);

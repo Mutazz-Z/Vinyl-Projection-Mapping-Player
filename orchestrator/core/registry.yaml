@@ -120,11 +120,6 @@ variables:
     type: typedefs.ActiveTrack_t
     default: "typedefs.ActiveTrack_t{}"
 
-  - name: ActiveTrackLyrics
-    storage: Volatile
-    type: typedefs.TrackLyrics_t
-    default: "typedefs.TrackLyrics_t{}"
-
   - name: ActiveTrackProgressInSeconds
     storage: Volatile
     type: float64

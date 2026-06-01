@@ -72,10 +72,22 @@ class ProjectorPayload {
     static _parseTracksAsObjects(rawList) {
         if (!Array.isArray(rawList)) return [];
         return rawList.map(function (entry) {
+            const rawLyrics = entry.lyrics ?? entry.Lyrics ?? {};
+            const rawLines = Array.isArray(rawLyrics.lines) ? rawLyrics.lines : [];
             return {
                 track: ProjectorPayload._str(entry.track ?? entry.Track ?? entry.title ?? entry.Title),
                 duration: Number(entry.duration ?? entry.Duration ?? 0),
-                coverImage: ProjectorPayload._str(entry.coverImage ?? entry.cover_image ?? entry.CoverImage)
+                coverImage: ProjectorPayload._str(entry.coverImage ?? entry.cover_image ?? entry.CoverImage),
+                lyrics: {
+                    lines: rawLines.map(function (line) {
+                        return {
+                            timeStart: Number(line.timeStart ?? line.time_start ?? 0),
+                            text: ProjectorPayload._str(line.text ?? line.Text),
+                        };
+                    }).filter(function (line) {
+                        return line.text !== '';
+                    })
+                }
             };
         });
     }

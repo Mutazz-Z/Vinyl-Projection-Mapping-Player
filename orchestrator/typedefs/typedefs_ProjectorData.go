@@ -1,9 +1,10 @@
 package typedefs
 
 type AlbumTrackList_t struct {
-	Track      string `json:"track" mapstructure:"track"`
-	Duration   int    `json:"duration" mapstructure:"duration"`
-	CoverImage string `json:"cover_image" mapstructure:"cover_image"`
+	Track      string        `json:"track" mapstructure:"track"`
+	Duration   int           `json:"duration" mapstructure:"duration"`
+	CoverImage string        `json:"cover_image" mapstructure:"cover_image"`
+	Lyrics     TrackLyrics_t `json:"lyrics" mapstructure:"lyrics"`
 }
 
 type VinylRecordTagData_t struct {

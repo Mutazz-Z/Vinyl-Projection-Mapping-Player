@@ -91,7 +91,7 @@ body {
     top: calc(-1 * var(--info-h) - 5px);
     left: 0;
     width: var(--overlay-size);
-    height: var(--info-h);
+    height: calc(var(--info-h) + 5px);
     z-index: 0;
     pointer-events: none;
 }

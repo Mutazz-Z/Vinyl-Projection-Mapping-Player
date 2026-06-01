@@ -6,7 +6,6 @@ package musicassistant
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -69,58 +68,34 @@ func (instance *SystemMediaPlayer_t) activeTracksDontMatch(previousTrack, curren
 	return previousTrack != currentTrack
 }
 
-func (instance *SystemMediaPlayer_t) shouldRefreshLyrics(previousTrack, currentTrack typedefs.ActiveTrack_t, previousLyrics typedefs.TrackLyrics_t) bool {
-	if currentTrack.TrackName == "" {
-		return false
-	}
+const (
+	playbackStatusPollInterval = 250 * time.Millisecond
+	queueRefreshInterval       = 1 * time.Second
+)
 
-	if instance.activeTracksDontMatch(previousTrack, currentTrack) {
-		return true
-	}
-
-	if len(previousLyrics.Lines) == 0 {
-		return true
-	}
-
-	return false
-}
-
-func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
+func (instance *SystemMediaPlayer_t) updatePlaybackStatusWhilePlayingMedia() {
 	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
-	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
 
 	var previousTrack typedefs.ActiveTrack_t
 	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &previousTrack)
 
-	var previousLyrics typedefs.TrackLyrics_t
-	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrackLyrics, &previousLyrics)
+	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, mediaPlayerStatus.State)
+	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
+	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
 
-	if instance.activeTracksDontMatch(previousTrack, mediaPlayerStatus.ActiveTrack) {
-		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackLyrics, typedefs.TrackLyrics_t{})
+	if mediaPlayerStatus.ActiveTrack.TrackName != "" && instance.activeTracksDontMatch(previousTrack, mediaPlayerStatus.ActiveTrack) {
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, mediaPlayerStatus.ActiveTrack)
 	}
+}
 
-	if instance.shouldRefreshLyrics(previousTrack, mediaPlayerStatus.ActiveTrack, previousLyrics) {
-		trackLyrics, lyricsError := instance.getTrackLyrics(mediaPlayerStatus.ActiveTrack.ItemID, mediaPlayerStatus.ActiveTrack.Provider)
-		if lyricsError != nil {
-			fmt.Printf("Lyrics fetch failed for track '%s': %v\n", mediaPlayerStatus.ActiveTrack.TrackName, lyricsError)
-		} else {
-			fmt.Printf("Lyrics refreshed for track '%s' with %d line(s).\n", mediaPlayerStatus.ActiveTrack.TrackName, len(trackLyrics.Lines))
-			utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackLyrics, trackLyrics)
-		}
-	}
+func (instance *SystemMediaPlayer_t) refreshQueueWhilePlayingMedia() {
+	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
 
 	var previousMediaQueue typedefs.QueueList_t
 	utils.Read(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, &previousMediaQueue)
 
 	if instance.queueListsDontMatch(previousMediaQueue, currentMediaQueue) {
 		utils.Write(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, currentMediaQueue)
-	}
-	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, mediaPlayerStatus.State)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
-
-	if mediaPlayerStatus.ActiveTrack.TrackName != "" {
-		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, mediaPlayerStatus.ActiveTrack)
 	}
 }
 
@@ -140,15 +115,22 @@ func (instance *SystemMediaPlayer_t) startPolling() {
 	instance._private.pollingCancel = cancel
 
 	go func(ctx context.Context) {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
+		statusTicker := time.NewTicker(playbackStatusPollInterval)
+		queueTicker := time.NewTicker(queueRefreshInterval)
+		defer statusTicker.Stop()
+		defer queueTicker.Stop()
+
+		instance.updatePlaybackStatusWhilePlayingMedia()
+		instance.refreshQueueWhilePlayingMedia()
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
-				instance.updateStatesWhilePlayingMedia()
+			case <-statusTicker.C:
+				instance.updatePlaybackStatusWhilePlayingMedia()
+			case <-queueTicker.C:
+				instance.refreshQueueWhilePlayingMedia()
 			}
 		}
 	}(ctx)

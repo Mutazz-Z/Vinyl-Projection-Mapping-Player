@@ -1,10 +1,44 @@
 (function () {
     let uiLines = [];
     let currentActiveIndex = null;
+    let currentTimeSeconds = 0;
     let fixedStepPx = 120;
+    let contextPrevEl = null;
+    let contextNextEl = null;
+    let interTrackBridgeActive = false;
+    let suppressTransitionsUntilNextFrame = false;
+    let bridgeSourceIndex = -1;
+    let bridgeEntrancePending = false;
 
     const MIN_STEP_PX = 112;
     const STEP_PADDING_PX = 26;
+    const contextLines = {
+        previousTrackLine: '',
+        upcomingTrackLine: ''
+    };
+
+    function getContainer() {
+        return document.getElementById('lyrics-scroll');
+    }
+
+    function ensureContextElements() {
+        const container = getContainer();
+        if (!container) return null;
+
+        if (!contextPrevEl) {
+            contextPrevEl = document.createElement('div');
+            contextPrevEl.className = 'lyric-line lyric-context-prev';
+            container.appendChild(contextPrevEl);
+        }
+
+        if (!contextNextEl) {
+            contextNextEl = document.createElement('div');
+            contextNextEl.className = 'lyric-line lyric-context-next';
+            container.appendChild(contextNextEl);
+        }
+
+        return { prev: contextPrevEl, next: contextNextEl };
+    }
 
     function computeLineUnitPx(el) {
         const style = window.getComputedStyle(el);
@@ -14,12 +48,11 @@
     }
 
     function recomputeFixedStep() {
-        if (uiLines.length === 0) {
-            fixedStepPx = MIN_STEP_PX;
-            return;
-        }
+        const context = ensureContextElements();
+        if (!context) return;
 
-        const unit = computeLineUnitPx(uiLines[0].element);
+        const anchorEl = uiLines.length > 0 ? uiLines[0].element : context.next;
+        const unit = computeLineUnitPx(anchorEl);
         let maxHeight = unit;
 
         uiLines.forEach(function (line) {
@@ -29,96 +62,276 @@
             }
         });
 
+        const contextHeights = [context.prev, context.next].map(function (el) {
+            return Math.ceil(el.getBoundingClientRect().height || 0);
+        });
+
+        maxHeight = Math.max(maxHeight, contextHeights[0], contextHeights[1]);
         fixedStepPx = Math.max(MIN_STEP_PX, maxHeight + STEP_PADDING_PX);
     }
 
-    function updateLyrics(lyricsData) {
-        const container = document.getElementById('lyrics-scroll');
-        if (!container) return;
+    function findActiveIndex(timeSeconds) {
+        if (uiLines.length === 0) return -1;
 
-        container.innerHTML = '';
-        uiLines = [];
-        currentActiveIndex = null;
-        fixedStepPx = MIN_STEP_PX;
-
-        if (!lyricsData || !Array.isArray(lyricsData.lines)) return;
-
-        lyricsData.lines.forEach(function (lineObj) {
-            if (!lineObj.text) return;
-
-            const el = document.createElement('div');
-            el.className = 'lyric-line';
-            el.textContent = lineObj.text;
-            container.appendChild(el);
-
-            uiLines.push({
-                time: Number(lineObj.timeStart),
-                element: el
-            });
-        });
-
-        if (uiLines.length > 0) {
-            recomputeFixedStep();
-        }
-
-        syncProgress(0);
-    }
-
-    function syncProgress(currentTimeSeconds) {
-        if (uiLines.length === 0) return;
-
-        let newActiveIndex = -1;
+        let activeIndex = -1;
         for (let i = 0; i < uiLines.length; i++) {
-            if (currentTimeSeconds >= uiLines[i].time) {
-                newActiveIndex = i;
+            if (timeSeconds >= uiLines[i].time) {
+                activeIndex = i;
             } else {
                 break;
             }
         }
 
-        if (newActiveIndex < 0) {
-            newActiveIndex = 0;
+        return activeIndex;
+    }
+
+    function applyLineVisuals(el, text, yPx, opacity, isActive) {
+        el.textContent = text || '';
+        el.style.transform = 'translateY(calc(' + yPx + 'px - 50%))';
+        el.style.opacity = text ? String(opacity) : '0';
+        el.classList.toggle('active', isActive && Boolean(text));
+        el.classList.toggle('no-motion', suppressTransitionsUntilNextFrame);
+    }
+
+    function withSuppressedTransitions(work) {
+        suppressTransitionsUntilNextFrame = true;
+        try {
+            work();
+        } finally {
+            requestAnimationFrame(function () {
+                suppressTransitionsUntilNextFrame = false;
+                uiLines.forEach(function (line) {
+                    line.element.classList.remove('no-motion');
+                });
+                if (contextPrevEl) contextPrevEl.classList.remove('no-motion');
+                if (contextNextEl) contextNextEl.classList.remove('no-motion');
+            });
+        }
+    }
+
+    function renderState() {
+        const context = ensureContextElements();
+        if (!context) return;
+
+        const activeIndex = findActiveIndex(currentTimeSeconds);
+        const preFirst = uiLines.length > 0 && activeIndex < 0;
+
+        recomputeFixedStep();
+
+        if (interTrackBridgeActive) {
+            const hasBridgeSourceElement = bridgeSourceIndex >= 0 && bridgeSourceIndex < uiLines.length;
+
+            uiLines.forEach(function (line, index) {
+                if (hasBridgeSourceElement && index === bridgeSourceIndex) {
+                    applyLineVisuals(line.element, line.text, -fixedStepPx, 0.36, false);
+                    return;
+                }
+
+                if (!hasBridgeSourceElement && index === 0) {
+                    if (bridgeEntrancePending) {
+                        applyLineVisuals(line.element, line.text, 2 * fixedStepPx, 0, false);
+                    } else {
+                        applyLineVisuals(line.element, line.text, fixedStepPx, 0.34, false);
+                    }
+                    return;
+                }
+
+                const y = (index + 1) * fixedStepPx;
+                applyLineVisuals(line.element, line.text, y, 0, false);
+            });
+
+            if (hasBridgeSourceElement) {
+                applyLineVisuals(context.prev, contextLines.previousTrackLine, -fixedStepPx, 0, false);
+            } else {
+                applyLineVisuals(context.prev, contextLines.previousTrackLine, -fixedStepPx, 0.36, false);
+            }
+
+            if (uiLines.length === 0) {
+                if (bridgeEntrancePending) {
+                    applyLineVisuals(context.next, contextLines.upcomingTrackLine, 2 * fixedStepPx, 0, false);
+                } else {
+                    applyLineVisuals(context.next, contextLines.upcomingTrackLine, fixedStepPx, 0.34, false);
+                }
+            } else {
+                applyLineVisuals(context.next, contextLines.upcomingTrackLine, fixedStepPx, 0, false);
+            }
+
+            currentActiveIndex = -1;
+            return;
         }
 
-        if (newActiveIndex === currentActiveIndex) return;
-        currentActiveIndex = newActiveIndex;
-
-        const step = fixedStepPx;
-
         uiLines.forEach(function (line, index) {
-            const el = line.element;
-            const indexDelta = index - currentActiveIndex;
-            const y = indexDelta * step;
-
-            if (Math.abs(indexDelta) > 1) {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(' + y + 'px)';
-                el.classList.remove('active');
+            if (preFirst) {
+                if (index === 0) {
+                    applyLineVisuals(line.element, line.text, fixedStepPx, 0.5, false);
+                } else {
+                    applyLineVisuals(line.element, line.text, (index + 1) * fixedStepPx, 0, false);
+                }
                 return;
             }
 
-            let opacity = 0;
+            const indexDelta = index - activeIndex;
+            const y = indexDelta * fixedStepPx;
 
-            if (indexDelta === 0) {
-                opacity = 1;
-                el.classList.add('active');
-            } else {
-                opacity = 0.42;
-                el.classList.remove('active');
+            if (Math.abs(indexDelta) > 1) {
+                applyLineVisuals(line.element, line.text, y, 0, false);
+                return;
             }
 
-            el.style.opacity = Math.max(0, opacity);
-            el.style.transform = 'translateY(calc(' + y + 'px - 50%))';
+            if (indexDelta === 0) {
+                applyLineVisuals(line.element, line.text, 0, 1, true);
+            } else {
+                applyLineVisuals(line.element, line.text, y, 0.42, false);
+            }
+        });
+
+        if (preFirst) {
+            applyLineVisuals(context.prev, contextLines.previousTrackLine, -fixedStepPx, 0.36, false);
+            applyLineVisuals(context.next, contextLines.upcomingTrackLine, fixedStepPx, 0, false);
+            currentActiveIndex = -1;
+            return;
+        }
+
+        applyLineVisuals(context.prev, contextLines.previousTrackLine, -fixedStepPx, 0, false);
+        applyLineVisuals(context.next, contextLines.upcomingTrackLine, fixedStepPx, 0, false);
+        currentActiveIndex = activeIndex;
+    }
+
+    function sanitizeLines(lyricsData) {
+        if (!lyricsData || !Array.isArray(lyricsData.lines)) return [];
+
+        const lines = [];
+        lyricsData.lines.forEach(function (lineObj) {
+            if (!lineObj || !lineObj.text) return;
+            lines.push({
+                time: Number(lineObj.timeStart) || 0,
+                text: lineObj.text
+            });
+        });
+
+        return lines;
+    }
+
+    function updateLyrics(lyricsData) {
+        const container = getContainer();
+        if (!container) return;
+
+        const parsedLines = sanitizeLines(lyricsData);
+
+        withSuppressedTransitions(function () {
+            ensureContextElements();
+            const insertBeforeNode = contextPrevEl || contextNextEl || null;
+
+            for (let i = 0; i < parsedLines.length; i++) {
+                const lineObj = parsedLines[i];
+
+                if (i < uiLines.length) {
+                    uiLines[i].time = lineObj.time;
+                    uiLines[i].text = lineObj.text;
+                    uiLines[i].element.textContent = lineObj.text;
+                } else {
+                    const el = document.createElement('div');
+                    el.className = 'lyric-line no-motion';
+                    el.textContent = lineObj.text;
+                    container.insertBefore(el, insertBeforeNode);
+
+                    uiLines.push({
+                        time: lineObj.time,
+                        text: lineObj.text,
+                        element: el
+                    });
+                }
+            }
+
+            while (uiLines.length > parsedLines.length) {
+                const removed = uiLines.pop();
+                if (removed && removed.element && removed.element.parentNode) {
+                    removed.element.parentNode.removeChild(removed.element);
+                }
+            }
+
+            if (interTrackBridgeActive) {
+                bridgeSourceIndex = -1;
+                bridgeEntrancePending = uiLines.length > 0;
+                if (bridgeEntrancePending) {
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            bridgeEntrancePending = false;
+                            renderState();
+                        });
+                    });
+                }
+            }
+
+            currentTimeSeconds = 0;
+            currentActiveIndex = null;
+            renderState();
+        });
+    }
+
+    function syncProgress(timeSeconds) {
+        currentTimeSeconds = Number(timeSeconds) || 0;
+
+        if (interTrackBridgeActive && uiLines.length > 0) {
+            const firstLineTime = Number(uiLines[0].time || 0);
+            if (currentTimeSeconds >= firstLineTime) {
+                interTrackBridgeActive = false;
+                bridgeSourceIndex = -1;
+                bridgeEntrancePending = false;
+            }
+        }
+
+        renderState();
+    }
+
+    function setTrackContext(context) {
+        contextLines.previousTrackLine = (context && context.previousTrackLine) ? String(context.previousTrackLine) : '';
+        contextLines.upcomingTrackLine = (context && context.upcomingTrackLine) ? String(context.upcomingTrackLine) : '';
+        renderState();
+    }
+
+    function enterInterTrackBridge(context) {
+        contextLines.previousTrackLine = (context && context.previousTrackLine) ? String(context.previousTrackLine) : '';
+        contextLines.upcomingTrackLine = (context && context.upcomingTrackLine) ? String(context.upcomingTrackLine) : '';
+        currentTimeSeconds = 0;
+        const resolvedActive = findActiveIndex(currentTimeSeconds);
+        bridgeSourceIndex = currentActiveIndex >= 0
+            ? currentActiveIndex
+            : (resolvedActive >= 0 ? resolvedActive : (uiLines.length > 0 ? uiLines.length - 1 : -1));
+        bridgeEntrancePending = true;
+        interTrackBridgeActive = true;
+        renderState();
+
+        requestAnimationFrame(function () {
+            bridgeEntrancePending = false;
+            renderState();
         });
     }
 
     function clear() {
-        updateLyrics(null);
+        uiLines = [];
+        currentActiveIndex = null;
+        currentTimeSeconds = 0;
+        interTrackBridgeActive = false;
+        bridgeSourceIndex = -1;
+        bridgeEntrancePending = false;
+        contextLines.previousTrackLine = '';
+        contextLines.upcomingTrackLine = '';
+
+        const container = getContainer();
+        if (container) {
+            container.innerHTML = '';
+        }
+
+        contextPrevEl = null;
+        contextNextEl = null;
     }
 
     window.LyricsWidget = {
         updateLyrics: updateLyrics,
         syncProgress: syncProgress,
+        setTrackContext: setTrackContext,
+        enterInterTrackBridge: enterInterTrackBridge,
         clear: clear
     };
 })();

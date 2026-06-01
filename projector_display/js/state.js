@@ -4,6 +4,13 @@
 
 // ── Enum value maps ───────────────────────────────────────────────────────────
 
+const VisualDataState = Object.freeze({
+    DisplayAlbumVisuals: 0,
+    DisplayErrorMessage: 1,
+    DisplayTagRegistration: 2,
+    DisplayIdle: 3,
+});
+
 const MediaPlaybackState = Object.freeze({
     Playing: 0,
     Paused: 1,
@@ -13,13 +20,6 @@ const MediaPlaybackState = Object.freeze({
     Stopped: 5,
     Error: 6,
     Offline: 7,
-});
-
-const VisualDataState = Object.freeze({
-    DisplayAlbumVisuals: 0,
-    DisplayErrorMessage: 1,
-    DisplayTagRegistration: 2,
-    DisplayIdle: 3,
 });
 
 const ReaderStatus = Object.freeze({
@@ -34,27 +34,48 @@ const ShelfStatus = Object.freeze({
 
 // ── Struct classes ──────────────────────────────────────────────────────────
 
-class AvailableMediaPlayers_t {
+class LyricLine_t {
     constructor({
-        playerID,
-        displayName,
+        timeStart,
+        text,
     }) {
-        this.playerID = playerID;
-        this.displayName = displayName;
+        this.timeStart = timeStart;
+        this.text = text;
     }
 
     static fromJson(json) {
-        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
-        return new AvailableMediaPlayers_t({
-            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
-            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
+        if (!json || typeof json !== 'object') return new LyricLine_t({});
+        return new LyricLine_t({
+            timeStart: Number(json['time_start'] ?? 0),
+            text: typeof json['text'] === 'string' ? json['text'] : '',
         });
     }
 
     toJson() {
         return {
-            'player_id': this.playerID,
-            'display_name': this.displayName,
+            'time_start': this.timeStart,
+            'text': this.text,
+        };
+    }
+}
+
+class TrackLyrics_t {
+    constructor({
+        lines,
+    }) {
+        this.lines = lines;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new TrackLyrics_t({});
+        return new TrackLyrics_t({
+            lines: Array.isArray(json['lines']) ? json['lines'].map(LyricLine_t.fromJson) : [],
+        });
+    }
+
+    toJson() {
+        return {
+            'lines': this.lines.map(function(e) { return e.toJson(); }),
         };
     }
 }
@@ -64,10 +85,12 @@ class AlbumTrackList_t {
         track,
         duration,
         coverImage,
+        lyrics,
     }) {
         this.track = track;
         this.duration = duration;
         this.coverImage = coverImage;
+        this.lyrics = lyrics;
     }
 
     static fromJson(json) {
@@ -76,6 +99,7 @@ class AlbumTrackList_t {
             track: typeof json['track'] === 'string' ? json['track'] : '',
             duration: Number(json['duration'] ?? 0),
             coverImage: typeof json['cover_image'] === 'string' ? json['cover_image'] : '',
+            lyrics: TrackLyrics_t.fromJson(json['lyrics'] ?? {}),
         });
     }
 
@@ -84,6 +108,7 @@ class AlbumTrackList_t {
             'track': this.track,
             'duration': this.duration,
             'cover_image': this.coverImage,
+            'lyrics': this.lyrics,
         };
     }
 }
@@ -138,27 +163,6 @@ class QueueList_t {
     toJson() {
         return {
             'tracks': this.tracks,
-        };
-    }
-}
-
-class TrackLyrics_t {
-    constructor({
-        lines,
-    }) {
-        this.lines = lines;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new TrackLyrics_t({});
-        return new TrackLyrics_t({
-            lines: Array.isArray(json['lines']) ? json['lines'].map(LyricLine_t.fromJson) : [],
-        });
-    }
-
-    toJson() {
-        return {
-            'lines': this.lines.map(function(e) { return e.toJson(); }),
         };
     }
 }
@@ -294,27 +298,27 @@ class AlbumsInLibrary_t {
     }
 }
 
-class LyricLine_t {
+class AvailableMediaPlayers_t {
     constructor({
-        timeStart,
-        text,
+        playerID,
+        displayName,
     }) {
-        this.timeStart = timeStart;
-        this.text = text;
+        this.playerID = playerID;
+        this.displayName = displayName;
     }
 
     static fromJson(json) {
-        if (!json || typeof json !== 'object') return new LyricLine_t({});
-        return new LyricLine_t({
-            timeStart: Number(json['time_start'] ?? 0),
-            text: typeof json['text'] === 'string' ? json['text'] : '',
+        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
+        return new AvailableMediaPlayers_t({
+            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
+            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
         });
     }
 
     toJson() {
         return {
-            'time_start': this.timeStart,
-            'text': this.text,
+            'player_id': this.playerID,
+            'display_name': this.displayName,
         };
     }
 }
@@ -344,7 +348,6 @@ const Global_SavedMaptasticProjectorPositions = 'Global_SavedMaptasticProjectorP
 const Global_MediaPlaybackState = 'Global_MediaPlaybackState';
 const Global_CurrentMediaPlaybackQueue = { key: 'Global_CurrentMediaPlaybackQueue', fromJson: QueueList_t.fromJson };
 const Global_ActiveTrack = { key: 'Global_ActiveTrack', fromJson: ActiveTrack_t.fromJson };
-const Global_ActiveTrackLyrics = { key: 'Global_ActiveTrackLyrics', fromJson: TrackLyrics_t.fromJson };
 const Global_ActiveTrackProgressInSeconds = 'Global_ActiveTrackProgressInSeconds';
 const Global_ActiveTrackTotalDurationInSeconds = 'Global_ActiveTrackTotalDurationInSeconds';
 

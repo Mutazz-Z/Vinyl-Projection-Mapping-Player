@@ -136,11 +136,13 @@ class AlbumTrackList_t {
   final String track;
   final int duration;
   final String coverImage;
+  final TrackLyrics_t lyrics;
 
   AlbumTrackList_t({
     required this.track,
     required this.duration,
     required this.coverImage,
+    required this.lyrics,
   });
 
   factory AlbumTrackList_t.fromJson(Map<String, dynamic> json) {
@@ -148,6 +150,7 @@ class AlbumTrackList_t {
       track: json['track']?.toString() ?? '',
       duration: json['duration'] ?? 0,
       coverImage: json['cover_image']?.toString() ?? '',
+      lyrics: TrackLyrics_t.fromJson(json['lyrics'] ?? {}),
     );
   }
   Map<String, dynamic> toJson() {
@@ -155,6 +158,7 @@ class AlbumTrackList_t {
       'track': track,
       'duration': duration,
       'cover_image': coverImage,
+      'lyrics': lyrics.toJson(),
     };
   }
 }
@@ -253,6 +257,25 @@ class ProjectorData_t {
   }
 }
 
+class QueueList_t {
+  final List<String> tracks;
+
+  QueueList_t({
+    required this.tracks,
+  });
+
+  factory QueueList_t.fromJson(Map<String, dynamic> json) {
+    return QueueList_t(
+      tracks: List<String>.from(json['tracks'] ?? []),
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'tracks': tracks,
+    };
+  }
+}
+
 class AlbumsInLibrary_t {
   final String itemId;
   final String provider;
@@ -307,25 +330,6 @@ class AvailableMediaPlayers_t {
     return {
       'player_id': playerID,
       'display_name': displayName,
-    };
-  }
-}
-
-class QueueList_t {
-  final List<String> tracks;
-
-  QueueList_t({
-    required this.tracks,
-  });
-
-  factory QueueList_t.fromJson(Map<String, dynamic> json) {
-    return QueueList_t(
-      tracks: List<String>.from(json['tracks'] ?? []),
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'tracks': tracks,
     };
   }
 }
@@ -433,12 +437,6 @@ final globalCurrentMediaPlaybackQueue = TypedKey<QueueList_t>(
 final globalActiveTrack = TypedKey<ActiveTrack_t>(
   'Global_ActiveTrack',
   fromJson: (json) => ActiveTrack_t.fromJson(json),
-  toJson: (data) => data.toJson(),
-);
-
-final globalActiveTrackLyrics = TypedKey<TrackLyrics_t>(
-  'Global_ActiveTrackLyrics',
-  fromJson: (json) => TrackLyrics_t.fromJson(json),
   toJson: (data) => data.toJson(),
 );
 

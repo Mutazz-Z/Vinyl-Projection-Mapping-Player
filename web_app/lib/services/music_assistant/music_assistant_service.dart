@@ -28,7 +28,6 @@ class MusicAssistantService {
   }
 
   Future<ConnectionTestResult> testConnectionDetailed() async {
-    // Pass the newly saved URL and Token directly to the Orchestrator
     return await orchestratorApiClient.executeSystemConnectionTest(
       applicationSettings.musicAssistantUrlString,
       applicationSettings.musicAssistantTokenString,

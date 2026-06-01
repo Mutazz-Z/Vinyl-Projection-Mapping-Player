@@ -12,8 +12,14 @@ import (
 )
 
 type RawAlbumTrackList_t struct {
-	Track    string `json:"name" mapstructure:"name"`
-	Duration int    `json:"duration" mapstructure:"duration"`
+	Track     string `json:"name" mapstructure:"name"`
+	Duration  int    `json:"duration" mapstructure:"duration"`
+	ItemID    string `json:"item_id" mapstructure:"item_id"`
+	Provider  string `json:"provider" mapstructure:"provider"`
+	MediaItem struct {
+		ItemID   string `json:"item_id" mapstructure:"item_id"`
+		Provider string `json:"provider" mapstructure:"provider"`
+	} `json:"media_item" mapstructure:"media_item"`
 	Metadata struct {
 		Images []struct {
 			Path string `json:"path"`
@@ -45,9 +51,28 @@ func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider st
 
 	var result []typedefs.AlbumTrackList_t
 	for i := range albumTrackList {
+		resolvedItemID := albumTrackList[i].ItemID
+		if resolvedItemID == "" {
+			resolvedItemID = albumTrackList[i].MediaItem.ItemID
+		}
+
+		resolvedProvider := albumTrackList[i].Provider
+		if resolvedProvider == "" {
+			resolvedProvider = albumTrackList[i].MediaItem.Provider
+		}
+		if resolvedProvider == "" {
+			resolvedProvider = provider
+		}
+
+		lyrics, lyricsError := plugin.getTrackLyricsForTrack(resolvedItemID, resolvedProvider)
+		if lyricsError != nil {
+			lyrics = typedefs.TrackLyrics_t{}
+		}
+
 		track := typedefs.AlbumTrackList_t{
 			Track:    albumTrackList[i].Track,
 			Duration: albumTrackList[i].Duration,
+			Lyrics:   lyrics,
 		}
 		if len(albumTrackList[i].Metadata.Images) > 0 {
 			track.CoverImage = albumTrackList[i].Metadata.Images[0].Path

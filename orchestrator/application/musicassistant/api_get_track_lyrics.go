@@ -21,9 +21,12 @@ type RawTrack_t struct {
 	} `mapstructure:"metadata"`
 }
 
-func (instance *SystemMediaPlayer_t) getTrackLyrics(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
+func fetchAndParseTrackLyrics(messageRouter *RpcMessageRouter_t, itemId string, provider string) (typedefs.TrackLyrics_t, error) {
+	if itemId == "" || provider == "" {
+		return typedefs.TrackLyrics_t{}, nil
+	}
 
-	response, err := instance._private.messageRouter.ExecuteRemoteProcedureCall("music/item", map[string]interface{}{
+	response, err := messageRouter.ExecuteRemoteProcedureCall("music/item", map[string]interface{}{
 		"media_type":                     "track",
 		"item_id":                        itemId,
 		"provider_instance_id_or_domain": provider,
@@ -57,6 +60,15 @@ func (instance *SystemMediaPlayer_t) getTrackLyrics(itemId string, provider stri
 
 	return parsedLyrics, nil
 }
+
+func (instance *SystemMediaPlayer_t) getTrackLyrics(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
+	return fetchAndParseTrackLyrics(instance._private.messageRouter, itemId, provider)
+}
+
+func (plugin *MusicAssistantPlugin) getTrackLyricsForTrack(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
+	return fetchAndParseTrackLyrics(plugin.messageRouter, itemId, provider)
+}
+
 func parseLRCLyrics(rawLRC string) typedefs.TrackLyrics_t {
 	var lyrics typedefs.TrackLyrics_t
 

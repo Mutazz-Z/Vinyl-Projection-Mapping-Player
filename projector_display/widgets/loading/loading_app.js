@@ -1,5 +1,6 @@
 (function () {
     var watchdogTimer = null;
+    var loadingTransitionToken = 0;
 
     function getOutline() {
         return document.getElementById('loading-outline');
@@ -34,8 +35,25 @@
         }
     }
 
+    function freezeCurrentVisualState(outline) {
+        if (!outline) return;
+
+        var computed = window.getComputedStyle(outline);
+        var currentTransform = computed.transform;
+        var currentOpacity = computed.opacity;
+
+        outline.style.transition = 'none';
+        if (currentTransform && currentTransform !== 'none') {
+            outline.style.transform = currentTransform;
+        }
+        outline.style.opacity = currentOpacity;
+        void outline.offsetWidth;
+        outline.style.transition = '';
+    }
+
     function showIdle() {
         clearWatchdog();
+        loadingTransitionToken++;
         var outline = getOutline();
         if (!outline) return;
         outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
@@ -46,6 +64,8 @@
     function beginScanLoading() {
         var outline = getOutline();
         if (!outline) return Promise.resolve();
+
+        var transitionToken = ++loadingTransitionToken;
 
         clearWatchdog();
         watchdogTimer = setTimeout(function () {
@@ -58,6 +78,7 @@
         outline.style.transform = 'translate(-50%, -50%) scale(0.5)';
 
         return waitForTransition(outline, 'transform', 520).then(function () {
+            if (transitionToken !== loadingTransitionToken) return;
             outline.classList.add('pulsing');
         });
     }
@@ -68,12 +89,17 @@
         var outline = getOutline();
         if (!outline) return Promise.resolve();
 
+        loadingTransitionToken++;
+
         outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
+        freezeCurrentVisualState(outline);
         outline.style.opacity = '1';
 
         void outline.offsetWidth;
 
-        outline.style.transform = 'translate(-50%, -50%) scale(1)';
+        requestAnimationFrame(function () {
+            outline.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
 
         return waitForTransition(outline, 'transform', 520);
     }
@@ -81,6 +107,7 @@
     function fadeOut() {
         var outline = getOutline();
         if (!outline) return Promise.resolve();
+        loadingTransitionToken++;
         outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
         outline.style.opacity = '0';
 
@@ -99,6 +126,7 @@
 
     function revealIdleFromOverlay() {
         clearWatchdog();
+        loadingTransitionToken++;
         var outline = getOutline();
         if (!outline) return Promise.resolve();
         outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
@@ -116,6 +144,7 @@
 
     function forceHide() {
         clearWatchdog();
+        loadingTransitionToken++;
         var outline = getOutline();
         if (!outline) return;
         outline.classList.remove('pulsing', 'error', 'error-fill');
@@ -125,6 +154,7 @@
 
     function showError() {
         clearWatchdog();
+        loadingTransitionToken++;
         var outline = getOutline();
         if (!outline) return Promise.resolve();
         outline.classList.remove('pulsing', 'hidden');

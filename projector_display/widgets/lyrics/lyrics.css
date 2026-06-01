@@ -37,6 +37,10 @@
     text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.85);
 }
 
+.lyric-line.no-motion {
+    transition: none !important;
+}
+
 .lyric-line.active {
     color: #fff;
     font-weight: 600;
