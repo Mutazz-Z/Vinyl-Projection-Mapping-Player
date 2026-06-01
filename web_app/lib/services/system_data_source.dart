@@ -81,7 +81,6 @@ class SystemDataSource {
     _channel = null;
   }
 
-  // --- STRICT GENERIC READ ---
   Future<T> read<T>(TypedKey<T> typedKey) async {
     if (_channel == null) return Future.error('Not connected');
 
@@ -103,20 +102,16 @@ class SystemDataSource {
       },
     );
 
-    // If it's a generated struct, parse it automatically
     if (typedKey.fromJson != null && rawValue != null) {
       return typedKey.fromJson!(rawValue);
     }
 
-    // Otherwise it's a primitive (String, int, double)
     return rawValue as T;
   }
 
-  // --- STRICT GENERIC WRITE ---
   void write<T>(TypedKey<T> typedKey, T value) {
     if (_channel == null) return;
 
-    // If it's a struct, convert it to JSON map before sending over WebSocket
     final payloadValue = typedKey.toJson != null
         ? typedKey.toJson!(value)
         : value;

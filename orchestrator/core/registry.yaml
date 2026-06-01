@@ -86,13 +86,13 @@ variables:
 
   - name: TargetDisplayWidthInPixels
     storage: NonVolatile
-    type: string
-    default: '"1920"'
+    type: int
+    default: 1920
 
   - name: TargetDisplayHeightInPixels
     storage: NonVolatile
-    type: string
-    default: '"1080"'
+    type: int
+    default: 1080
 
   - name: CurrentMaptasticProjectorPositions
     storage: NonVolatile

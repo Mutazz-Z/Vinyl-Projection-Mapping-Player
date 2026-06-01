@@ -1,57 +1,5 @@
 package typedefs
 
-type AlbumsInLibrary_t struct {
-	ItemId     string `json:"item_id" mapstructure:"item_id"`
-	Provider   string `json:"provider" mapstructure:"provider"`
-	MediaTitle string `json:"media_title" mapstructure:"media_title"`
-	Artist     string `json:"artist" mapstructure:"artist"`
-	CoverImage string `json:"cover_image" mapstructure:"cover_image"`
-}
-
-type AvailableMediaPlayers_t struct {
-	PlayerID    string `json:"player_id" mapstructure:"player_id"`
-	DisplayName string `json:"display_name" mapstructure:"display_name"`
-}
-
-type VisualDataState_t uint8
-
-const (
-	VisualDataState_DisplayAlbumVisuals VisualDataState_t = iota
-	VisualDataState_DisplayErrorMessage
-	VisualDataState_DisplayTagRegistration
-	VisualDataState_DisplayIdle
-)
-
-// typeshare
-type ReaderStatus_t bool
-
-const (
-	ReaderStatus_Offline ReaderStatus_t = false
-	ReaderStatus_Online  ReaderStatus_t = true
-)
-
-// typeshare
-type ShelfStatus_t bool
-
-const (
-	ShelfStatus_Empty    ShelfStatus_t = false
-	ShelfStatus_Occupied ShelfStatus_t = true
-)
-
-// typeshare
-type MediaPlaybackState_t uint8
-
-const (
-	PlayerState_Playing MediaPlaybackState_t = iota
-	PlayerState_Paused
-	PlayerState_Idle
-	PlayerState_Buffering
-	PlayerState_Unknown
-	PlayerState_Stopped
-	PlayerState_Error
-	PlayerState_Offline
-)
-
 type AlbumTrackList_t struct {
 	Track      string `json:"track" mapstructure:"track"`
 	Duration   int    `json:"duration" mapstructure:"duration"`
@@ -73,7 +21,6 @@ type VinylRecordTagData_t struct {
 	ProjectionOverlay string             `json:"projection_overlay" gorm:"column:projection_overlay"`
 }
 
-// typeshare
 type ProjectorData_t struct {
 	TagData         VinylRecordTagData_t `json:"tag_data"`
 	VisualDataState VisualDataState_t    `json:"visual_data_state"`

@@ -143,7 +143,6 @@ class OrchestratorApiClient {
         'http://$globalOrchestratorHostAddress:8099/api/system/test',
       );
 
-      // Changed from GET to POST to actually send the payload to the Pi
       final http.Response networkResponse = await http
           .post(
             targetTestUri,

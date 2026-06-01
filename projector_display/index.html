@@ -60,6 +60,7 @@
 
                 setBootStatus('BOOT: Loading scripts...');
 
+                await loadScript('js/state.js');
                 await loadScript('js/mapping.js');
                 await loadScript('js/qrcode.min.js');
                 await loadScript('widgets/tracklist/tracklist_app.js');

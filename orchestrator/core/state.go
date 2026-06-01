@@ -20,14 +20,12 @@ type StateMetadata struct {
 	DefaultData interface{}
 }
 
-// typeshare
 type StateKey_t string
 
 type TypedKey[T any] struct {
 	Key StateKey_t
 }
 
-// typeshare
 type OnDataSourceChangedArgs_t struct {
 	Variable StateKey_t  `json:"variable"`
 	Data     interface{} `json:"data"`
@@ -211,23 +209,23 @@ func init() {
 
 // ── TargetDisplayWidthInPixels ──────────────────────────────────
 
-var Global_TargetDisplayWidthInPixels = TypedKey[string]{Key: "Global_TargetDisplayWidthInPixels"}
+var Global_TargetDisplayWidthInPixels = TypedKey[int]{Key: "Global_TargetDisplayWidthInPixels"}
 
 func init() {
 	StateRegistry[Global_TargetDisplayWidthInPixels.Key] = StateMetadata{
 		StorageType: NonVolatile,
-		DefaultData: string("1920"),
+		DefaultData: int(1920),
 	}
 }
 
 // ── TargetDisplayHeightInPixels ──────────────────────────────────
 
-var Global_TargetDisplayHeightInPixels = TypedKey[string]{Key: "Global_TargetDisplayHeightInPixels"}
+var Global_TargetDisplayHeightInPixels = TypedKey[int]{Key: "Global_TargetDisplayHeightInPixels"}
 
 func init() {
 	StateRegistry[Global_TargetDisplayHeightInPixels.Key] = StateMetadata{
 		StorageType: NonVolatile,
-		DefaultData: string("1080"),
+		DefaultData: int(1080),
 	}
 }
 

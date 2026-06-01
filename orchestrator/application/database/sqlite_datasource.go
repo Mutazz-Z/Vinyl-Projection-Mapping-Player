@@ -100,7 +100,6 @@ func (dataSource *SQLiteDataSource) Write(key core.StateKey_t, value interface{}
 			}
 		}
 	}
-	// ----------------------------------------------
 
 	dataSource.cacheMutex.Lock()
 	dataSource.memoryCache[key] = value

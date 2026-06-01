@@ -67,14 +67,12 @@ type StateMetadata struct {
 	DefaultData interface{}
 }
 
-// typeshare
 type StateKey_t string
 
 type TypedKey[T any] struct {
 	Key StateKey_t
 }
 
-// typeshare
 type OnDataSourceChangedArgs_t struct {
 	Variable StateKey_t  {{tick}}json:"variable"{{tick}}
 	Data     interface{} {{tick}}json:"data"{{tick}}
@@ -84,7 +82,6 @@ type OnDataSourceChangedArgs_t struct {
 // ── {{.Name}} ──────────────────────────────────
 
 {{if .HasFields}}
-// typeshare
 type {{.StructName}} struct {
 {{range .Fields}}	{{.Name}} {{.Type}} {{tick}}json:"{{toJsonTag .Name}}"{{tick}}
 {{end}}}

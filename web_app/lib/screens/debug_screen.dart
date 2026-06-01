@@ -45,7 +45,7 @@ class _DebugScreenState extends State<DebugScreen> {
 
   void _mockRemoveTag() {
     try {
-      systemDataSource.write(globalCurrentShelfStatus, false);
+      systemDataSource.write(globalCurrentShelfStatus, ShelfStatus_t.ShelfStatus_Empty);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mocked record removal status sent.')),

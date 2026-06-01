@@ -1,93 +1,107 @@
+DataSource_OnChanged(dataSource, callback)
+
 class DataSource {
-    constructor(ws) {
-        this._ws = ws;
-        this._pending = {};
-        this._subscribers = {};
+    constructor(webSocket) {
+        this._webSocket = webSocket;
+        this._pendingReads = {};
+        this._topicSubscribers = {};
+        this._onChangedCallback = function (variable, data) { };
 
-        this.OnDataSourceChanged = function (ctx, args) { };
+        webSocket.addEventListener('message', (event) => DataSource__dispatch(this, event));
+    }
+}
 
-        ws.addEventListener('message', (e) => this._dispatch(e));
+function DataSource__dispatch(dataSource, messageEvent) {
+    let message;
+    try {
+        message = JSON.parse(messageEvent.data);
+    } catch (error) {
+        return;
     }
 
-    read(key) {
-        return new Promise((resolve, reject) => {
-            const reqId = this._makeId();
-            const timeoutId = setTimeout(() => {
-                delete this._pending[reqId];
-                reject(new Error(`DS.read('${key}') timed out`));
-            }, 5000);
-            this._pending[reqId] = { resolve, reject, timeoutId };
-            this._send({ action: 'read', key, req_id: reqId });
+    if (message.action === 'read_response' || message.action === 'read_error') {
+        const pending = dataSource._pendingReads[message.req_id];
+        if (!pending) return;
+
+        clearTimeout(pending.timeoutId);
+        delete dataSource._pendingReads[message.req_id];
+
+        if (message.action === 'read_error') {
+            pending.reject(new Error(message.error));
+        } else {
+            pending.resolve(message.value);
+        }
+        return;
+    }
+
+    const topic = message.Topic ?? message.topic;
+    const payload = message.Payload ?? message.payload;
+
+    if (!topic) return;
+
+    if (topic === 'datasource') {
+        const variableKey = payload?.variable ?? payload?.key ?? payload?.Key;
+        const variableData = payload?.data !== undefined ? payload.data
+            : payload?.value !== undefined ? payload.value
+                : payload?.Value;
+
+        if (variableKey !== undefined && variableData !== undefined) {
+            try {
+                dataSource._onChangedCallback(variableKey, variableData);
+            } catch (error) {
+                console.error('DataSource: OnChanged callback error:', error);
+            }
+        }
+        return;
+    }
+
+    const subscribers = dataSource._topicSubscribers[topic];
+    if (subscribers) {
+        subscribers.forEach(function (callback) {
+            try {
+                callback(payload);
+            } catch (error) {
+                console.error(`DataSource: subscriber error on topic "${topic}":`, error);
+            }
         });
     }
+}
 
-    write(key, value) {
-        this._send({ action: 'write', key, value });
+function DataSource__send(dataSource, object) {
+    if (dataSource._webSocket.readyState === WebSocket.OPEN) {
+        dataSource._webSocket.send(JSON.stringify(object));
     }
+}
 
-    subscribe(topic, callback) {
-        if (!this._subscribers[topic]) {
-            this._subscribers[topic] = [];
-            this._send({ action: 'subscribe', topic });
-        }
-        this._subscribers[topic].push(callback);
+function DataSource__makeRequestId() {
+    return Math.random().toString(36).slice(2, 10);
+}
+
+function DataSource_Read(dataSource, key) {
+    return new Promise(function (resolve, reject) {
+        const requestId = DataSource__makeRequestId();
+        const timeoutId = setTimeout(function () {
+            delete dataSource._pendingReads[requestId];
+            reject(new Error(`DataSource_Read('${key}') timed out`));
+        }, 5000);
+
+        dataSource._pendingReads[requestId] = { resolve, reject, timeoutId };
+        DataSource__send(dataSource, { action: 'read', key: key, req_id: requestId });
+    });
+}
+
+function DataSource_Write(dataSource, key, value) {
+    DataSource__send(dataSource, { action: 'write', key: key, value: value });
+}
+
+function DataSource_Subscribe(dataSource, topic, callback) {
+    if (!dataSource._topicSubscribers[topic]) {
+        dataSource._topicSubscribers[topic] = [];
+        DataSource__send(dataSource, { action: 'subscribe', topic: topic });
     }
+    dataSource._topicSubscribers[topic].push(callback);
+}
 
-    _dispatch(messageEvent) {
-        let msg;
-        try { msg = JSON.parse(messageEvent.data); } catch (e) { return; }
-
-        if (msg.action === 'read_response' || msg.action === 'read_error') {
-            const pending = this._pending[msg.req_id];
-            if (!pending) return;
-            clearTimeout(pending.timeoutId);
-            delete this._pending[msg.req_id];
-            if (msg.action === 'read_error') {
-                pending.reject(new Error(msg.error));
-            } else {
-                pending.resolve(msg.value);
-            }
-            return;
-        }
-
-        const topic = msg.Topic ?? msg.topic;
-        const payload = msg.Payload ?? msg.payload;
-
-        if (!topic) return;
-
-        if (topic === 'datasource') {
-            const varName = payload?.variable ?? payload?.key ?? payload?.Key;
-            const varData = payload?.data !== undefined ? payload.data : (payload?.value !== undefined ? payload.value : payload?.Value);
-
-            if (varName !== undefined && varData !== undefined) {
-                try {
-                    this.OnDataSourceChanged(this, {
-                        variable: varName,
-                        data: varData,
-                    });
-                } catch (e) {
-                    console.error('OnDataSourceChanged error:', e);
-                }
-            }
-            return;
-        }
-
-        if (this._subscribers[topic]) {
-            this._subscribers[topic].forEach(cb => {
-                try { cb(payload); } catch (e) {
-                    console.error(`DataSource subscriber error [${topic}]:`, e);
-                }
-            });
-        }
-    }
-
-    _send(obj) {
-        if (this._ws.readyState === WebSocket.OPEN) {
-            this._ws.send(JSON.stringify(obj));
-        }
-    }
-
-    _makeId() {
-        return Math.random().toString(36).slice(2, 10);
-    }
+function DataSource_OnChanged(dataSource, callback) {
+    dataSource._onChangedCallback = callback;
 }

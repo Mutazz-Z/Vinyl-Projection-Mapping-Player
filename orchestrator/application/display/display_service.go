@@ -53,6 +53,8 @@ func (instance *DisplayApplicationService) handleGenericErrorMessagesBasedOnMedi
 
 	case typedefs.PlayerState_Offline:
 		errorMessage = "The target device is offline. Please check its connection and try again."
+	default:
+		return
 	}
 
 	errorMessageData := typedefs.ProjectorData_t{
