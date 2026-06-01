@@ -10,6 +10,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -29,10 +30,19 @@ type Registry struct {
 	Variables []Variable `yaml:"variables"`
 }
 
+// ── Typedef registries ────────────────────────────────────────────────────────
 
 var uint8Enums = map[string][]string{}
-
 var boolEnums = map[string][2]string{}
+
+// structFields: struct name → ordered fields
+type StructField struct {
+	JSName  string // camelCase
+	JsonKey string // json tag value
+	GoType  string // raw Go type string
+}
+
+var structFields = map[string][]StructField{}
 
 func getTypeName(expr ast.Expr) string {
 	switch t := expr.(type) {
@@ -69,6 +79,9 @@ func collectTypedefs(typedefsDir string) {
 					case "bool":
 						boolEnums[ts.Name.Name] = [2]string{}
 					}
+					if _, ok := ts.Type.(*ast.StructType); ok {
+						structFields[ts.Name.Name] = []StructField{}
+					}
 				}
 			}
 		}
@@ -101,7 +114,6 @@ func collectTypedefs(typedefsDir string) {
 					}
 					constName := vs.Names[0].Name
 					if _, isUint8 := uint8Enums[currentEnumType]; isUint8 {
-						// Avoid duplicates.
 						already := false
 						for _, e := range uint8Enums[currentEnumType] {
 							if e == constName {
@@ -129,24 +141,76 @@ func collectTypedefs(typedefsDir string) {
 			}
 		}
 	}
+
+	for _, pkg := range packages {
+		for _, file := range pkg.Files {
+			ast.Inspect(file, func(n ast.Node) bool {
+				ts, ok := n.(*ast.TypeSpec)
+				if !ok {
+					return true
+				}
+				structType, ok := ts.Type.(*ast.StructType)
+				if !ok {
+					return true
+				}
+				var fields []StructField
+				for _, field := range structType.Fields.List {
+					if len(field.Names) == 0 {
+						continue
+					}
+					fieldName := field.Names[0].Name
+					goType := getTypeName(field.Type)
+					jsName := strings.ToLower(fieldName[:1]) + fieldName[1:]
+					jsonKey := jsName
+					if field.Tag != nil {
+						tagRaw := strings.Trim(field.Tag.Value, "`")
+						if parsed := reflect.StructTag(tagRaw).Get("json"); parsed != "" {
+							jsonKey = strings.Split(parsed, ",")[0]
+						}
+					}
+					fields = append(fields, StructField{
+						JSName:  jsName,
+						JsonKey: jsonKey,
+						GoType:  goType,
+					})
+				}
+				structFields[ts.Name.Name] = fields
+				return false
+			})
+		}
+	}
 }
 
-// ── JS helpers ────────────────────────────────────────────────────────────────
+// ── JS type helpers ───────────────────────────────────────────────────────────
 
-func jsDoc(goType string) string {
+func isStructType(goType string) bool {
 	goType = strings.TrimPrefix(goType, "typedefs.")
-	switch goType {
-	case "string":
-		return "string"
-	case "int", "uint8", "int64", "float64", "float32":
-		return "number"
-	case "bool":
-		return "boolean"
-	case "interface{}":
-		return "*"
-	default:
-		return goType
+	if strings.HasPrefix(goType, "[]") {
+		return false
 	}
+	_, ok := structFields[goType]
+	return ok
+}
+
+func isEnumType(goType string) bool {
+	goType = strings.TrimPrefix(goType, "typedefs.")
+	_, isUint8 := uint8Enums[goType]
+	_, isBool := boolEnums[goType]
+	return isUint8 || isBool
+}
+
+func isBoolEnum(goType string) bool {
+	goType = strings.TrimPrefix(goType, "typedefs.")
+	_, ok := boolEnums[goType]
+	return ok
+}
+
+func bareType(goType string) string {
+	return strings.TrimPrefix(goType, "typedefs.")
+}
+
+func jsClassName(goType string) string {
+	return strings.TrimPrefix(goType, "typedefs.")
 }
 
 func stripTypePrefix(typeName, constName string) string {
@@ -160,6 +224,11 @@ func stripTypePrefix(typeName, constName string) string {
 	return constName
 }
 
+func isCustomType(goType string) bool {
+	return isStructType(goType) || isEnumType(goType)
+}
+
+// ── Template data ─────────────────────────────────────────────────────────────
 
 type EnumEntry struct {
 	JSKey string
@@ -171,9 +240,99 @@ type EnumBlock struct {
 	Entries []EnumEntry
 }
 
+type StructDef struct {
+	Name   string
+	Fields []StructField
+}
+
+type KeyDef struct {
+	Name        string
+	KeyStr      string
+	GoType      string
+	HasFromJson bool
+}
+
 type TemplateData struct {
-	Variables  []Variable
 	EnumBlocks []EnumBlock
+	Structs    []StructDef
+	Keys       []KeyDef
+}
+
+func writeStructClass(buf *bytes.Buffer, name string, fields []StructField) {
+	buf.WriteString(fmt.Sprintf("class %s {\n", name))
+
+	// constructor
+	buf.WriteString("    constructor({\n")
+	for _, f := range fields {
+		buf.WriteString(fmt.Sprintf("        %s,\n", f.JSName))
+	}
+	buf.WriteString("    }) {\n")
+	for _, f := range fields {
+		buf.WriteString(fmt.Sprintf("        this.%s = %s;\n", f.JSName, f.JSName))
+	}
+	buf.WriteString("    }\n\n")
+
+	// static fromJson
+	buf.WriteString(fmt.Sprintf("    static fromJson(json) {\n"))
+	buf.WriteString(fmt.Sprintf("        if (!json || typeof json !== 'object') return new %s({});\n", name))
+	buf.WriteString(fmt.Sprintf("        return new %s({\n", name))
+	for _, f := range fields {
+		raw := strings.TrimPrefix(f.GoType, "typedefs.")
+		isList := strings.HasPrefix(raw, "[]")
+		if isList {
+			innerType := raw[2:]
+			if isStructType(innerType) {
+				buf.WriteString(fmt.Sprintf("            %s: Array.isArray(json['%s']) ? json['%s'].map(%s.fromJson) : [],\n",
+					f.JSName, f.JsonKey, f.JsonKey, innerType))
+			} else {
+				buf.WriteString(fmt.Sprintf("            %s: Array.isArray(json['%s']) ? json['%s'] : [],\n",
+					f.JSName, f.JsonKey, f.JsonKey))
+			}
+		} else if isStructType(f.GoType) {
+			buf.WriteString(fmt.Sprintf("            %s: %s.fromJson(json['%s'] ?? {}),\n",
+				f.JSName, jsClassName(f.GoType), f.JsonKey))
+		} else if isEnumType(f.GoType) {
+			if isBoolEnum(f.GoType) {
+				buf.WriteString(fmt.Sprintf("            %s: json['%s'] === true,\n",
+					f.JSName, f.JsonKey))
+			} else {
+				buf.WriteString(fmt.Sprintf("            %s: Number(json['%s'] ?? 0),\n",
+					f.JSName, f.JsonKey))
+			}
+		} else {
+			switch raw {
+			case "string":
+				buf.WriteString(fmt.Sprintf("            %s: typeof json['%s'] === 'string' ? json['%s'] : '',\n",
+					f.JSName, f.JsonKey, f.JsonKey))
+			case "int", "uint8", "int64", "float64", "float32":
+				buf.WriteString(fmt.Sprintf("            %s: Number(json['%s'] ?? 0),\n",
+					f.JSName, f.JsonKey))
+			case "bool":
+				buf.WriteString(fmt.Sprintf("            %s: json['%s'] === true,\n",
+					f.JSName, f.JsonKey))
+			default:
+				buf.WriteString(fmt.Sprintf("            %s: json['%s'] ?? null,\n",
+					f.JSName, f.JsonKey))
+			}
+		}
+	}
+	buf.WriteString("        });\n    }\n\n")
+
+	// toJson
+	buf.WriteString("    toJson() {\n        return {\n")
+	for _, f := range fields {
+		raw := strings.TrimPrefix(f.GoType, "typedefs.")
+		isList := strings.HasPrefix(raw, "[]")
+		if isList && isStructType(raw[2:]) {
+			buf.WriteString(fmt.Sprintf("            '%s': this.%s.map(function(e) { return e.toJson(); }),\n",
+				f.JsonKey, f.JSName))
+		} else if isStructType(f.GoType) || isEnumType(f.GoType) {
+			buf.WriteString(fmt.Sprintf("            '%s': this.%s,\n", f.JsonKey, f.JSName))
+		} else {
+			buf.WriteString(fmt.Sprintf("            '%s': this.%s,\n", f.JsonKey, f.JSName))
+		}
+	}
+	buf.WriteString("        };\n    }\n}\n\n")
 }
 
 // ── Template ──────────────────────────────────────────────────────────────────
@@ -183,7 +342,6 @@ const jsTemplate = `// ==========================================
 // ==========================================
 
 // ── Enum value maps ───────────────────────────────────────────────────────────
-// Mirror of Go/Dart enum definitions — use these instead of raw numbers/bools.
 {{range .EnumBlocks}}
 const {{.JSName}} = Object.freeze({
 {{- range .Entries}}
@@ -191,18 +349,7 @@ const {{.JSName}} = Object.freeze({
 {{- end}}
 });
 {{end}}
-// ── State key constants ───────────────────────────────────────────────────────
-// Use these with DataSource_Read / DataSource_Write / DataSource_OnChanged.
-//
-//   DataSource_Write(dataSource, Global_ActiveRecordTrackName, trackName);
-//   const value = await DataSource_Read(dataSource, Global_CurrentProjectorData);
-//   DataSource_OnChanged(dataSource, function (variable, data) {
-//       if (variable === Global_MediaPlaybackState) { ... }
-//   });
-{{range .Variables}}
-/** @type {string} {{jsDoc .Type}} ({{.Storage}}) */
-const Global_{{.Name}} = 'Global_{{.Name}}';
-{{end}}`
+`
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -223,8 +370,8 @@ func main() {
 		log.Fatalf("Failed to parse YAML: %v", err)
 	}
 
+	// ── Build enum blocks ─────────────────────────────────────────────────────
 	var enumBlocks []EnumBlock
-
 	for typeName, consts := range uint8Enums {
 		if len(consts) == 0 {
 			continue
@@ -239,52 +386,64 @@ func main() {
 		}
 		enumBlocks = append(enumBlocks, block)
 	}
-
 	for typeName, pair := range boolEnums {
 		jsName := strings.TrimSuffix(typeName, "_t")
-		falseName, trueName := pair[0], pair[1]
+		falseName := pair[0]
+		trueName := pair[1]
 		if falseName == "" {
 			falseName = "False"
 		}
 		if trueName == "" {
 			trueName = "True"
 		}
-		block := EnumBlock{
+		enumBlocks = append(enumBlocks, EnumBlock{
 			JSName: jsName,
 			Entries: []EnumEntry{
 				{JSKey: stripTypePrefix(typeName, falseName), Value: false},
 				{JSKey: stripTypePrefix(typeName, trueName), Value: true},
 			},
-		}
-		enumBlocks = append(enumBlocks, block)
+		})
 	}
 
-	data := TemplateData{
-		Variables:  registry.Variables,
-		EnumBlocks: enumBlocks,
-	}
-
-	funcMap := template.FuncMap{
-		"jsDoc": jsDoc,
-	}
-
-	tmpl, err := template.New("stateJs").Funcs(funcMap).Parse(jsTemplate)
+	tmpl, err := template.New("stateJs").Parse(jsTemplate)
 	if err != nil {
 		log.Fatalf("Failed to parse template: %v", err)
 	}
-
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := tmpl.Execute(&buf, TemplateData{EnumBlocks: enumBlocks}); err != nil {
 		log.Fatalf("Failed to execute template: %v", err)
 	}
+
+	buf.WriteString("// ── Struct classes ──────────────────────────────────────────────────────────\n\n")
+	for name, fields := range structFields {
+		if len(fields) == 0 {
+			continue
+		}
+		writeStructClass(&buf, name, fields)
+	}
+
+	buf.WriteString("// ── State key constants ─────────────────────────────────────────────────────\n\n")
+	for _, v := range registry.Variables {
+		goType := strings.TrimPrefix(v.Type, "typedefs.")
+		if isStructType(goType) {
+			buf.WriteString(fmt.Sprintf(
+				"const Global_%s = { key: 'Global_%s', fromJson: %s.fromJson };\n",
+				v.Name, v.Name, goType,
+			))
+		} else {
+			buf.WriteString(fmt.Sprintf(
+				"const Global_%s = 'Global_%s';\n",
+				v.Name, v.Name,
+			))
+		}
+	}
+	buf.WriteString("\n")
 
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
 		log.Fatalf("Failed to create output directory: %v", err)
 	}
-
 	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
 		log.Fatalf("Failed to write state.js: %v", err)
 	}
-
 	fmt.Printf("Successfully generated %s!\n", outputPath)
 }

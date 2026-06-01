@@ -1,4 +1,14 @@
-DataSource_OnChanged(dataSource, callback)
+// ==========================================
+// datasource.js
+// ==========================================
+
+// DataSource is a plain object. Use the free functions below to interact with it.
+// This mirrors the Go DataSource interface:
+//
+//   DataSource_Read(dataSource, Global_SomeVar)          → Promise<value>
+//   DataSource_Write(dataSource, Global_SomeVar, value)
+//   DataSource_Subscribe(dataSource, topic, callback)
+//   DataSource_OnChanged(dataSource, callback)
 
 class DataSource {
     constructor(webSocket) {
@@ -10,6 +20,8 @@ class DataSource {
         webSocket.addEventListener('message', (event) => DataSource__dispatch(this, event));
     }
 }
+
+// ── Internal dispatch (private) ───────────────────────────────────────────────
 
 function DataSource__dispatch(dataSource, messageEvent) {
     let message;
@@ -77,21 +89,34 @@ function DataSource__makeRequestId() {
     return Math.random().toString(36).slice(2, 10);
 }
 
-function DataSource_Read(dataSource, key) {
+// ── Public API ────────────────────────────────────────────────────────────────
+
+function DataSource_Read(dataSource, keyDef) {
+    const keyStr = typeof keyDef === 'object' ? keyDef.key : keyDef;
+    const fromJson = typeof keyDef === 'object' ? keyDef.fromJson : null;
+
     return new Promise(function (resolve, reject) {
         const requestId = DataSource__makeRequestId();
         const timeoutId = setTimeout(function () {
             delete dataSource._pendingReads[requestId];
-            reject(new Error(`DataSource_Read('${key}') timed out`));
+            reject(new Error(`DataSource_Read('${keyStr}') timed out`));
         }, 5000);
 
-        dataSource._pendingReads[requestId] = { resolve, reject, timeoutId };
-        DataSource__send(dataSource, { action: 'read', key: key, req_id: requestId });
+        dataSource._pendingReads[requestId] = {
+            resolve: function (value) {
+                resolve(fromJson && value != null ? fromJson(value) : value);
+            },
+            reject,
+            timeoutId,
+        };
+        DataSource__send(dataSource, { action: 'read', key: keyStr, req_id: requestId });
     });
 }
 
-function DataSource_Write(dataSource, key, value) {
-    DataSource__send(dataSource, { action: 'write', key: key, value: value });
+function DataSource_Write(dataSource, keyDef, value) {
+    const keyStr = typeof keyDef === 'object' ? keyDef.key : keyDef;
+    const serialised = (value && typeof value.toJson === 'function') ? value.toJson() : value;
+    DataSource__send(dataSource, { action: 'write', key: keyStr, value: serialised });
 }
 
 function DataSource_Subscribe(dataSource, topic, callback) {

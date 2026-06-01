@@ -4,57 +4,80 @@ class ProjectorPayload {
             throw new TypeError('ProjectorPayload: raw payload must be a non-null object.');
         }
 
-        const tagData = (raw.tag_data && typeof raw.tag_data === 'object') ? raw.tag_data : {};
+        const rawTag = raw.tagData ?? raw.tag_data ?? raw.TagData ?? {};
+        const tag = (typeof rawTag === 'object' && rawTag !== null) ? rawTag : {};
 
-        this.visualDataState = ProjectorPayload._normaliseVisualDataState(raw.visual_data_state);
+        this.visualDataState = ProjectorPayload._normaliseVisualDataState(raw.visualDataState ?? raw.visual_data_state ?? raw.VisualDataState);
+        this.registerTagUrl = ProjectorPayload._str(raw.registerTagUrl ?? raw.register_tag_url ?? raw.RegisterTagUrl);
 
-        this.album = ProjectorPayload._str(tagData.media_title);
-        this.artist = ProjectorPayload._str(tagData.artist);
-        this.tagUid = ProjectorPayload._str(tagData.tag_uid);
-
-        this.tracks = ProjectorPayload._parseTracks(tagData.track_list);
-
-        this.inner_record_color = ProjectorPayload._str(tagData.label_color);
-        this.inner_record_image = ProjectorPayload._str(tagData.label_image);
-        this.outer_design_color = ProjectorPayload._str(tagData.outer_ring_color);
-        this.outer_design_image = ProjectorPayload._str(tagData.outer_ring_image);
-        this.overlay_art = ProjectorPayload._str(tagData.projection_overlay);
-        this.album_cover_art = ProjectorPayload._str(tagData.cover_image);
-
-        this.registration_url = ProjectorPayload._str(raw.register_tag_url);
-
+        const rawError = raw.errorMessage ?? raw.error_message ?? raw.ErrorMessage;
         this.errorMessage = (this.visualDataState === VisualDataState.DisplayErrorMessage)
-            ? (ProjectorPayload._str(raw.error_message) || 'An unknown playback error occurred.')
+            ? (ProjectorPayload._str(rawError) || window.AppProjectorErrorMessage || 'An unknown playback error occurred.')
             : '';
+
+        this.tagData = {
+            tagUid: ProjectorPayload._str(tag.tagUid ?? tag.tag_uid ?? tag.TagUid),
+            mediaTitle: ProjectorPayload._str(tag.mediaTitle ?? tag.media_title ?? tag.MediaTitle),
+            artist: ProjectorPayload._str(tag.artist ?? tag.Artist),
+
+            trackList: ProjectorPayload._parseTracksAsObjects(tag.trackList ?? tag.track_list ?? tag.TrackList),
+
+            labelColor: ProjectorPayload._str(tag.labelColor ?? tag.label_color ?? tag.LabelColor),
+            labelImage: ProjectorPayload._str(tag.labelImage ?? tag.label_image ?? tag.LabelImage),
+            outerRingColor: ProjectorPayload._str(tag.outerRingColor ?? tag.outer_ring_color ?? tag.OuterRingColor),
+            outerRingImage: ProjectorPayload._str(tag.outerRingImage ?? tag.outer_ring_image ?? tag.OuterRingImage),
+            projectionOverlay: ProjectorPayload._str(tag.projectionOverlay ?? tag.projection_overlay ?? tag.ProjectionOverlay),
+            coverImage: ProjectorPayload._str(tag.coverImage ?? tag.cover_image ?? tag.CoverImage)
+        };
     }
 
     hasDesignData() {
+        if (!this.tagData) return false;
         return Boolean(
-            this.inner_record_color ||
-            this.inner_record_image ||
-            this.outer_design_color ||
-            this.outer_design_image ||
-            this.overlay_art ||
-            this.album_cover_art
+            this.tagData.labelColor ||
+            this.tagData.labelImage ||
+            this.tagData.outerRingColor ||
+            this.tagData.outerRingImage ||
+            this.tagData.projectionOverlay ||
+            this.tagData.coverImage
         );
+    }
+
+    toJson() {
+        return {
+            visual_data_state: this.visualDataState,
+            register_tag_url: this.registerTagUrl,
+            error_message: this.errorMessage,
+            tag_data: {
+                tag_uid: this.tagData.tagUid,
+                media_title: this.tagData.mediaTitle,
+                artist: this.tagData.artist,
+                track_list: this.tagData.trackList,
+                label_color: this.tagData.labelColor,
+                label_image: this.tagData.labelImage,
+                outer_ring_color: this.tagData.outerRingColor,
+                outer_ring_image: this.tagData.outerRingImage,
+                projection_overlay: this.tagData.projectionOverlay,
+                cover_image: this.tagData.coverImage
+            }
+        };
     }
 
     static _normaliseVisualDataState(raw) {
         const value = Number(raw);
         if (Object.values(VisualDataState).includes(value)) return value;
-
-        console.warn(`ProjectorPayload: unrecognised visual_data_state "${raw}" — defaulting to DisplayIdle.`);
         return VisualDataState.DisplayIdle;
     }
 
-    static _parseTracks(rawList) {
-        if (!Array.isArray(rawList)) return '';
-        return rawList
-            .map(function (entry) {
-                return (entry && typeof entry.track === 'string') ? entry.track.trim() : '';
-            })
-            .filter(Boolean)
-            .join('\n');
+    static _parseTracksAsObjects(rawList) {
+        if (!Array.isArray(rawList)) return [];
+        return rawList.map(function (entry) {
+            return {
+                track: ProjectorPayload._str(entry.track ?? entry.Track ?? entry.title ?? entry.Title),
+                duration: Number(entry.duration ?? entry.Duration ?? 0),
+                coverImage: ProjectorPayload._str(entry.coverImage ?? entry.cover_image ?? entry.CoverImage)
+            };
+        });
     }
 
     static _str(val) {

@@ -22,8 +22,11 @@
     const RECORD_SLIDE_MS = 700;
     const TRACKLIST_FADE_MS = 220;
 
-    function parseTracklist(str) {
-        return window.TracklistWidget.parseTracklist(str);
+    function parseTracklist(trackList) {
+        if (Array.isArray(trackList)) {
+            return trackList.map(function (entry) { return entry.track || ''; }).filter(Boolean);
+        }
+        return [];
     }
 
     function renderTracklist() {
@@ -69,49 +72,57 @@
         return typeof val === 'string' ? val.trim() : '';
     }
 
-    function hasAnyDesignData(data) {
-        if (!data) return false;
+    function hasAnyDesignData(projectorData) {
+        if (!projectorData || !projectorData.tagData) return false;
+        const tag = projectorData.tagData;
         return Boolean(
-            data.inner_record_color ||
-            data.inner_record_image ||
-            data.outer_design_color ||
-            data.outer_design_image ||
-            data.overlay_art ||
-            data.album_cover_art
+            tag.labelColor ||
+            tag.labelImage ||
+            tag.outerRingColor ||
+            tag.outerRingImage ||
+            tag.projectionOverlay ||
+            tag.coverImage
         );
     }
 
-    function getEffectiveDesignData(payload) {
+    function getEffectiveDesignData(projectorData) {
+        const tag = (projectorData && projectorData.tagData) ? projectorData.tagData : {};
+
         const incoming = {
-            inner_record_color: cleanDesignValue(payload && payload.inner_record_color),
-            inner_record_image: cleanDesignValue(payload && payload.inner_record_image),
-            outer_design_color: cleanDesignValue(payload && payload.outer_design_color),
-            outer_design_image: cleanDesignValue(payload && payload.outer_design_image),
-            overlay_art: cleanDesignValue(payload && payload.overlay_art),
-            album_cover_art: cleanDesignValue(payload && payload.album_cover_art)
+            labelColor: cleanDesignValue(tag.labelColor),
+            labelImage: cleanDesignValue(tag.labelImage),
+            outerRingColor: cleanDesignValue(tag.outerRingColor),
+            outerRingImage: cleanDesignValue(tag.outerRingImage),
+            projectionOverlay: cleanDesignValue(tag.projectionOverlay),
+            coverImage: cleanDesignValue(tag.coverImage),
+            inner_record_color: cleanDesignValue(tag.labelColor),
+            inner_record_image: cleanDesignValue(tag.labelImage),
+            outer_design_color: cleanDesignValue(tag.outerRingColor),
+            outer_design_image: cleanDesignValue(tag.outerRingImage)
         };
 
         const previous = currentDesignData || {};
         const merged = {
+            labelColor: incoming.labelColor || previous.labelColor || '',
+            labelImage: incoming.labelImage || previous.labelImage || '',
+            outerRingColor: incoming.outerRingColor || previous.outerRingColor || '',
+            outerRingImage: incoming.outerRingImage || previous.outerRingImage || '',
+            projectionOverlay: incoming.projectionOverlay || previous.projectionOverlay || '',
+            coverImage: incoming.coverImage || previous.coverImage || '',
+
             inner_record_color: incoming.inner_record_color || previous.inner_record_color || '',
             inner_record_image: incoming.inner_record_image || previous.inner_record_image || '',
             outer_design_color: incoming.outer_design_color || previous.outer_design_color || '',
-            outer_design_image: incoming.outer_design_image || previous.outer_design_image || '',
-            overlay_art: incoming.overlay_art || previous.overlay_art || '',
-            album_cover_art: incoming.album_cover_art || previous.album_cover_art || ''
+            outer_design_image: incoming.outer_design_image || previous.outer_design_image || ''
         };
 
-        if (!hasAnyDesignData(incoming) && hasAnyDesignData(previous)) {
-            console.warn('Play payload missing design fields; using previous design values.');
+        if (!hasAnyDesignData(projectorData) && hasAnyDesignData({ tagData: previous })) {
+            console.warn('ProjectorData missing design fields; using previous design values.');
         } else if (
-            hasAnyDesignData(previous) &&
-            (!incoming.outer_design_image || !incoming.overlay_art || !incoming.inner_record_image)
+            hasAnyDesignData({ tagData: previous }) &&
+            (!incoming.outerRingImage || !incoming.projectionOverlay || !incoming.labelImage)
         ) {
-            console.warn('Play payload partially missing design fields; merged with previous values.', {
-                missing_outer_design_image: !incoming.outer_design_image,
-                missing_overlay_art: !incoming.overlay_art,
-                missing_inner_record_image: !incoming.inner_record_image
-            });
+            console.warn('ProjectorData partially missing design fields; merged with previous values.');
         }
 
         return merged;
@@ -152,40 +163,38 @@
     }
 
     function applyDesignData(designData) {
-        if (!hasAnyDesignData(designData)) return;
+        if (!designData || !Object.values(designData).some(Boolean)) return;
 
         const token = ++designApplyToken;
-        const safeDesignData = designData || {};
-
-        currentDesignData = safeDesignData;
+        currentDesignData = designData;
 
         if (token === designApplyToken) {
-            window.RecordWidget.applyDesignData(safeDesignData);
-            window.OverlayWidget.setOverlayArt(safeDesignData.overlay_art);
+            window.RecordWidget.applyDesignData(designData);
+            window.OverlayWidget.setOverlayArt(designData.projectionOverlay);
         }
 
-        if (safeDesignData.album_cover_art && token === designApplyToken) {
+        if (designData.coverImage && token === designApplyToken) {
             const albumArtElement = document.getElementById('album-art');
             if (albumArtElement) {
-                const safeAlbumUrl = safeDesignData.album_cover_art.replace(/"/g, '\\"');
+                const safeAlbumUrl = designData.coverImage.replace(/"/g, '\"');
                 albumArtElement.style.backgroundImage = 'url("' + safeAlbumUrl + '")';
             }
         }
     }
 
-    function buildRegistrationUrl(payload) {
-        if (payload && payload.registration_url) return payload.registration_url;
-        const uid = (payload && payload.uid) ? payload.uid : '';
+    function buildRegistrationUrl(projectorData) {
+        if (projectorData && projectorData.registerTagUrl) return projectorData.registerTagUrl;
+        const uid = (projectorData && projectorData.tagData) ? projectorData.tagData.tagUid : '';
         const piIp = window.PI_IP || '192.168.50.214';
         return 'http://' + piIp + ':8000/?uid=' + encodeURIComponent(uid);
     }
 
-    function renderUnknownTagQR(payload) {
+    function renderUnknownTagQR(projectorData) {
         const qrImg = document.getElementById('unknown-tag-qr');
         const uidLabel = document.getElementById('unknown-tag-uid');
         if (!qrImg || !uidLabel) return;
 
-        const url = buildRegistrationUrl(payload);
+        const url = buildRegistrationUrl(projectorData);
         if (typeof QRCode !== 'undefined') {
             const tmp = document.createElement('div');
             tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
@@ -208,7 +217,9 @@
             document.body.removeChild(tmp);
         }
 
-        uidLabel.textContent = (payload && payload.uid) ? ('UID: ' + payload.uid) : '';
+        uidLabel.textContent = (projectorData && projectorData.tagData && projectorData.tagData.tagUid)
+            ? ('UID: ' + projectorData.tagData.tagUid)
+            : '';
     }
 
     function continuePlaybackAnimations(token) {
@@ -272,13 +283,14 @@
         }
 
         for (var i = 0; i < currentTracks.length; i++) {
-            var name = (currentTracks[i] && currentTracks[i].name ? String(currentTracks[i].name) : '').trim().toLowerCase();
+            var name = typeof currentTracks[i] === 'string' ? currentTracks[i].trim().toLowerCase() : '';
             if (!name) continue;
             if (name === trackName) return i;
         }
 
+        // Second pass: substring match (Updated for Array of Strings)
         for (var j = 0; j < currentTracks.length; j++) {
-            var candidate = (currentTracks[j] && currentTracks[j].name ? String(currentTracks[j].name) : '').trim().toLowerCase();
+            var candidate = typeof currentTracks[j] === 'string' ? currentTracks[j].trim().toLowerCase() : '';
             if (!candidate) continue;
             if (candidate.indexOf(trackName) !== -1 || trackName.indexOf(candidate) !== -1) {
                 return j;
@@ -345,10 +357,13 @@
             startVisualizer();
             startFxVideo();
 
-            window.InfoWidget.setAlbumAndArtist(startPayload.payload.album, startPayload.payload.artist);
+            window.InfoWidget.setAlbumAndArtist(
+                startPayload.projectorData.tagData.mediaTitle,
+                startPayload.projectorData.tagData.artist
+            );
             window.ProgressWidget.show();
 
-            currentTracks = parseTracklist(startPayload.payload.tracks);
+            currentTracks = parseTracklist(startPayload.projectorData.tagData.trackList);
             renderTracklist();
             currentActiveTrackIndex = 0;
 
@@ -392,9 +407,12 @@
             applyDesignData(startPayload.designData);
             startVisualizer();
             startFxVideo();
-            window.InfoWidget.setAlbumAndArtist(startPayload.payload.album, startPayload.payload.artist);
+            window.InfoWidget.setAlbumAndArtist(
+                startPayload.projectorData.tagData.mediaTitle,
+                startPayload.projectorData.tagData.artist
+            );
             window.ProgressWidget.show();
-            currentTracks = parseTracklist(startPayload.payload.tracks);
+            currentTracks = parseTracklist(startPayload.projectorData.tagData.trackList);
             renderTracklist();
             continuePlaybackAnimations(token);
             isPlayingState = true;
@@ -498,19 +516,19 @@
         }
     }
 
-    function showUnknownTag(payload) {
+    function showUnknownTag(projectorData) {
         stopPlayback();
 
         if (window.QrCodeWidget && window.QrCodeWidget.show) {
-            window.QrCodeWidget.show(payload);
+            window.QrCodeWidget.show(projectorData);
         }
     }
 
-    function showPlaybackError(message, errorPayload) {
+    function showPlaybackError(message, projectorData) {
         let designData = null;
 
-        if (errorPayload && hasAnyDesignData(errorPayload)) {
-            designData = errorPayload;
+        if (projectorData && hasAnyDesignData(projectorData)) {
+            designData = getEffectiveDesignData(projectorData);
         } else if (pendingStartPayload && pendingStartPayload.designData) {
             designData = pendingStartPayload.designData;
         }
@@ -544,27 +562,30 @@
         }, ejectDelay + 50);
     }
 
-    function startPlayback(payload) {
-        localStorage.setItem('vinyl_projection_active_payload', JSON.stringify(payload));
+    function startPlayback(projectorData) {
+        localStorage.setItem('vinyl_projection_active_payload', JSON.stringify(projectorData.toJson()));
 
-        const effectiveDesignData = getEffectiveDesignData(payload);
-        const incomingAlbum = (payload && payload.album) ? payload.album.trim() : '';
+        const effectiveDesignData = getEffectiveDesignData(projectorData);
+        const incomingAlbum = projectorData.tagData ? projectorData.tagData.mediaTitle.trim() : '';
 
         if (awaitingMusicStart && incomingAlbum && pendingStartPayload && incomingAlbum === pendingStartPayload.album) {
             pendingStartPayload = {
-                payload: payload,
+                projectorData: projectorData,
                 designData: effectiveDesignData,
-                album: incomingAlbum
+                album: incomingAlbum,
             };
             return;
         }
 
         if (isPlayingState && incomingAlbum && incomingAlbum === currentPlayingAlbum) {
-            if (hasAnyDesignData(effectiveDesignData)) {
+            if (hasAnyDesignData(projectorData)) {
                 applyDesignData(effectiveDesignData);
                 startFxVideo();
             }
-            window.InfoWidget.setAlbumAndArtist(payload.album, payload.artist);
+            window.InfoWidget.setAlbumAndArtist(projectorData.tagData.mediaTitle, projectorData.tagData.artist);
+
+            currentTracks = parseTracklist(projectorData.tagData.trackList);
+            renderTracklist();
             return;
         }
 
@@ -575,9 +596,9 @@
         awaitingMusicStart = true;
         awaitingMusicStartToken = token;
         pendingStartPayload = {
-            payload: payload,
+            projectorData: projectorData,
             designData: effectiveDesignData,
-            album: incomingAlbum
+            album: incomingAlbum,
         };
 
         const unknownIndicator = document.getElementById('unknown-tag-indicator');
@@ -706,7 +727,7 @@
             try {
                 const saved = localStorage.getItem('vinyl_projection_active_payload');
                 if (saved) {
-                    const payload = JSON.parse(saved);
+                    const projectorData = ProjectorData_t.fromJson(JSON.parse(saved));
 
                     if (window.LoadingWidget) {
                         window.LoadingWidget.forceHide();
@@ -717,10 +738,10 @@
                         window.LoadingWidget.expandToOverlay = function () { return Promise.resolve(); };
                     }
 
-                    this.startPlayback(payload);
+                    this.startPlayback(projectorData);
 
                     setTimeout(() => {
-                        this.notifyMusicStarted(payload);
+                        this.notifyMusicStarted(projectorData);
                         this.handlePlaybackEvent({ event: 'play', state: 'playing' });
 
                         if (window.LoadingWidget && this._originalScan) {

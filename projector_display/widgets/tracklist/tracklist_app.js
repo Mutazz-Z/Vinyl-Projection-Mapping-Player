@@ -1,11 +1,9 @@
 (function () {
     var currentActiveIndex = 0;
+    var uiTracks = [];
 
     function parseTracklist(str) {
-        return (str || '').split('\n')
-            .map(function (line) { return line.trim(); })
-            .filter(Boolean)
-            .map(function (name) { return { name: name, element: null }; });
+        return (str || '').split('\n').map(function (t) { return t.trim(); }).filter(Boolean);
     }
 
     function renderTracklist(tracks) {
@@ -14,13 +12,22 @@
         container.innerHTML = '';
 
         currentActiveIndex = 0;
+        uiTracks = [];
 
-        (tracks || []).forEach(function (track) {
+        (tracks || []).forEach(function (trackItem) {
+            var trackName = typeof trackItem === 'string' ? trackItem : (trackItem.track || trackItem.name || '');
+            if (!trackName) return;
+
             var el = document.createElement('div');
             el.className = 'track-item';
-            el.textContent = track.name;
+            el.textContent = trackName;
             container.appendChild(el);
-            track.element = el;
+
+            uiTracks.push({
+                name: trackName,
+                element: el,
+                data: trackItem
+            });
         });
     }
 
@@ -28,13 +35,13 @@
         return document.querySelector('#tracklist-widget .tracklist-container');
     }
 
-    function setLinearLayout(tracks) {
-        if (!tracks || tracks.length === 0) return;
+    function setLinearLayout() {
+        if (uiTracks.length === 0) return;
 
         var anchorIndex = currentActiveIndex || 0;
         var yStep = 58;
 
-        tracks.forEach(function (track, index) {
+        uiTracks.forEach(function (track, index) {
             var el = track.element;
             if (!el) return;
 
@@ -53,8 +60,8 @@
         });
     }
 
-    function updateArcCarousel(tracks, activeIndex) {
-        if (!tracks || tracks.length === 0) return;
+    function updateArcCarousel(tracks_ignored, activeIndex) {
+        if (uiTracks.length === 0) return;
 
         var container = getContainer();
 
@@ -62,7 +69,7 @@
             var newIndex = parseInt(activeIndex, 10);
             if (!isNaN(newIndex)) currentActiveIndex = newIndex;
 
-            setLinearLayout(tracks);
+            setLinearLayout();
             return;
         }
 
@@ -75,7 +82,7 @@
         var ARC_RADIUS = 250;
         var ANGLE_STEP = 0.35;
 
-        tracks.forEach(function (track, index) {
+        uiTracks.forEach(function (track, index) {
             var el = track.element;
             if (!el) return;
 
@@ -114,6 +121,7 @@
     function clear() {
         var container = document.getElementById('tracklist-arc');
         if (container) container.innerHTML = '';
+        uiTracks = [];
     }
 
     window.TracklistWidget = {

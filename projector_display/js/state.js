@@ -3,7 +3,13 @@
 // ==========================================
 
 // ── Enum value maps ───────────────────────────────────────────────────────────
-// Mirror of Go/Dart enum definitions — use these instead of raw numbers/bools.
+
+const VisualDataState = Object.freeze({
+    DisplayAlbumVisuals: 0,
+    DisplayErrorMessage: 1,
+    DisplayTagRegistration: 2,
+    DisplayIdle: 3,
+});
 
 const MediaPlaybackState = Object.freeze({
     Playing: 0,
@@ -16,11 +22,9 @@ const MediaPlaybackState = Object.freeze({
     Offline: 7,
 });
 
-const VisualDataState = Object.freeze({
-    DisplayAlbumVisuals: 0,
-    DisplayErrorMessage: 1,
-    DisplayTagRegistration: 2,
-    DisplayIdle: 3,
+const ShelfStatus = Object.freeze({
+    Empty: false,
+    Occupied: true,
 });
 
 const ReaderStatus = Object.freeze({
@@ -28,88 +32,221 @@ const ReaderStatus = Object.freeze({
     Online: true,
 });
 
-const ShelfStatus = Object.freeze({
-    Empty: false,
-    Occupied: true,
-});
+// ── Struct classes ──────────────────────────────────────────────────────────
 
-// ── State key constants ───────────────────────────────────────────────────────
-// Use these with DataSource_Read / DataSource_Write / DataSource_OnChanged.
-//
-//   DataSource_Write(dataSource, Global_ActiveRecordTrackName, trackName);
-//   const value = await DataSource_Read(dataSource, Global_CurrentProjectorData);
-//   DataSource_OnChanged(dataSource, function (variable, data) {
-//       if (variable === Global_MediaPlaybackState) { ... }
-//   });
+class AvailableMediaPlayers_t {
+    constructor({
+        playerID,
+        displayName,
+    }) {
+        this.playerID = playerID;
+        this.displayName = displayName;
+    }
 
-/** @type {string} string (NonVolatile) */
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
+        return new AvailableMediaPlayers_t({
+            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
+            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'player_id': this.playerID,
+            'display_name': this.displayName,
+        };
+    }
+}
+
+class AlbumTrackList_t {
+    constructor({
+        track,
+        duration,
+        coverImage,
+    }) {
+        this.track = track;
+        this.duration = duration;
+        this.coverImage = coverImage;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new AlbumTrackList_t({});
+        return new AlbumTrackList_t({
+            track: typeof json['track'] === 'string' ? json['track'] : '',
+            duration: Number(json['duration'] ?? 0),
+            coverImage: typeof json['cover_image'] === 'string' ? json['cover_image'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'track': this.track,
+            'duration': this.duration,
+            'cover_image': this.coverImage,
+        };
+    }
+}
+
+class VinylRecordTagData_t {
+    constructor({
+        tagUid,
+        itemId,
+        provider,
+        mediaTitle,
+        artist,
+        trackList,
+        coverImage,
+        labelColor,
+        labelImage,
+        outerRingColor,
+        outerRingImage,
+        projectionOverlay,
+    }) {
+        this.tagUid = tagUid;
+        this.itemId = itemId;
+        this.provider = provider;
+        this.mediaTitle = mediaTitle;
+        this.artist = artist;
+        this.trackList = trackList;
+        this.coverImage = coverImage;
+        this.labelColor = labelColor;
+        this.labelImage = labelImage;
+        this.outerRingColor = outerRingColor;
+        this.outerRingImage = outerRingImage;
+        this.projectionOverlay = projectionOverlay;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new VinylRecordTagData_t({});
+        return new VinylRecordTagData_t({
+            tagUid: typeof json['tag_uid'] === 'string' ? json['tag_uid'] : '',
+            itemId: typeof json['item_id'] === 'string' ? json['item_id'] : '',
+            provider: typeof json['provider'] === 'string' ? json['provider'] : '',
+            mediaTitle: typeof json['media_title'] === 'string' ? json['media_title'] : '',
+            artist: typeof json['artist'] === 'string' ? json['artist'] : '',
+            trackList: Array.isArray(json['track_list']) ? json['track_list'].map(AlbumTrackList_t.fromJson) : [],
+            coverImage: typeof json['cover_image'] === 'string' ? json['cover_image'] : '',
+            labelColor: typeof json['label_color'] === 'string' ? json['label_color'] : '',
+            labelImage: typeof json['label_image'] === 'string' ? json['label_image'] : '',
+            outerRingColor: typeof json['outer_ring_color'] === 'string' ? json['outer_ring_color'] : '',
+            outerRingImage: typeof json['outer_ring_image'] === 'string' ? json['outer_ring_image'] : '',
+            projectionOverlay: typeof json['projection_overlay'] === 'string' ? json['projection_overlay'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'tag_uid': this.tagUid,
+            'item_id': this.itemId,
+            'provider': this.provider,
+            'media_title': this.mediaTitle,
+            'artist': this.artist,
+            'track_list': this.trackList.map(function(e) { return e.toJson(); }),
+            'cover_image': this.coverImage,
+            'label_color': this.labelColor,
+            'label_image': this.labelImage,
+            'outer_ring_color': this.outerRingColor,
+            'outer_ring_image': this.outerRingImage,
+            'projection_overlay': this.projectionOverlay,
+        };
+    }
+}
+
+class ProjectorData_t {
+    constructor({
+        tagData,
+        visualDataState,
+        registerTagUrl,
+        errorMessage,
+    }) {
+        this.tagData = tagData;
+        this.visualDataState = visualDataState;
+        this.registerTagUrl = registerTagUrl;
+        this.errorMessage = errorMessage;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new ProjectorData_t({});
+        return new ProjectorData_t({
+            tagData: VinylRecordTagData_t.fromJson(json['tag_data'] ?? {}),
+            visualDataState: Number(json['visual_data_state'] ?? 0),
+            registerTagUrl: typeof json['register_tag_url'] === 'string' ? json['register_tag_url'] : '',
+            errorMessage: typeof json['error_message'] === 'string' ? json['error_message'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'tag_data': this.tagData,
+            'visual_data_state': this.visualDataState,
+            'register_tag_url': this.registerTagUrl,
+            'error_message': this.errorMessage,
+        };
+    }
+}
+
+class AlbumsInLibrary_t {
+    constructor({
+        itemId,
+        provider,
+        mediaTitle,
+        artist,
+        coverImage,
+    }) {
+        this.itemId = itemId;
+        this.provider = provider;
+        this.mediaTitle = mediaTitle;
+        this.artist = artist;
+        this.coverImage = coverImage;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new AlbumsInLibrary_t({});
+        return new AlbumsInLibrary_t({
+            itemId: typeof json['item_id'] === 'string' ? json['item_id'] : '',
+            provider: typeof json['provider'] === 'string' ? json['provider'] : '',
+            mediaTitle: typeof json['media_title'] === 'string' ? json['media_title'] : '',
+            artist: typeof json['artist'] === 'string' ? json['artist'] : '',
+            coverImage: typeof json['cover_image'] === 'string' ? json['cover_image'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'item_id': this.itemId,
+            'provider': this.provider,
+            'media_title': this.mediaTitle,
+            'artist': this.artist,
+            'cover_image': this.coverImage,
+        };
+    }
+}
+
+// ── State key constants ─────────────────────────────────────────────────────
+
 const Global_MusicAssistantUrl = 'Global_MusicAssistantUrl';
-
-/** @type {string} string (NonVolatile) */
 const Global_MusicAssistantToken = 'Global_MusicAssistantToken';
-
-/** @type {string} string (NonVolatile) */
 const Global_MusicAssistantTargetPlayerId = 'Global_MusicAssistantTargetPlayerId';
-
-/** @type {string} string (NonVolatile) */
 const Global_FlutterWebUrl = 'Global_FlutterWebUrl';
-
-/** @type {string} string (NonVolatile) */
 const Global_FlutterWebPort = 'Global_FlutterWebPort';
-
-/** @type {string} string (NonVolatile) */
 const Global_MqttBrokerHostAddress = 'Global_MqttBrokerHostAddress';
-
-/** @type {string} number (NonVolatile) */
 const Global_MqttWebSocketPort = 'Global_MqttWebSocketPort';
-
-/** @type {string} number (NonVolatile) */
 const Global_MqttTcpPort = 'Global_MqttTcpPort';
-
-/** @type {string} string (Volatile) */
 const Global_LastKnownUidScanned = 'Global_LastKnownUidScanned';
-
-/** @type {string} string (Volatile) */
 const Global_LastUnknownUidScanned = 'Global_LastUnknownUidScanned';
-
-/** @type {string} ShelfStatus_t (Volatile) */
 const Global_CurrentShelfStatus = 'Global_CurrentShelfStatus';
-
-/** @type {string} ReaderStatus_t (Volatile) */
 const Global_ReaderConnectionStatus = 'Global_ReaderConnectionStatus';
-
-/** @type {string} ProjectorData_t (Volatile) */
-const Global_CurrentProjectorData = 'Global_CurrentProjectorData';
-
-/** @type {string} * (Volatile) */
+const Global_CurrentProjectorData = { key: 'Global_CurrentProjectorData', fromJson: ProjectorData_t.fromJson };
 const Global_ProjectorHeartbeatSignal = 'Global_ProjectorHeartbeatSignal';
-
-/** @type {string} string (Volatile) */
 const Global_DefinedProjectorErrorMessage = 'Global_DefinedProjectorErrorMessage';
-
-/** @type {string} * (Volatile) */
 const Global_ProjectorHeartbeat = 'Global_ProjectorHeartbeat';
-
-/** @type {string} number (NonVolatile) */
 const Global_TargetDisplayWidthInPixels = 'Global_TargetDisplayWidthInPixels';
-
-/** @type {string} number (NonVolatile) */
 const Global_TargetDisplayHeightInPixels = 'Global_TargetDisplayHeightInPixels';
-
-/** @type {string} string (NonVolatile) */
 const Global_CurrentMaptasticProjectorPositions = 'Global_CurrentMaptasticProjectorPositions';
-
-/** @type {string} string (NonVolatile) */
 const Global_SavedMaptasticProjectorPositions = 'Global_SavedMaptasticProjectorPositions';
-
-/** @type {string} MediaPlaybackState_t (Volatile) */
 const Global_MediaPlaybackState = 'Global_MediaPlaybackState';
-
-/** @type {string} string (Volatile) */
 const Global_ActiveRecordTrackName = 'Global_ActiveRecordTrackName';
-
-/** @type {string} number (Volatile) */
 const Global_ActiveTrackProgressInSeconds = 'Global_ActiveTrackProgressInSeconds';
-
-/** @type {string} number (Volatile) */
 const Global_ActiveTrackTotalDurationInSeconds = 'Global_ActiveTrackTotalDurationInSeconds';
+
