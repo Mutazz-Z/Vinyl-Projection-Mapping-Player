@@ -132,6 +132,21 @@
         window.TracklistWidget.setLinearLayout(currentTracks);
     }
 
+    function updateQueueList(queueItemsArray) {
+        if (!Array.isArray(queueItemsArray)) return;
+
+        currentTracks = queueItemsArray;
+
+        renderTracklist();
+
+        const tracklistContainer = getTracklistContainer();
+        if (tracklistContainer && tracklistContainer.classList.contains('carousel')) {
+            updateArcCarousel(currentActiveTrackIndex);
+        } else {
+            setTracklistLinearLayout();
+        }
+    }
+
     function clampTrackIndex(index) {
         if (!currentTracks || currentTracks.length === 0) return 0;
         var n = Number(index);
@@ -288,7 +303,6 @@
             if (name === trackName) return i;
         }
 
-        // Second pass: substring match (Updated for Array of Strings)
         for (var j = 0; j < currentTracks.length; j++) {
             var candidate = typeof currentTracks[j] === 'string' ? currentTracks[j].trim().toLowerCase() : '';
             if (!candidate) continue;
@@ -363,8 +377,9 @@
             );
             window.ProgressWidget.show();
 
-            currentTracks = parseTracklist(startPayload.projectorData.tagData.trackList);
-            renderTracklist();
+            if (!currentTracks || currentTracks.length === 0) {
+                currentTracks = parseTracklist(startPayload.projectorData.tagData.trackList);
+            } renderTracklist();
             currentActiveTrackIndex = 0;
 
             const tracklistContainer = getTracklistContainer();
@@ -584,7 +599,9 @@
             }
             window.InfoWidget.setAlbumAndArtist(projectorData.tagData.mediaTitle, projectorData.tagData.artist);
 
-            currentTracks = parseTracklist(projectorData.tagData.trackList);
+            if (!currentTracks || currentTracks.length === 0) {
+                currentTracks = parseTracklist(projectorData.tagData.trackList);
+            }
             renderTracklist();
             return;
         }
@@ -718,6 +735,7 @@
         showPlaybackError: showPlaybackError,
         handleProgress: handleProgress,
         handlePlaybackEvent: handlePlaybackEvent,
+        updateQueueList: updateQueueList,
         notifyMusicStarted: function (payload) {
             if (awaitingMusicStart && awaitingMusicStartToken === playbackToken) {
                 resolveAwaitingMusicStart(payload || null);

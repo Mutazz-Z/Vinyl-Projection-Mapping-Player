@@ -69,8 +69,15 @@
                         ));
                         break;
 
-                    case Global_ProjectorHeartbeatSignal:
+                    case Global_ProjectorHeartbeatSignal.key:
                         handleMappingCommand(parseJsonIfString(data), dataSource);
+                        break;
+                    case Global_CurrentMediaPlaybackQueue.key:
+                        if (data && Array.isArray(data.items)) {
+                            if (window.ProjectorPlayback && window.ProjectorPlayback.updateQueueList) {
+                                window.ProjectorPlayback.updateQueueList(data.items);
+                            }
+                        }
                         break;
                 }
             });

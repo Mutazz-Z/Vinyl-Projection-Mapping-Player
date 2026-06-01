@@ -22,42 +22,17 @@ const MediaPlaybackState = Object.freeze({
     Offline: 7,
 });
 
-const ShelfStatus = Object.freeze({
-    Empty: false,
-    Occupied: true,
-});
-
 const ReaderStatus = Object.freeze({
     Offline: false,
     Online: true,
 });
 
+const ShelfStatus = Object.freeze({
+    Empty: false,
+    Occupied: true,
+});
+
 // ── Struct classes ──────────────────────────────────────────────────────────
-
-class AvailableMediaPlayers_t {
-    constructor({
-        playerID,
-        displayName,
-    }) {
-        this.playerID = playerID;
-        this.displayName = displayName;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
-        return new AvailableMediaPlayers_t({
-            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
-            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
-        });
-    }
-
-    toJson() {
-        return {
-            'player_id': this.playerID,
-            'display_name': this.displayName,
-        };
-    }
-}
 
 class AlbumTrackList_t {
     constructor({
@@ -186,6 +161,27 @@ class ProjectorData_t {
     }
 }
 
+class QueueList_t {
+    constructor({
+        tracks,
+    }) {
+        this.tracks = tracks;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new QueueList_t({});
+        return new QueueList_t({
+            tracks: Array.isArray(json['tracks']) ? json['tracks'] : [],
+        });
+    }
+
+    toJson() {
+        return {
+            'tracks': this.tracks,
+        };
+    }
+}
+
 class AlbumsInLibrary_t {
     constructor({
         itemId,
@@ -223,6 +219,31 @@ class AlbumsInLibrary_t {
     }
 }
 
+class AvailableMediaPlayers_t {
+    constructor({
+        playerID,
+        displayName,
+    }) {
+        this.playerID = playerID;
+        this.displayName = displayName;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
+        return new AvailableMediaPlayers_t({
+            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
+            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'player_id': this.playerID,
+            'display_name': this.displayName,
+        };
+    }
+}
+
 // ── State key constants ─────────────────────────────────────────────────────
 
 const Global_MusicAssistantUrl = 'Global_MusicAssistantUrl';
@@ -246,6 +267,7 @@ const Global_TargetDisplayHeightInPixels = 'Global_TargetDisplayHeightInPixels';
 const Global_CurrentMaptasticProjectorPositions = 'Global_CurrentMaptasticProjectorPositions';
 const Global_SavedMaptasticProjectorPositions = 'Global_SavedMaptasticProjectorPositions';
 const Global_MediaPlaybackState = 'Global_MediaPlaybackState';
+const Global_CurrentMediaPlaybackQueue = { key: 'Global_CurrentMediaPlaybackQueue', fromJson: QueueList_t.fromJson };
 const Global_ActiveRecordTrackName = 'Global_ActiveRecordTrackName';
 const Global_ActiveTrackProgressInSeconds = 'Global_ActiveTrackProgressInSeconds';
 const Global_ActiveTrackTotalDurationInSeconds = 'Global_ActiveTrackTotalDurationInSeconds';

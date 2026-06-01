@@ -51,9 +51,29 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 	return stopMediaError
 }
 
+func (instance *SystemMediaPlayer_t) queueListsDontMatch(previousQueue, currentQueue typedefs.QueueList_t) bool {
+	if len(previousQueue.Tracks) != len(currentQueue.Tracks) {
+		return true
+	}
+
+	for i := range previousQueue.Tracks {
+		if previousQueue.Tracks[i] != currentQueue.Tracks[i] {
+			return true
+		}
+	}
+	return false
+}
+
 func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
 	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
+	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
 
+	var previousMediaQueue typedefs.QueueList_t
+	utils.Read(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, &previousMediaQueue)
+
+	if instance.queueListsDontMatch(previousMediaQueue, currentMediaQueue) {
+		utils.Write(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, currentMediaQueue)
+	}
 	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, mediaPlayerStatus.State)
 	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
 	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)

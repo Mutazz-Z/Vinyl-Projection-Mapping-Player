@@ -110,6 +110,11 @@ variables:
     type: typedefs.MediaPlaybackState_t
     default: "typedefs.PlayerState_Idle"
 
+  - name: CurrentMediaPlaybackQueue
+    storage: Volatile
+    type: typedefs.QueueList_t
+    default: "typedefs.QueueList_t{Tracks: []string{}}"
+
   - name: ActiveRecordTrackName
     storage: Volatile
     type: string

@@ -262,6 +262,17 @@ func init() {
 	}
 }
 
+// ── CurrentMediaPlaybackQueue ──────────────────────────────────
+
+var Global_CurrentMediaPlaybackQueue = TypedKey[typedefs.QueueList_t]{Key: "Global_CurrentMediaPlaybackQueue"}
+
+func init() {
+	StateRegistry[Global_CurrentMediaPlaybackQueue.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.QueueList_t(typedefs.QueueList_t{Tracks: []string{}}),
+	}
+}
+
 // ── ActiveRecordTrackName ──────────────────────────────────
 
 var Global_ActiveRecordTrackName = TypedKey[string]{Key: "Global_ActiveRecordTrackName"}
