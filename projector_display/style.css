@@ -24,6 +24,7 @@
     --progress-h: 48px;
     --viz-depth: 72px;
     --info-h: 110px;
+    --lyrics-w: 450px;
 
     --accent: #ffffff;
     --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -147,6 +148,24 @@ body.mapping-mode #projection-group {
     height: var(--overlay-size);
     z-index: 1;
     pointer-events: none;
+}
+
+#lyrics-widget {
+    top: 0;
+    left: calc(-1 * var(--lyrics-w) - 14px);
+    width: var(--lyrics-w);
+    height: var(--overlay-size);
+    z-index: 0;
+    overflow: hidden;
+    display: none;
+    transform: translateX(100%);
+    opacity: 1;
+    transition: transform 0.42s cubic-bezier(0.33, 1, 0.68, 1);
+    will-change: transform;
+}
+
+#lyrics-widget.visible {
+    transform: translateX(0);
 }
 
 #qrcode-widget {

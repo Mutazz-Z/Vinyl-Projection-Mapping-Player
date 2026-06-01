@@ -273,14 +273,25 @@ func init() {
 	}
 }
 
-// ── ActiveRecordTrackName ──────────────────────────────────
+// ── ActiveTrack ──────────────────────────────────
 
-var Global_ActiveRecordTrackName = TypedKey[string]{Key: "Global_ActiveRecordTrackName"}
+var Global_ActiveTrack = TypedKey[typedefs.ActiveTrack_t]{Key: "Global_ActiveTrack"}
 
 func init() {
-	StateRegistry[Global_ActiveRecordTrackName.Key] = StateMetadata{
+	StateRegistry[Global_ActiveTrack.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: string("Unknown"),
+		DefaultData: typedefs.ActiveTrack_t(typedefs.ActiveTrack_t{}),
+	}
+}
+
+// ── ActiveTrackLyrics ──────────────────────────────────
+
+var Global_ActiveTrackLyrics = TypedKey[typedefs.TrackLyrics_t]{Key: "Global_ActiveTrackLyrics"}
+
+func init() {
+	StateRegistry[Global_ActiveTrackLyrics.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.TrackLyrics_t(typedefs.TrackLyrics_t{}),
 	}
 }
 

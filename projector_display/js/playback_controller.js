@@ -18,6 +18,11 @@
     let awaitingMusicStart = false;
     let awaitingMusicStartToken = 0;
     let pendingStartPayload = null;
+    let hasLyrics = false;
+    let lyricsRevealUnlocked = false;
+    let latestLyricsData = null;
+    let lyricsHideInProgress = false;
+    let lyricsHiddenCallbacks = [];
 
     const RECORD_SLIDE_MS = 700;
     const TRACKLIST_FADE_MS = 220;
@@ -161,12 +166,90 @@
         window.TracklistWidget.updateArcCarousel(currentTracks, currentActiveTrackIndex);
     }
 
+    function showLyricsWidget() {
+        const el = document.getElementById('lyrics-widget');
+        if (!el) return;
+
+        lyricsHideInProgress = false;
+        lyricsHiddenCallbacks = [];
+        el.ontransitionend = null;
+
+        el.style.display = 'block';
+        void el.offsetWidth;
+        el.classList.add('visible');
+    }
+
+    function hideLyricsWidget(onHidden) {
+        const el = document.getElementById('lyrics-widget');
+        if (onHidden) {
+            lyricsHiddenCallbacks.push(onHidden);
+        }
+
+        if (!el) {
+            while (lyricsHiddenCallbacks.length > 0) {
+                const callback = lyricsHiddenCallbacks.shift();
+                if (callback) callback();
+            }
+            return;
+        }
+
+        if (el.style.display === 'none') {
+            el.style.display = 'none';
+            el.ontransitionend = null;
+            while (lyricsHiddenCallbacks.length > 0) {
+                const callback = lyricsHiddenCallbacks.shift();
+                if (callback) callback();
+            }
+            return;
+        }
+
+        if (lyricsHideInProgress) {
+            return;
+        }
+
+        lyricsHideInProgress = true;
+
+        el.ontransitionend = function (event) {
+            if (!event || event.propertyName !== 'transform') return;
+            if (el.classList.contains('visible')) return;
+            el.style.display = 'none';
+            el.ontransitionend = null;
+            lyricsHideInProgress = false;
+            while (lyricsHiddenCallbacks.length > 0) {
+                const callback = lyricsHiddenCallbacks.shift();
+                if (callback) callback();
+            }
+        };
+
+        el.classList.remove('visible');
+    }
+
     function startVisualizer() {
+        if (hasLyrics) return;
         window.VisualizerWidget.start();
     }
 
     function stopVisualizer() {
         window.VisualizerWidget.stop();
+    }
+
+    function syncLyricsPresentation() {
+        if (!isPlayingState || awaitingMusicStart || !lyricsRevealUnlocked) {
+            hideLyricsWidget();
+            return;
+        }
+
+        if (hasLyrics && latestLyricsData) {
+            stopVisualizer();
+            showLyricsWidget();
+            if (window.LyricsWidget) window.LyricsWidget.updateLyrics(latestLyricsData);
+            return;
+        }
+
+        hideLyricsWidget(function () {
+            if (window.LyricsWidget) window.LyricsWidget.clear();
+        });
+        startVisualizer();
     }
 
     function startFxVideo() {
@@ -399,6 +482,8 @@
                 if (window.LoadingWidget && window.LoadingWidget.fadeOut) {
                     window.LoadingWidget.fadeOut();
                 }
+                lyricsRevealUnlocked = true;
+                syncLyricsPresentation();
             }, TRACKLIST_FADE_MS + RECORD_SLIDE_MS + 80);
 
             isPlayingState = true;
@@ -432,6 +517,8 @@
             continuePlaybackAnimations(token);
             isPlayingState = true;
             currentPlayingAlbum = startPayload.album;
+            lyricsRevealUnlocked = true;
+            syncLyricsPresentation();
         });
     }
 
@@ -477,6 +564,7 @@
             }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
         } else {
             window.TracklistWidget.clear();
+            if (window.LyricsWidget) window.LyricsWidget.clear();
             currentTracks = [];
             currentActiveTrackIndex = 0;
         }
@@ -507,6 +595,12 @@
 
         stopVisualizer();
         stopFxVideo();
+        hasLyrics = false;
+        latestLyricsData = null;
+        lyricsRevealUnlocked = false;
+        hideLyricsWidget(function () {
+            if (window.LyricsWidget) window.LyricsWidget.clear();
+        });
 
         if (!isError && window.ContextMessageWidget) {
             window.ContextMessageWidget.hide();
@@ -609,6 +703,8 @@
         isPlayingState = false;
         const token = ++playbackToken;
         clearTransitionTimers();
+        lyricsRevealUnlocked = false;
+        latestLyricsData = null;
 
         awaitingMusicStart = true;
         awaitingMusicStartToken = token;
@@ -659,6 +755,10 @@
 
         stopVisualizer();
         stopFxVideo();
+        hasLyrics = false;
+        hideLyricsWidget(function () {
+            if (window.LyricsWidget) window.LyricsWidget.clear();
+        });
 
         if (window.LoadingWidget && window.LoadingWidget.beginScanLoading) {
             window.LoadingWidget.beginScanLoading();
@@ -691,6 +791,7 @@
         if (!payload.duration || payload.duration === 0) return;
 
         window.ProgressWidget.update(payload.position, payload.duration);
+        if (window.LyricsWidget) window.LyricsWidget.syncProgress(payload.position);
     }
 
     function handlePlaybackEvent(payload) {
@@ -720,11 +821,11 @@
         if (eventName === 'play' || stateName === 'playing') {
             if (window.OverlayWidget && window.OverlayWidget.showStatusIcon) window.OverlayWidget.showStatusIcon('play');
             if (window.RecordWidget && window.RecordWidget.setSpinState) window.RecordWidget.setSpinState('running');
-            if (window.VisualizerWidget && window.VisualizerWidget.start) window.VisualizerWidget.start();
+            startVisualizer();
         } else if (eventName === 'pause' || stateName === 'paused') {
             if (window.OverlayWidget && window.OverlayWidget.showStatusIcon) window.OverlayWidget.showStatusIcon('pause');
             if (window.RecordWidget && window.RecordWidget.setSpinState) window.RecordWidget.setSpinState('paused');
-            if (window.VisualizerWidget && window.VisualizerWidget.pause) window.VisualizerWidget.pause();
+            if (!hasLyrics && window.VisualizerWidget && window.VisualizerWidget.pause) window.VisualizerWidget.pause();
         }
     }
 
@@ -736,6 +837,12 @@
         handleProgress: handleProgress,
         handlePlaybackEvent: handlePlaybackEvent,
         updateQueueList: updateQueueList,
+        updateLyrics: function (lyricsData) {
+            const hasLines = lyricsData && Array.isArray(lyricsData.lines) && lyricsData.lines.length > 0;
+            hasLyrics = hasLines;
+            latestLyricsData = hasLines ? lyricsData : null;
+            syncLyricsPresentation();
+        },
         notifyMusicStarted: function (payload) {
             if (awaitingMusicStart && awaitingMusicStartToken === playbackToken) {
                 resolveAwaitingMusicStart(payload || null);

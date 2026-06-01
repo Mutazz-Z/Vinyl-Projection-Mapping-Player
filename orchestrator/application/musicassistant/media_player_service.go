@@ -6,6 +6,7 @@ package musicassistant
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -64,9 +65,49 @@ func (instance *SystemMediaPlayer_t) queueListsDontMatch(previousQueue, currentQ
 	return false
 }
 
+func (instance *SystemMediaPlayer_t) activeTracksDontMatch(previousTrack, currentTrack typedefs.ActiveTrack_t) bool {
+	return previousTrack != currentTrack
+}
+
+func (instance *SystemMediaPlayer_t) shouldRefreshLyrics(previousTrack, currentTrack typedefs.ActiveTrack_t, previousLyrics typedefs.TrackLyrics_t) bool {
+	if currentTrack.TrackName == "" {
+		return false
+	}
+
+	if instance.activeTracksDontMatch(previousTrack, currentTrack) {
+		return true
+	}
+
+	if len(previousLyrics.Lines) == 0 {
+		return true
+	}
+
+	return false
+}
+
 func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
 	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
 	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
+
+	var previousTrack typedefs.ActiveTrack_t
+	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &previousTrack)
+
+	var previousLyrics typedefs.TrackLyrics_t
+	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrackLyrics, &previousLyrics)
+
+	if instance.activeTracksDontMatch(previousTrack, mediaPlayerStatus.ActiveTrack) {
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackLyrics, typedefs.TrackLyrics_t{})
+	}
+
+	if instance.shouldRefreshLyrics(previousTrack, mediaPlayerStatus.ActiveTrack, previousLyrics) {
+		trackLyrics, lyricsError := instance.getTrackLyrics(mediaPlayerStatus.ActiveTrack.ItemID, mediaPlayerStatus.ActiveTrack.Provider)
+		if lyricsError != nil {
+			fmt.Printf("Lyrics fetch failed for track '%s': %v\n", mediaPlayerStatus.ActiveTrack.TrackName, lyricsError)
+		} else {
+			fmt.Printf("Lyrics refreshed for track '%s' with %d line(s).\n", mediaPlayerStatus.ActiveTrack.TrackName, len(trackLyrics.Lines))
+			utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackLyrics, trackLyrics)
+		}
+	}
 
 	var previousMediaQueue typedefs.QueueList_t
 	utils.Read(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, &previousMediaQueue)
@@ -78,8 +119,8 @@ func (instance *SystemMediaPlayer_t) updateStatesWhilePlayingMedia() {
 	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
 	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
 
-	if mediaPlayerStatus.TrackName != "" {
-		utils.Write(instance._private.systemDataSource, core.Global_ActiveRecordTrackName, mediaPlayerStatus.TrackName)
+	if mediaPlayerStatus.ActiveTrack.TrackName != "" {
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, mediaPlayerStatus.ActiveTrack)
 	}
 }
 

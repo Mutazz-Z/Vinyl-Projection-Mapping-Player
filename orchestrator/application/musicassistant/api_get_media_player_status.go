@@ -18,6 +18,10 @@ type RawMediaPlayerStatus_t struct {
 	CurrentItem struct {
 		Duration float64 `mapstructure:"duration"`
 		Name     string  `mapstructure:"name"`
+		MediaItem struct {
+			ItemID   string `mapstructure:"item_id"`
+			Provider string `mapstructure:"provider"`
+		} `mapstructure:"media_item"`
 	} `mapstructure:"current_item"`
 }
 
@@ -25,7 +29,7 @@ type MediaPlayerStatus_t struct {
 	State         typedefs.MediaPlaybackState_t `json:"state"`
 	ElapsedTime   float64                       `json:"elapsed_time"`
 	TotalDuration float64                       `json:"total_duration"`
-	TrackName     string                        `json:"track_name"`
+	ActiveTrack typedefs.ActiveTrack_t `json:"active_track"`
 }
 
 func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier string) MediaPlayerStatus_t {
@@ -47,7 +51,11 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 		State:         parsePlayerState(parsedState.State),
 		ElapsedTime:   parsedState.ElapsedTime,
 		TotalDuration: parsedState.CurrentItem.Duration,
-		TrackName:     parsedState.CurrentItem.Name,
+		ActiveTrack: typedefs.ActiveTrack_t{
+			TrackName: parsedState.CurrentItem.Name,
+			ItemID:    parsedState.CurrentItem.MediaItem.ItemID,
+			Provider:  parsedState.CurrentItem.MediaItem.Provider,
+		},
 	}
 }
 

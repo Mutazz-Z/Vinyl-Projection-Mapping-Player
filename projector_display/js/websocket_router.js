@@ -34,12 +34,12 @@
                         }
                         break;
 
-                    case Global_ActiveRecordTrackName:
-                        currentPlaybackState.track_name = data;
+                    case Global_ActiveTrack.key:
+                        currentPlaybackState.track_name = data.track_name;
                         if (window.ProjectorPlayback?.handlePlaybackEvent) {
                             window.ProjectorPlayback.handlePlaybackEvent({
                                 event: 'track_changed',
-                                track_name: data,
+                                track_name: data.track_name,
                             });
                         }
                         break;
@@ -73,10 +73,16 @@
                         handleMappingCommand(parseJsonIfString(data), dataSource);
                         break;
                     case Global_CurrentMediaPlaybackQueue.key:
-                        if (data && Array.isArray(data.items)) {
+                        if (data && Array.isArray(data.tracks)) {
                             if (window.ProjectorPlayback && window.ProjectorPlayback.updateQueueList) {
-                                window.ProjectorPlayback.updateQueueList(data.items);
+                                window.ProjectorPlayback.updateQueueList(data.tracks);
                             }
+                        }
+                        break;
+                    case Global_ActiveTrackLyrics.key:
+                        if (window.ProjectorPlayback && window.ProjectorPlayback.updateLyrics) {
+                            const typedLyrics = Global_ActiveTrackLyrics.fromJson(parseJsonIfString(data));
+                            window.ProjectorPlayback.updateLyrics(typedLyrics);
                         }
                         break;
                 }
@@ -93,6 +99,11 @@
                 const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
                 if (playbackState && window.ProjectorPlayback?.handlePlaybackEvent) {
                     window.ProjectorPlayback.handlePlaybackEvent({ state: playbackState });
+                }
+
+                const initialLyrics = await DataSource_Read(dataSource, Global_ActiveTrackLyrics);
+                if (window.ProjectorPlayback?.updateLyrics) {
+                    window.ProjectorPlayback.updateLyrics(initialLyrics);
                 }
             } catch (error) {
                 console.warn('Could not fetch initial projector state. Waiting for next event...', error);
@@ -139,6 +150,18 @@
             case 'ping':
                 announcePresence(dataSource);
                 break;
+        }
+    }
+
+    function parseJsonIfString(value) {
+        if (typeof value !== 'string') {
+            return value;
+        }
+
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            return value;
         }
     }
 

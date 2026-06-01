@@ -115,10 +115,15 @@ variables:
     type: typedefs.QueueList_t
     default: "typedefs.QueueList_t{Tracks: []string{}}"
 
-  - name: ActiveRecordTrackName
+  - name: ActiveTrack
     storage: Volatile
-    type: string
-    default: '"Unknown"'
+    type: typedefs.ActiveTrack_t
+    default: "typedefs.ActiveTrack_t{}"
+
+  - name: ActiveTrackLyrics
+    storage: Volatile
+    type: typedefs.TrackLyrics_t
+    default: "typedefs.TrackLyrics_t{}"
 
   - name: ActiveTrackProgressInSeconds
     storage: Volatile

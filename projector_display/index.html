@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="widgets/overlay/overlay.css">
     <link rel="stylesheet" href="widgets/loading/loading.css">
     <link rel="stylesheet" href="widgets/info/info.css">
+    <link rel="stylesheet" href="widgets/lyrics/lyrics.css">
     <link rel="stylesheet" href="widgets/record/record.css">
     <link rel="stylesheet" href="widgets/tracklist/tracklist.css">
     <link rel="stylesheet" href="widgets/progress/progress.css">
@@ -31,6 +32,7 @@
         <div id="tracklist-widget" class="widget-slot" data-widget="widgets/tracklist/tracklist.html"></div>
         <div id="progress-widget" class="widget-slot" data-widget="widgets/progress/progress.html"></div>
         <div id="visualizer-widget" class="widget-slot" data-widget="widgets/visualizer/visualizer.html"></div>
+        <div id="lyrics-widget" class="widget-slot" data-widget="widgets/lyrics/lyrics.html"></div>
         <div id="context-message-widget" class="widget-slot" data-widget="widgets/context_message/context_message.html">
         </div>
         <div id="qrcode-widget" class="widget-slot" data-widget="widgets/qrcode/qrcode.html"></div>
@@ -67,6 +69,7 @@
                 await loadScript('widgets/visualizer/visualizer_app.js');
                 await loadScript('widgets/overlay/overlay_app.js');
                 await loadScript('widgets/loading/loading_app.js');
+                await loadScript('widgets/lyrics/lyrics_app.js');
                 await loadScript('widgets/record/record_app.js');
                 await loadScript('widgets/info/info_app.js');
                 await loadScript('widgets/progress/progress_app.js');
