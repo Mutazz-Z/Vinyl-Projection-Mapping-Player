@@ -63,6 +63,12 @@
                 setBootStatus('BOOT: Loading scripts...');
 
                 await loadScript('js/state.js');
+                await loadScript('widgets/progress/progress_controller.js');
+                await loadScript('js/track_resolver.js');
+                await loadScript('widgets/lyrics/lyrics_controller.js');
+                await loadScript('widgets/tracklist/tracklist_controller.js');
+                await loadScript('widgets/record/record_controller.js');
+
                 await loadScript('js/mapping.js');
                 await loadScript('js/qrcode.min.js');
                 await loadScript('widgets/tracklist/tracklist_app.js');
