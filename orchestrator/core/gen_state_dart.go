@@ -245,7 +245,6 @@ func writeBoolEnum(buf *bytes.Buffer, name string, consts [2]string) {
 	buf.WriteString("}\n\n")
 }
 
-
 func main() {
 	typedefsDir := "../typedefs"
 	registryPath := "registry.yaml"
@@ -361,11 +360,11 @@ func main() {
 							f.DartName, f.JsonKey))
 					case f.DartType == "int":
 						dartClasses.WriteString(fmt.Sprintf(
-							"      %s: json['%s'] ?? 0,\n",
+							"      %s: int.tryParse(json['%s']?.toString() ?? '') ?? 0,\n",
 							f.DartName, f.JsonKey))
 					case f.DartType == "double":
 						dartClasses.WriteString(fmt.Sprintf(
-							"      %s: (json['%s'] ?? 0.0).toDouble(),\n",
+							"      %s: double.tryParse(json['%s']?.toString() ?? '') ?? 0.0,\n",
 							f.DartName, f.JsonKey))
 					case f.DartType == "bool":
 						dartClasses.WriteString(fmt.Sprintf(

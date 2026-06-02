@@ -768,31 +768,6 @@
         return undefined;
     }
 
-    function detectHijack(payload) {
-        if (!isPlayingState || !payload) return false;
-
-        const trackName = typeof payload.track_name === 'string' ? payload.track_name.trim() : '';
-        const incomingAlbum = typeof payload.album === 'string' ? payload.album.trim() :
-            (typeof payload.album_name === 'string' ? payload.album_name.trim() : '');
-
-        if (incomingAlbum && currentPlayingAlbum) {
-            const incLower = incomingAlbum.toLowerCase();
-            const currLower = currentPlayingAlbum.toLowerCase();
-            if (incLower.indexOf(currLower) === -1 && currLower.indexOf(incLower) === -1) {
-                return "Playback Error\n\nTarget device is playing a different album";
-            }
-        }
-
-        if (trackName && currentTracks && currentTracks.length > 0) {
-            const resolvedIdx = resolveTrackIndexFromPayload(payload);
-            if (resolvedIdx === undefined) {
-                return "Playback Error\n\nTarget device is playing a different track";
-            }
-        }
-
-        return false;
-    }
-
     function resolveTrackIndexFromEventFallback(payload) {
         if (!payload || !payload.event) return undefined;
         var eventName = String(payload.event).toLowerCase();
@@ -1156,12 +1131,6 @@
 
         if (!isPlayingState) return;
 
-        const hijackErrorMsg = detectHijack(payload);
-        if (hijackErrorMsg) {
-            showPlaybackError(hijackErrorMsg);
-            return;
-        }
-
         var activeTrackIndex = resolveTrackIndexFromPayload(payload);
         if (activeTrackIndex === undefined) {
             activeTrackIndex = resolveTrackIndexFromEventFallback(payload);
@@ -1185,12 +1154,6 @@
     function handlePlaybackEvent(payload) {
         if (!payload) return;
         if (!isPlayingState && !awaitingMusicStart) return;
-
-        const hijackErrorMsg = detectHijack(payload);
-        if (hijackErrorMsg) {
-            showPlaybackError(hijackErrorMsg);
-            return;
-        }
 
         const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
         const normalizedState = normalizeMediaPlaybackState(payload.state);

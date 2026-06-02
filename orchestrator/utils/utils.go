@@ -5,6 +5,7 @@
 package utils
 
 import (
+	"fmt"
 	"net"
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
@@ -27,7 +28,7 @@ func ListenToDataSourceEvents(dsChannel <-chan database.Event, handler func(args
  * Generates a URI for a media item based on its ID and provider
  */
 func GenerateUriForMedia(itemId string, provider string) string {
-	return provider + "://album/" + itemId
+	return fmt.Sprintf("%s://album/%s", provider, itemId)
 }
 
 /*
