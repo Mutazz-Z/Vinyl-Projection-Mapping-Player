@@ -81,9 +81,9 @@ func (instance *DisplayApplicationService) onDataSourceChanged(dataSourceChanged
 
 		case core.Global_CurrentShelfStatus.Key:
 			shelfStatus := args.Data.(typedefs.ShelfStatus_t)
+			
 			if shelfStatus == typedefs.ShelfStatus_Empty {
 				fmt.Println("[Display Service]: Shelf is empty, clearing visuals")
-
 				utils.Write(instance._private.systemDataSource, core.Global_CurrentProjectorData, typedefs.ProjectorData_t{VisualDataState: typedefs.VisualDataState_DisplayIdle})
 			}
 

@@ -1,5 +1,5 @@
 /*
- * Handles media player operations such as play, stop, and polling for status updates
+ * Handles media player operations such as play, stop, and event-driven status updates
  */
 
 package musicassistant
@@ -13,6 +13,8 @@ import (
 	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/typedefs"
 	"vinyl-orchestrator/utils"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 func (instance *SystemMediaPlayer_t) retrieveTargetPlayerIdentifier() string {
@@ -32,7 +34,7 @@ func (instance *SystemMediaPlayer_t) PlayMedia(mediaUri string) error {
 
 	playMediaError := instance._private.messageRouter.SendFireAndForgetCommand("player_queues/play_media", commandArguments)
 	if playMediaError == nil {
-		instance.startPolling()
+		instance.startListening()
 	}
 	return playMediaError
 }
@@ -46,7 +48,7 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 
 	stopMediaError := instance._private.messageRouter.SendFireAndForgetCommand("player_queues/stop", commandArguments)
 	if stopMediaError == nil {
-		instance.stopPolling()
+		instance.stopListening()
 	}
 	return stopMediaError
 }
@@ -68,26 +70,6 @@ func (instance *SystemMediaPlayer_t) activeTracksDontMatch(previousTrack, curren
 	return previousTrack != currentTrack
 }
 
-const (
-	playbackStatusPollInterval = 250 * time.Millisecond
-	queueRefreshInterval       = 1 * time.Second
-)
-
-func (instance *SystemMediaPlayer_t) updatePlaybackStatusWhilePlayingMedia() {
-	mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
-
-	var previousTrack typedefs.ActiveTrack_t
-	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &previousTrack)
-
-	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, mediaPlayerStatus.State)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
-
-	if mediaPlayerStatus.ActiveTrack.TrackName != "" && instance.activeTracksDontMatch(previousTrack, mediaPlayerStatus.ActiveTrack) {
-		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, mediaPlayerStatus.ActiveTrack)
-	}
-}
-
 func (instance *SystemMediaPlayer_t) refreshQueueWhilePlayingMedia() {
 	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
 
@@ -99,50 +81,154 @@ func (instance *SystemMediaPlayer_t) refreshQueueWhilePlayingMedia() {
 	}
 }
 
+// applyQueueUpdatedEvent handles MA's queue_updated event, which fires on play/pause,
+// track changes, and queue modifications. It updates playback state, active track, and
+// triggers a queue list refresh.
+func (instance *SystemMediaPlayer_t) applyQueueUpdatedEvent(eventPayload interface{}) {
+	targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
+
+	payloadMap, ok := eventPayload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	queueId, _ := payloadMap["queue_id"].(string)
+	if queueId != targetPlayerIdentifier {
+		return
+	}
+
+	var parsedState RawMediaPlayerStatus_t
+	mapstructure.Decode(payloadMap, &parsedState)
+	resolvedTrackIndex := parseQueueTrackIndex(payloadMap, parsedState.CurrentIndex)
+
+	state := parsePlayerState(parsedState.State)
+	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, state)
+	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, parsedState.CurrentItem.Duration)
+
+	currentTrack := typedefs.ActiveTrack_t{
+		TrackName:   parsedState.CurrentItem.Name,
+		TrackIndex:  resolvedTrackIndex,
+		TrackItemId: parsedState.CurrentItem.MediaItem.ItemId,
+		AlbumItemId: parsedState.CurrentItem.MediaItem.Album.ItemId,
+		Provider:    parsedState.CurrentItem.MediaItem.Provider,
+	}
+
+	var previousTrack typedefs.ActiveTrack_t
+	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &previousTrack)
+
+	if currentTrack.TrackName != "" && instance.activeTracksDontMatch(previousTrack, currentTrack) {
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, currentTrack)
+	}
+
+	go instance.refreshQueueWhilePlayingMedia()
+
+	instance._private.interpolationMutex.Lock()
+	instance._private.lastKnownPosition = parsedState.ElapsedTime
+	instance._private.lastPositionUpdate = time.Now()
+	instance._private.isPlaying = state == typedefs.PlayerState_Playing
+	instance._private.interpolationMutex.Unlock()
+}
+
+// applyQueueTimeUpdatedEvent handles MA's queue_time_updated event, which fires
+// approximately every second during playback with the current elapsed position.
+func (instance *SystemMediaPlayer_t) applyQueueTimeUpdatedEvent(eventPayload interface{}) {
+	targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
+
+	payloadMap, ok := eventPayload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	queueId, _ := payloadMap["queue_id"].(string)
+	if queueId != targetPlayerIdentifier {
+		return
+	}
+
+	elapsedTime, _ := payloadMap["elapsed_time"].(float64)
+
+	instance._private.interpolationMutex.Lock()
+	instance._private.lastKnownPosition = elapsedTime
+	instance._private.lastPositionUpdate = time.Now()
+	instance._private.interpolationMutex.Unlock()
+}
+
+// interpolateAndWriteElapsedTime computes the current playback position locally
+// using the last known position from MA events plus elapsed wall-clock time,
+// avoiding any network round-trips for smooth progress updates.
+func (instance *SystemMediaPlayer_t) interpolateAndWriteElapsedTime() {
+	instance._private.interpolationMutex.Lock()
+	isPlaying := instance._private.isPlaying
+	lastPosition := instance._private.lastKnownPosition
+	lastUpdate := instance._private.lastPositionUpdate
+	instance._private.interpolationMutex.Unlock()
+
+	if !isPlaying {
+		return
+	}
+
+	interpolatedPosition := lastPosition + time.Since(lastUpdate).Seconds()
+	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, interpolatedPosition)
+}
+
+const interpolationTickInterval = 250 * time.Millisecond
+
 func (instance *SystemMediaPlayer_t) GetAvailablePlayers() ([]typedefs.AvailableMediaPlayers_t, error) {
 	return instance.getAvailablePlayers()
 }
 
-func (instance *SystemMediaPlayer_t) startPolling() {
-	instance._private.pollingMutex.Lock()
-	defer instance._private.pollingMutex.Unlock()
+func (instance *SystemMediaPlayer_t) startListening() {
+	instance._private.listenerMutex.Lock()
+	defer instance._private.listenerMutex.Unlock()
 
-	if instance._private.pollingCancel != nil {
-		instance._private.pollingCancel()
+	if instance._private.listenerCancel != nil {
+		instance._private.listenerCancel()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	instance._private.pollingCancel = cancel
+	instance._private.listenerCancel = cancel
 
 	go func(ctx context.Context) {
-		statusTicker := time.NewTicker(playbackStatusPollInterval)
-		queueTicker := time.NewTicker(queueRefreshInterval)
-		defer statusTicker.Stop()
-		defer queueTicker.Stop()
+		// Seed initial state immediately so the display is correct before events arrive
+		mediaPlayerStatus := instance.getMediaPlayerStatus(instance.retrieveTargetPlayerIdentifier())
+		utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, mediaPlayerStatus.State)
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, mediaPlayerStatus.ElapsedTime)
+		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, mediaPlayerStatus.TotalDuration)
+		if mediaPlayerStatus.ActiveTrack.TrackName != "" {
+			utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, mediaPlayerStatus.ActiveTrack)
+		}
+		go instance.refreshQueueWhilePlayingMedia()
 
-		instance.updatePlaybackStatusWhilePlayingMedia()
-		instance.refreshQueueWhilePlayingMedia()
+		instance._private.interpolationMutex.Lock()
+		instance._private.lastKnownPosition = mediaPlayerStatus.ElapsedTime
+		instance._private.lastPositionUpdate = time.Now()
+		instance._private.isPlaying = mediaPlayerStatus.State == typedefs.PlayerState_Playing
+		instance._private.interpolationMutex.Unlock()
+
+		interpolationTicker := time.NewTicker(interpolationTickInterval)
+		defer interpolationTicker.Stop()
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-statusTicker.C:
-				instance.updatePlaybackStatusWhilePlayingMedia()
-			case <-queueTicker.C:
-				instance.refreshQueueWhilePlayingMedia()
+			case event := <-instance._private.queueUpdatedEvents:
+				instance.applyQueueUpdatedEvent(event.Payload)
+			case event := <-instance._private.queueTimeUpdatedEvents:
+				instance.applyQueueTimeUpdatedEvent(event.Payload)
+			case <-interpolationTicker.C:
+				instance.interpolateAndWriteElapsedTime()
 			}
 		}
 	}(ctx)
 }
 
-func (instance *SystemMediaPlayer_t) stopPolling() {
-	instance._private.pollingMutex.Lock()
-	defer instance._private.pollingMutex.Unlock()
+func (instance *SystemMediaPlayer_t) stopListening() {
+	instance._private.listenerMutex.Lock()
+	defer instance._private.listenerMutex.Unlock()
 
-	if instance._private.pollingCancel != nil {
-		instance._private.pollingCancel()
-		instance._private.pollingCancel = nil
+	if instance._private.listenerCancel != nil {
+		instance._private.listenerCancel()
+		instance._private.listenerCancel = nil
 	}
 }
 
@@ -151,12 +237,22 @@ type SystemMediaPlayer_t struct {
 		systemDataSource database.DataSource
 		messageRouter    *RpcMessageRouter_t
 
-		pollingCancel context.CancelFunc
-		pollingMutex  sync.Mutex
+		listenerCancel context.CancelFunc
+		listenerMutex  sync.Mutex
+
+		queueUpdatedEvents     <-chan database.Event
+		queueTimeUpdatedEvents <-chan database.Event
+
+		interpolationMutex sync.Mutex
+		lastKnownPosition  float64
+		lastPositionUpdate time.Time
+		isPlaying          bool
 	}
 }
 
 func (instance *SystemMediaPlayer_t) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter_t) {
 	instance._private.systemDataSource = dataSource
 	instance._private.messageRouter = routerInstance
+	instance._private.queueUpdatedEvents = dataSource.Subscribe("ma_event_queue_updated")
+	instance._private.queueTimeUpdatedEvents = dataSource.Subscribe("ma_event_queue_time_updated")
 }

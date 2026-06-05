@@ -61,10 +61,6 @@ func fetchAndParseTrackLyrics(messageRouter *RpcMessageRouter_t, itemId string, 
 	return parsedLyrics, nil
 }
 
-func (instance *SystemMediaPlayer_t) getTrackLyrics(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
-	return fetchAndParseTrackLyrics(instance._private.messageRouter, itemId, provider)
-}
-
 func (plugin *MusicAssistantPlugin) getTrackLyricsForTrack(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
 	return fetchAndParseTrackLyrics(plugin.messageRouter, itemId, provider)
 }

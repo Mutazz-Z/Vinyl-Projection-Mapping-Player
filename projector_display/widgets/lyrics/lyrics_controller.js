@@ -3,7 +3,6 @@
     let renderedLyricsData = null;
     let hasLyricsForCurrentTrack = false;
     let lyricsRevealUnlocked = false;
-    let deferLyricsSwapUntilNextProgressEvent = false;
     let hideTransitionInProgress = false;
     let pendingHideCallbacks = [];
 
@@ -84,7 +83,7 @@
 
             show();
 
-            if (window.LyricsWidget && !deferLyricsSwapUntilNextProgressEvent && renderedLyricsData !== latestLyricsData) {
+            if (window.LyricsWidget && renderedLyricsData !== latestLyricsData) {
                 window.LyricsWidget.updateLyrics(latestLyricsData);
                 renderedLyricsData = latestLyricsData;
             }
@@ -108,37 +107,16 @@
 
         if (!hasValidLines) {
             renderedLyricsData = null;
-            deferLyricsSwapUntilNextProgressEvent = false;
         }
     }
 
-    function applyTrackContextLines(previousTrackLine, upcomingTrackLine) {
-        if (!window.LyricsWidget || !window.LyricsWidget.setTrackContext) return;
-
-        window.LyricsWidget.setTrackContext({
-            previousTrackLine: previousTrackLine || '',
-            upcomingTrackLine: upcomingTrackLine || '',
-        });
+    function applyTrackContextLines() {
     }
 
-    function beginInterTrackBridgeTransition(previousTrackTailLine, upcomingTrackHeadLine) {
-        if (!window.LyricsWidget || !window.LyricsWidget.enterInterTrackBridge) return;
-
-        window.LyricsWidget.enterInterTrackBridge({
-            previousTrackLine: previousTrackTailLine || '',
-            upcomingTrackLine: upcomingTrackHeadLine || '',
-        });
-
-        deferLyricsSwapUntilNextProgressEvent = true;
+    function beginInterTrackBridgeTransition() {
     }
 
     function applyDeferredLyricsSwapIfPending() {
-        if (!deferLyricsSwapUntilNextProgressEvent) return;
-        if (!hasLyricsForCurrentTrack || !latestLyricsData || !window.LyricsWidget) return;
-
-        window.LyricsWidget.updateLyrics(latestLyricsData);
-        renderedLyricsData = latestLyricsData;
-        deferLyricsSwapUntilNextProgressEvent = false;
     }
 
     function unlockLyricsReveal() {
@@ -160,15 +138,10 @@
         renderedLyricsData = null;
         hasLyricsForCurrentTrack = false;
         lyricsRevealUnlocked = false;
-        deferLyricsSwapUntilNextProgressEvent = false;
 
         hide(function () {
             if (window.LyricsWidget) window.LyricsWidget.clear();
         });
-
-        if (window.LyricsWidget && window.LyricsWidget.setTrackContext) {
-            window.LyricsWidget.setTrackContext({ previousTrackLine: '', upcomingTrackLine: '' });
-        }
     }
 
     window.LyricsController = {

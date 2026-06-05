@@ -6,6 +6,7 @@ package musicassistant
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"vinyl-orchestrator/typedefs"
 
@@ -13,22 +14,58 @@ import (
 )
 
 type RawMediaPlayerStatus_t struct {
-	State       string  `mapstructure:"state"`
-	ElapsedTime float64 `mapstructure:"elapsed_time"`
-	CurrentItem struct {
+	State        string  `mapstructure:"state"`
+	ElapsedTime  float64 `mapstructure:"elapsed_time"`
+	CurrentIndex int     `mapstructure:"current_index"`
+	CurrentItem  struct {
 		Duration  float64 `mapstructure:"duration"`
 		Name      string  `mapstructure:"name"`
 		MediaItem struct {
-			ItemId   string    `mapstructure:"item_id"`
+			ItemId   string `mapstructure:"item_id"`
 			Provider string `mapstructure:"provider"`
 
 			Album struct {
-				ItemId   string    `mapstructure:"item_id"`
+				ItemId   string `mapstructure:"item_id"`
 				Provider string `mapstructure:"provider"`
 				Name     string `mapstructure:"name"`
 			} `mapstructure:"album"`
 		} `mapstructure:"media_item"`
 	} `mapstructure:"current_item"`
+}
+
+func parseQueueTrackIndex(rawResult interface{}, fallback int) int {
+	resultMap, ok := rawResult.(map[string]interface{})
+	if !ok {
+		return fallback
+	}
+
+	rawIndex, exists := resultMap["current_index"]
+	if !exists {
+		rawIndex, exists = resultMap["currentIndex"]
+		if !exists {
+			return fallback
+		}
+	}
+
+	switch value := rawIndex.(type) {
+	case int:
+		return value
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case float32:
+		return int(value)
+	case float64:
+		return int(value)
+	case string:
+		parsed, err := strconv.Atoi(value)
+		if err == nil {
+			return parsed
+		}
+	}
+
+	return fallback
 }
 
 type MediaPlayerStatus_t struct {
@@ -52,6 +89,7 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 
 	var parsedState RawMediaPlayerStatus_t
 	mapstructure.Decode(rawResult, &parsedState)
+	resolvedTrackIndex := parseQueueTrackIndex(rawResult, parsedState.CurrentIndex)
 
 	return MediaPlayerStatus_t{
 		State:         parsePlayerState(parsedState.State),
@@ -59,6 +97,7 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 		TotalDuration: parsedState.CurrentItem.Duration,
 		ActiveTrack: typedefs.ActiveTrack_t{
 			TrackName:   parsedState.CurrentItem.Name,
+			TrackIndex:  resolvedTrackIndex,
 			TrackItemId: parsedState.CurrentItem.MediaItem.ItemId,
 			AlbumItemId: parsedState.CurrentItem.MediaItem.Album.ItemId,
 			Provider:    parsedState.CurrentItem.MediaItem.Provider,

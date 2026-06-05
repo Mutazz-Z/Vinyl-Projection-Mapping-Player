@@ -251,11 +251,13 @@ class AlbumsInLibrary_t {
 class ActiveTrack_t {
     constructor({
         trackName,
+        trackIndex,
         provider,
         trackItemId,
         albumItemId,
     }) {
         this.trackName = trackName;
+        this.trackIndex = trackIndex;
         this.provider = provider;
         this.trackItemId = trackItemId;
         this.albumItemId = albumItemId;
@@ -265,6 +267,7 @@ class ActiveTrack_t {
         if (!json || typeof json !== 'object') return new ActiveTrack_t({});
         return new ActiveTrack_t({
             trackName: typeof json['track_name'] === 'string' ? json['track_name'] : '',
+            trackIndex: Number(json['track_index'] ?? -1),
             provider: typeof json['provider'] === 'string' ? json['provider'] : '',
             trackItemId: typeof json['track_item_id'] === 'string' ? json['track_item_id'] : '',
             albumItemId: typeof json['album_item_id'] === 'string' ? json['album_item_id'] : '',
@@ -274,6 +277,7 @@ class ActiveTrack_t {
     toJson() {
         return {
             'track_name': this.trackName,
+            'track_index': this.trackIndex,
             'provider': this.provider,
             'track_item_id': this.trackItemId,
             'album_item_id': this.albumItemId,

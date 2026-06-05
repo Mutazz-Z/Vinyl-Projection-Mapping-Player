@@ -22,26 +22,23 @@
             window.AppDataSource = dataSource;
             window.PI_IP = wsHost;
 
-            let currentPlaybackState = { position: 0, duration: 0, track_name: '' };
+            let currentPlaybackState = { position: 0, duration: 0, track_name: '', track_index: 0 };
 
             announcePresence(dataSource);
 
             DataSource_OnChanged(dataSource, function (variable, data) {
                 switch (variable) {
                     case Global_MediaPlaybackState:
-                        if (window.ProjectorPlayback?.handlePlaybackEvent) {
-                            window.ProjectorPlayback.handlePlaybackEvent({ state: data });
-                        }
+                        window.ProjectorPlayback.handlePlaybackEvent({ state: data });
                         break;
 
                     case Global_ActiveTrack.key:
                         currentPlaybackState.track_name = data.track_name;
-                        if (window.ProjectorPlayback?.handlePlaybackEvent) {
-                            window.ProjectorPlayback.handlePlaybackEvent({
-                                event: 'track_changed',
-                                track_name: data.track_name,
-                            });
-                        }
+                        currentPlaybackState.track_index = data.track_index;
+                        window.ProjectorPlayback.handlePlaybackEvent({
+                            track_name: currentPlaybackState.track_name,
+                            track_index: currentPlaybackState.track_index,
+                        });
                         break;
 
                     case Global_ActiveTrackTotalDurationInSeconds:
@@ -50,53 +47,51 @@
 
                     case Global_ActiveTrackProgressInSeconds:
                         currentPlaybackState.position = Number(data);
-                        if (window.ProjectorPlayback?.handleProgress) {
-                            window.ProjectorPlayback.handleProgress(currentPlaybackState);
-                        }
+                        window.ProjectorPlayback.handleProgress(currentPlaybackState);
                         break;
 
                     case Global_CurrentShelfStatus:
                         if (data === ShelfStatus.Empty) {
-                            if (window.ProjectorPlayback?.stopPlayback) {
-                                window.ProjectorPlayback.stopPlayback();
-                            }
+                            window.ProjectorPlayback.stopPlayback();
                         }
                         break;
 
                     case Global_CurrentProjectorData.key:
-                        handleVisualUpdate(new ProjectorPayload(
-                            typeof data === 'string' ? JSON.parse(data) : data
-                        ));
+                        handleVisualUpdate(new ProjectorPayload(data));
                         break;
 
                     case Global_ProjectorHeartbeatSignal.key:
-                        handleMappingCommand(parseJsonIfString(data), dataSource);
+                        handleMappingCommand(data, dataSource);
                         break;
                     case Global_CurrentMediaPlaybackQueue.key:
-                        if (data && Array.isArray(data.tracks)) {
-                            if (window.ProjectorPlayback && window.ProjectorPlayback.updateQueueList) {
-                                window.ProjectorPlayback.updateQueueList(data.tracks);
-                            }
-                        }
+                        window.ProjectorPlayback.updateQueueList(data.tracks);
                         break;
                 }
             });
 
-            try {
-                const projectorData = await DataSource_Read(dataSource, Global_CurrentProjectorData.key);
-                if (projectorData) {
-                    handleVisualUpdate(new ProjectorPayload(
-                        typeof projectorData === 'string' ? JSON.parse(projectorData) : projectorData
-                    ));
-                }
+            const projectorData = await DataSource_Read(dataSource, Global_CurrentProjectorData.key);
+            handleVisualUpdate(new ProjectorPayload(projectorData));
 
-                const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
-                if (playbackState && window.ProjectorPlayback?.handlePlaybackEvent) {
-                    window.ProjectorPlayback.handlePlaybackEvent({ state: playbackState });
-                }
-            } catch (error) {
-                console.warn('Could not fetch initial projector state. Waiting for next event...', error);
-            }
+            const queueState = await DataSource_Read(dataSource, Global_CurrentMediaPlaybackQueue.key);
+            window.ProjectorPlayback.updateQueueList(queueState.tracks);
+
+            const activeTrack = await DataSource_Read(dataSource, Global_ActiveTrack.key);
+            currentPlaybackState.track_name = activeTrack.track_name;
+            currentPlaybackState.track_index = activeTrack.track_index;
+            window.ProjectorPlayback.handlePlaybackEvent({
+                track_name: currentPlaybackState.track_name,
+                track_index: currentPlaybackState.track_index,
+            });
+
+            const totalDuration = await DataSource_Read(dataSource, Global_ActiveTrackTotalDurationInSeconds);
+            currentPlaybackState.duration = Number(totalDuration);
+
+            const elapsedTime = await DataSource_Read(dataSource, Global_ActiveTrackProgressInSeconds);
+            currentPlaybackState.position = Number(elapsedTime);
+            window.ProjectorPlayback.handleProgress(currentPlaybackState);
+
+            const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
+            window.ProjectorPlayback.handlePlaybackEvent({ state: playbackState });
         };
 
         webSocket.onclose = function () {
@@ -112,8 +107,6 @@
     }
 
     function handleVisualUpdate(projectorData) {
-        if (!projectorData || !window.ProjectorPlayback) return;
-
         switch (projectorData.visualDataState) {
             case VisualDataState.DisplayAlbumVisuals: window.ProjectorPlayback.startPlayback(projectorData); break;
             case VisualDataState.DisplayIdle: window.ProjectorPlayback.stopPlayback(); break;
@@ -123,34 +116,16 @@
     }
 
     function handleMappingCommand(command, dataSource) {
-        if (!command || !command.action) return;
-
         switch (command.action) {
             case 'layout':
-                if (command.data && window.ProjectorMapping) {
-                    window.ProjectorMapping.updateLayout(command.data);
-                }
+                window.ProjectorMapping.updateLayout(command.data);
                 break;
             case 'toggle':
-                if (window.ProjectorMapping) {
-                    window.ProjectorMapping.toggleMode();
-                }
+                window.ProjectorMapping.toggleMode();
                 break;
             case 'ping':
                 announcePresence(dataSource);
                 break;
-        }
-    }
-
-    function parseJsonIfString(value) {
-        if (typeof value !== 'string') {
-            return value;
-        }
-
-        try {
-            return JSON.parse(value);
-        } catch (error) {
-            return value;
         }
     }
 

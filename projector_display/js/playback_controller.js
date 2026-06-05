@@ -10,6 +10,7 @@
     let awaitingMusicStart = false;
     let awaitingMusicStartToken = 0;
     let pendingStartPayload = null;
+    let pendingAwaitingProgressPayload = null;
 
     let introRevealStaggerTimer = null;
     let recordSpinTimer = null;
@@ -35,45 +36,12 @@
         idleStateRestoreTimer = null;
     }
 
-    function normalizeMediaPlaybackState(state) {
-        if (typeof state === 'number' && !isNaN(state)) return state;
-
-        if (typeof state === 'string') {
-            switch (state.trim().toLowerCase()) {
-                case 'playing': return MediaPlaybackState.Playing;
-                case 'paused': return MediaPlaybackState.Paused;
-                case 'idle': return MediaPlaybackState.Idle;
-                case 'buffering': return MediaPlaybackState.Buffering;
-                case 'unknown': return MediaPlaybackState.Unknown;
-                case 'stopped': return MediaPlaybackState.Stopped;
-                case 'error': return MediaPlaybackState.Error;
-                case 'offline':
-                case 'off':
-                case 'standby': return MediaPlaybackState.Offline;
-            }
-        }
-
-        return null;
-    }
-
     function isProgressPayloadSignallingActivePlayback(payload) {
-        if (!payload) return false;
-        const position = Number(payload.position || 0);
-        return (
-            position > 0 ||
-            payload.playing === true ||
-            payload.is_playing === true ||
-            (typeof payload.state === 'string' && payload.state.toLowerCase() === 'playing')
-        );
+        return Number(payload.position) > 0;
     }
 
-    function applyLyricsForTrackIndex(trackIndex, previousTrackTailLineOverride) {
+    function applyLyricsForTrackIndex(trackIndex) {
         const lyrics = TrackResolver.getLyricsByTrackIndex(trackIndex);
-        const previousLine = previousTrackTailLineOverride ||
-            TrackResolver.getLastNonEmptyLyricLine(TrackResolver.getLyricsByTrackIndex(trackIndex - 1));
-        const upcomingLine = TrackResolver.getFirstNonEmptyLyricLine(TrackResolver.getLyricsByTrackIndex(trackIndex + 1));
-
-        LyricsController.applyTrackContextLines(previousLine, upcomingLine);
         LyricsController.setLyricsDataForCurrentTrack(lyrics);
     }
 
@@ -115,6 +83,7 @@
         const startPayload = pendingStartPayload;
 
         awaitingMusicStart = false;
+        pendingAwaitingProgressPayload = null;
 
         if (!startPayload) return;
         if (!window.LoadingWidget || !window.LoadingWidget.expandToOverlay) return;
@@ -128,6 +97,14 @@
         });
     }
 
+    function maybeRevealPlaybackWhenReady(payloadOverride) {
+        if (!awaitingMusicStart || awaitingMusicStartToken !== playbackToken) return;
+        if (currentMediaPlaybackState !== MediaPlaybackState.Playing) return;
+        if (TrackResolver.getTrackNames().length === 0) return;
+
+        beginPlaybackRevealSequence(payloadOverride || pendingAwaitingProgressPayload || null);
+    }
+
     function finishRevealAfterLoadingExpands(token, startPayload, progressPayload) {
         RecordController.applyDesignToWidgets(startPayload.designData);
         window.OverlayWidget.setActive(true);
@@ -138,11 +115,7 @@
         );
         window.ProgressWidget.show();
 
-        const trackNames = TrackResolver.getTrackNames().length > 0
-            ? TrackResolver.getTrackNames()
-            : TrackResolver.parseTrackNamesFromTrackList(startPayload.projectorData.tagData.trackList);
-
-        TrackResolver.setTrackNames(trackNames);
+        const trackNames = TrackResolver.getTrackNames();
         TrackResolver.setActiveTrackIndex(0);
         TracklistController.prepareForPlaybackStart(trackNames);
 
@@ -151,7 +124,7 @@
         const startTrackIndex = resolveStartTrackIndexFromProgressPayload(progressPayload);
         TrackResolver.setActiveTrackIndex(startTrackIndex);
         TracklistController.showAsCarouselWithActiveTrack(trackNames, startTrackIndex);
-        applyLyricsForTrackIndex(startTrackIndex, '');
+        applyLyricsForTrackIndex(startTrackIndex);
 
         const initialTrackHasNoLyrics = !LyricsController.hasLyrics();
         if (initialTrackHasNoLyrics && window.VisualizerWidget && window.VisualizerWidget.start) {
@@ -217,11 +190,6 @@
             TrackResolver.buildLyricsLookupFromTrackList(projectorData.tagData.trackList);
             window.InfoWidget.setAlbumAndArtist(projectorData.tagData.mediaTitle, projectorData.tagData.artist);
 
-            if (TrackResolver.getTrackNames().length === 0) {
-                const trackNames = TrackResolver.parseTrackNamesFromTrackList(projectorData.tagData.trackList);
-                TrackResolver.setTrackNames(trackNames);
-            }
-
             TracklistController.showAsCarouselWithActiveTrack(
                 TrackResolver.getTrackNames(),
                 TrackResolver.getActiveTrackIndex()
@@ -237,6 +205,7 @@
         awaitingMusicStart = true;
         awaitingMusicStartToken = token;
         pendingStartPayload = { projectorData, designData: effectiveDesignData, album: incomingAlbum };
+        pendingAwaitingProgressPayload = null;
 
         const unknownTagIndicator = document.getElementById('unknown-tag-indicator');
         if (unknownTagIndicator) unknownTagIndicator.classList.remove('visible');
@@ -273,6 +242,7 @@
         currentMediaPlaybackState = MediaPlaybackState.Idle;
         awaitingMusicStart = false;
         pendingStartPayload = null;
+        pendingAwaitingProgressPayload = null;
         const token = ++playbackToken;
         clearAllTransitionTimers();
 
@@ -329,16 +299,17 @@
     }
 
     function handleProgress(payload) {
-        if (awaitingMusicStart && awaitingMusicStartToken === playbackToken && isProgressPayloadSignallingActivePlayback(payload)) {
-            beginPlaybackRevealSequence(payload);
+        if (awaitingMusicStart && awaitingMusicStartToken === playbackToken) {
+            if (isProgressPayloadSignallingActivePlayback(payload)) {
+                pendingAwaitingProgressPayload = payload;
+            }
+            maybeRevealPlaybackWhenReady(payload);
             return;
         }
 
         if (!isPlayingState) return;
 
         const resolvedTrackIndex = TrackResolver.resolveTrackIndex(payload);
-
-        LyricsController.applyDeferredLyricsSwapIfPending();
 
         if (TrackResolver.getTrackNames().length > 0 && resolvedTrackIndex !== undefined) {
             TrackResolver.setActiveTrackIndex(resolvedTrackIndex);
@@ -353,47 +324,27 @@
     }
 
     function handlePlaybackEvent(payload) {
-        if (!payload) return;
         if (!isPlayingState && !awaitingMusicStart) return;
 
-        const eventName = typeof payload.event === 'string' ? payload.event.toLowerCase() : '';
-        const normalizedState = normalizeMediaPlaybackState(payload.state);
-        const stateName = typeof payload.state === 'string' ? payload.state.toLowerCase() : '';
+        const playbackState = payload.state;
 
-        if (eventName === 'track_changed' || payload.track_index !== undefined || payload.track_name) {
+        if (payload.track_idx !== undefined || payload.track_index !== undefined || payload.track_name !== undefined) {
             const incomingTrackIndex = TrackResolver.resolveTrackIndex(payload);
             const isActualTrackChange = TrackResolver.isIncomingTrackDifferentFromCurrent(payload, incomingTrackIndex);
-            const previousTrackTailLine = isActualTrackChange
-                ? TrackResolver.getLastNonEmptyLyricLine(TrackResolver.getLyricsByTrackIndex(TrackResolver.getActiveTrackIndex()))
-                : '';
 
-            if (isActualTrackChange) {
-                ProgressController.resetForTrackChange();
-
-                const upcomingTrackHeadLine = incomingTrackIndex !== undefined
-                    ? TrackResolver.getFirstNonEmptyLyricLine(TrackResolver.getLyricsByTrackIndex(incomingTrackIndex))
-                    : TrackResolver.getFirstNonEmptyLyricLine(TrackResolver.getLyricsByTrackName(payload.track_name));
-
-                LyricsController.beginInterTrackBridgeTransition(previousTrackTailLine, upcomingTrackHeadLine);
-            }
+            if (isActualTrackChange) ProgressController.resetForTrackChange();
 
             if (incomingTrackIndex !== undefined) {
                 TrackResolver.setActiveTrackIndex(incomingTrackIndex);
                 TracklistController.showAsCarouselWithActiveTrack(TrackResolver.getTrackNames(), incomingTrackIndex);
-                applyLyricsForTrackIndex(incomingTrackIndex, previousTrackTailLine);
-            } else if (payload.track_name) {
-                LyricsController.setLyricsDataForCurrentTrack(TrackResolver.getLyricsByTrackName(payload.track_name));
+                applyLyricsForTrackIndex(incomingTrackIndex);
             }
         }
 
-        if (normalizedState !== null) {
-            applyMediaPlaybackState(normalizedState, true);
-        } else if (eventName === 'play' || stateName === 'playing') {
-            applyMediaPlaybackState(MediaPlaybackState.Playing, true);
-        } else if (eventName === 'pause' || stateName === 'paused') {
-            applyMediaPlaybackState(MediaPlaybackState.Paused, true);
-        } else if (eventName === 'stop' || stateName === 'stopped') {
-            applyMediaPlaybackState(MediaPlaybackState.Stopped, false);
+        applyMediaPlaybackState(playbackState, true);
+
+        if (awaitingMusicStart) {
+            maybeRevealPlaybackWhenReady(payload);
         }
     }
 
@@ -432,10 +383,13 @@
     }
 
     function updateQueueList(queueItemsArray) {
-        if (!Array.isArray(queueItemsArray)) return;
         TrackResolver.setTrackNames(queueItemsArray);
         window.TracklistWidget.renderTracklist(queueItemsArray);
         TracklistController.updateCarouselForActiveTrack(queueItemsArray, TrackResolver.getActiveTrackIndex());
+
+        if (awaitingMusicStart) {
+            maybeRevealPlaybackWhenReady(pendingAwaitingProgressPayload);
+        }
     }
 
     window.ProjectorPlayback = {
@@ -454,34 +408,30 @@
         },
 
         restoreState: function () {
-            try {
-                const saved = localStorage.getItem('vinyl_projection_active_payload');
-                if (!saved) return;
+            const saved = localStorage.getItem('vinyl_projection_active_payload');
+            if (!saved) return;
 
-                const projectorData = ProjectorData_t.fromJson(JSON.parse(saved));
+            const projectorData = ProjectorData_t.fromJson(JSON.parse(saved));
 
-                if (window.LoadingWidget) {
-                    window.LoadingWidget.forceHide();
-                    this._originalScan = window.LoadingWidget.beginScanLoading;
-                    this._originalExpand = window.LoadingWidget.expandToOverlay;
-                    window.LoadingWidget.beginScanLoading = () => Promise.resolve();
-                    window.LoadingWidget.expandToOverlay = () => Promise.resolve();
-                }
-
-                this.startPlayback(projectorData);
-
-                setTimeout(() => {
-                    this.notifyMusicStarted(projectorData);
-                    this.handlePlaybackEvent({ event: 'play', state: 'playing' });
-
-                    if (window.LoadingWidget && this._originalScan) {
-                        window.LoadingWidget.beginScanLoading = this._originalScan;
-                        window.LoadingWidget.expandToOverlay = this._originalExpand;
-                    }
-                }, 50);
-            } catch (error) {
-                console.warn('Failed to restore playback state from refresh:', error);
+            if (window.LoadingWidget) {
+                window.LoadingWidget.forceHide();
+                this._originalScan = window.LoadingWidget.beginScanLoading;
+                this._originalExpand = window.LoadingWidget.expandToOverlay;
+                window.LoadingWidget.beginScanLoading = () => Promise.resolve();
+                window.LoadingWidget.expandToOverlay = () => Promise.resolve();
             }
+
+            this.startPlayback(projectorData);
+
+            setTimeout(() => {
+                this.notifyMusicStarted(projectorData);
+                this.handlePlaybackEvent({ event: 'play', state: 'playing' });
+
+                if (window.LoadingWidget && this._originalScan) {
+                    window.LoadingWidget.beginScanLoading = this._originalScan;
+                    window.LoadingWidget.expandToOverlay = this._originalExpand;
+                }
+            }, 50);
         },
     };
 

@@ -24,12 +24,7 @@ class DataSource {
 // ── Internal dispatch (private) ───────────────────────────────────────────────
 
 function DataSource__dispatch(dataSource, messageEvent) {
-    let message;
-    try {
-        message = JSON.parse(messageEvent.data);
-    } catch (error) {
-        return;
-    }
+    const message = JSON.parse(messageEvent.data);
 
     if (message.action === 'read_response' || message.action === 'read_error') {
         const pending = dataSource._pendingReads[message.req_id];
@@ -46,35 +41,18 @@ function DataSource__dispatch(dataSource, messageEvent) {
         return;
     }
 
-    const topic = message.Topic ?? message.topic;
-    const payload = message.Payload ?? message.payload;
-
-    if (!topic) return;
+    const topic = message.Topic;
+    const payload = message.Payload;
 
     if (topic === 'datasource') {
-        const variableKey = payload?.variable ?? payload?.key ?? payload?.Key;
-        const variableData = payload?.data !== undefined ? payload.data
-            : payload?.value !== undefined ? payload.value
-                : payload?.Value;
-
-        if (variableKey !== undefined && variableData !== undefined) {
-            try {
-                dataSource._onChangedCallback(variableKey, variableData);
-            } catch (error) {
-                console.error('DataSource: OnChanged callback error:', error);
-            }
-        }
+        dataSource._onChangedCallback(payload.variable, payload.data);
         return;
     }
 
     const subscribers = dataSource._topicSubscribers[topic];
     if (subscribers) {
         subscribers.forEach(function (callback) {
-            try {
-                callback(payload);
-            } catch (error) {
-                console.error(`DataSource: subscriber error on topic "${topic}":`, error);
-            }
+            callback(payload);
         });
     }
 }
