@@ -44,21 +44,19 @@
             },
         });
 
-        window.LoadingWidget.play({ fadeOutDelayMs: LOADING_FADE_DELAY_MS, onBeforeFadeOut: function () {
-            if (window.LyricsWidget) {
-                window.LyricsWidget.show({
-                    isPlaybackVisualActive: sceneActive,
-                    isPlaying: true,
-                });
+        window.LoadingWidget.play({
+            fadeOutDelayMs: LOADING_FADE_DELAY_MS, onBeforeFadeOut: function () {
+                if (window.LyricsWidget) {
+                    window.LyricsWidget.show({
+                        isPlaybackVisualActive: sceneActive,
+                        isPlaying: true,
+                    });
+                }
             }
-        } });
+        });
     }
 
     function prepareWidgetsForPlayback(projectorData) {
-        var tagData = (projectorData && projectorData.tagData) ? projectorData.tagData : {};
-        var albumTitle = typeof tagData.mediaTitle === 'string' ? tagData.mediaTitle : '';
-        var artistName = typeof tagData.artist === 'string' ? tagData.artist : '';
-
         if (window.ContextMessageWidget) window.ContextMessageWidget.hide();
         if (window.QrCodeWidget && window.QrCodeWidget.hide) window.QrCodeWidget.hide();
 
@@ -67,12 +65,12 @@
             projectorData: projectorData,
             prepareForPlayback: true,
         });
-        window.InfoWidget.show(albumTitle, artistName);
         window.RecordWidget.show({
             visible: false,
             projectorData: projectorData,
             prepareForPlayback: true,
         });
+        window.InfoWidget.show();
 
         window.ProgressWidget.hide({ reset: true });
         window.TracklistWidget.hide();
@@ -116,7 +114,9 @@
     }
 
     function prepareWidgetsForStop(token, isError) {
-        window.InfoWidget.hide();
+        if (window.InfoWidget && window.InfoWidget.hide) {
+            window.InfoWidget.hide();
+        }
         window.ProgressWidget.hide({ reset: true });
 
         window.TracklistWidget.hide({

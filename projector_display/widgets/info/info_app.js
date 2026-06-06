@@ -101,14 +101,14 @@
         updateLayout();
     }
 
-    function show(albumTitleText, artistNameText) {
+    function show() {
         var container = getContainer();
+        if (!container) return;
+
         if (hideTimer) {
             clearTimeout(hideTimer);
             hideTimer = null;
         }
-
-        setText(albumTitleText, artistNameText);
 
         container.classList.remove('hiding');
         if (!container.classList.contains('visible')) {
@@ -131,7 +131,6 @@
         }
 
         if (!container || !container.classList.contains('visible')) {
-            setText('', '');
             return;
         }
 
@@ -139,10 +138,13 @@
         container.classList.add('hiding');
 
         hideTimer = setTimeout(function () {
-            setText('', '');
             container.classList.remove('hiding');
             hideTimer = null;
         }, 1000);
+    }
+
+    function updateData(albumInfo) {
+        setText(albumInfo.title, albumInfo.artist);
     }
 
     window.addEventListener('resize', function () {
@@ -153,5 +155,6 @@
     window.InfoWidget = {
         show: show,
         hide: hide,
+        updateData: updateData,
     };
 })();

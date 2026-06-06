@@ -104,6 +104,11 @@ variables:
     type: string
     default: '""'
 
+  - name: CurrentPlayingAlbumTitleAndArtist
+    storage: Volatile
+    type: typedefs.TitleAndArtist_t
+    default: 'typedefs.TitleAndArtist_t{Title: "", Artist: ""}'
+
   # ── Active Record Shelf ──────────────────────────────────────────────────
   - name: MediaPlaybackState
     storage: Volatile

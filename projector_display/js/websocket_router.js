@@ -123,6 +123,11 @@
         syncLyricsAndVisualizerFromPlaybackState(snapshot);
     }
 
+    function applyNowPlayingTitleAndArtistToWidgets(payload) {
+        const titleAndArtist = TitleAndArtist_t.fromJson(payload);
+        window.InfoWidget.updateData(titleAndArtist);
+    }
+
     function connect() {
         const wsUrl = `ws://${wsHost}:${wsPort}/ws`;
         console.log('Projector WS connecting to:', wsUrl);
@@ -195,6 +200,9 @@
                         }
                         applyTrackStateToWidgets(currentPlaybackState);
                         break;
+                    case Global_CurrentPlayingAlbumTitleAndArtist.key:
+                        applyNowPlayingTitleAndArtistToWidgets(data);
+                        break;
                 }
             });
 
@@ -209,6 +217,9 @@
                     queueList: queueState.tracks || [],
                 });
             }
+
+            const currentPlayingAlbumTitleAndArtist = await DataSource_Read(dataSource, Global_CurrentPlayingAlbumTitleAndArtist.key);
+            applyNowPlayingTitleAndArtistToWidgets(currentPlayingAlbumTitleAndArtist);
 
             const activeTrack = await DataSource_Read(dataSource, Global_ActiveTrack.key);
             currentPlaybackState.track_name = activeTrack.track_name;

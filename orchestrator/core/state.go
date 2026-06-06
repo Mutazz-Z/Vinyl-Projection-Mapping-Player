@@ -251,6 +251,17 @@ func init() {
 	}
 }
 
+// ── CurrentPlayingAlbumTitleAndArtist ──────────────────────────────────
+
+var Global_CurrentPlayingAlbumTitleAndArtist = TypedKey[typedefs.TitleAndArtist_t]{Key: "Global_CurrentPlayingAlbumTitleAndArtist"}
+
+func init() {
+	StateRegistry[Global_CurrentPlayingAlbumTitleAndArtist.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.TitleAndArtist_t(typedefs.TitleAndArtist_t{Title: "", Artist: ""}),
+	}
+}
+
 // ── MediaPlaybackState ──────────────────────────────────
 
 var Global_MediaPlaybackState = TypedKey[typedefs.MediaPlaybackState_t]{Key: "Global_MediaPlaybackState"}
