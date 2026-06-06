@@ -2,24 +2,28 @@
     var statusTimer = null;
     var isCurrentlyPaused = false;
 
+    function getOverlayContainer() {
+        return document.getElementById('fx-video-container');
+    }
+
     function setActive(active) {
-        var fxContainer = document.getElementById('fx-video-container');
-        if (!fxContainer) return;
-        fxContainer.classList.toggle('active', Boolean(active));
+        var overlayContainer = getOverlayContainer();
+        if (!overlayContainer) return;
+        overlayContainer.classList.toggle('active', Boolean(active));
     }
 
     function setOverlayArt(url) {
-        var overlay = document.getElementById('fx-video-container');
-        if (!overlay) return;
+        var overlayContainer = getOverlayContainer();
+        if (!overlayContainer) return;
 
         if (url) {
             var safeOverlayUrl = String(url).replace(/"/g, '\\"');
-            overlay.style.backgroundImage = 'url("' + safeOverlayUrl + '")';
-            overlay.style.backgroundSize = 'cover';
-            overlay.style.backgroundPosition = 'center center';
-            overlay.style.backgroundRepeat = 'no-repeat';
+            overlayContainer.style.backgroundImage = 'url("' + safeOverlayUrl + '")';
+            overlayContainer.style.backgroundSize = 'cover';
+            overlayContainer.style.backgroundPosition = 'center center';
+            overlayContainer.style.backgroundRepeat = 'no-repeat';
         } else {
-            overlay.style.backgroundImage = 'none';
+            overlayContainer.style.backgroundImage = 'none';
         }
     }
 
@@ -28,22 +32,22 @@
     }
 
     function showStatusIcon(type) {
-        var iconEl = document.getElementById('status-icon-overlay');
-        var fxContainer = document.getElementById('fx-video-container');
-        if (!iconEl) return;
+        var iconElement = document.getElementById('status-icon-overlay');
+        var overlayContainer = getOverlayContainer();
+        if (!iconElement) return;
 
         var stateChanged = false;
 
         if (type === 'play') {
             if (isCurrentlyPaused) {
                 isCurrentlyPaused = false;
-                if (fxContainer) fxContainer.classList.remove('paused');
+                if (overlayContainer) overlayContainer.classList.remove('paused');
                 stateChanged = true;
             }
         } else if (type === 'pause') {
             if (!isCurrentlyPaused) {
                 isCurrentlyPaused = true;
-                if (fxContainer) fxContainer.classList.add('paused');
+                if (overlayContainer) overlayContainer.classList.add('paused');
                 stateChanged = true;
             }
         }
@@ -62,28 +66,28 @@
         else if (type === 'pause') imgPath = 'widgets/assets/pause_overlay.png';
 
         if (!imgPath) {
-            iconEl.classList.remove('visible');
+            iconElement.classList.remove('visible');
             return;
         }
 
-        iconEl.style.backgroundImage = 'url("' + imgPath + '")';
-        void iconEl.offsetWidth;
-        iconEl.classList.add('visible');
+        iconElement.style.backgroundImage = 'url("' + imgPath + '")';
+        void iconElement.offsetWidth;
+        iconElement.classList.add('visible');
 
         if (type !== 'pause') {
             statusTimer = setTimeout(function () {
-                iconEl.classList.remove('visible');
+                iconElement.classList.remove('visible');
             }, 2000);
         }
     }
 
     function resetStatus() {
         isCurrentlyPaused = false;
-        var iconEl = document.getElementById('status-icon-overlay');
-        var fxContainer = document.getElementById('fx-video-container');
+        var iconElement = document.getElementById('status-icon-overlay');
+        var overlayContainer = getOverlayContainer();
 
-        if (iconEl) iconEl.classList.remove('visible');
-        if (fxContainer) fxContainer.classList.remove('paused');
+        if (iconElement) iconElement.classList.remove('visible');
+        if (overlayContainer) overlayContainer.classList.remove('paused');
 
         if (statusTimer) {
             clearTimeout(statusTimer);
@@ -91,11 +95,68 @@
         }
     }
 
+    function consumePlaybackState(state) {
+        var numeric = Number(state);
+        if (numeric === MediaPlaybackState.Playing) {
+            play();
+            return;
+        }
+
+        if (numeric === MediaPlaybackState.Paused) {
+            pause();
+        }
+    }
+
+    function show(options) {
+        var config = options || {};
+
+        if (config.visible !== false) {
+            setActive(true);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(config, 'overlayArt')) {
+            setOverlayArt(config.overlayArt);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(config, 'playbackState')) {
+            consumePlaybackState(config.playbackState);
+        }
+
+        if (typeof config.statusIconType === 'string') {
+            showStatusIcon(config.statusIconType);
+        }
+
+        if (config.resetStatus === true) {
+            resetStatus();
+        }
+    }
+
+    function hide(options) {
+        var config = options || {};
+
+        if (config.visible !== false) {
+            setActive(false);
+        }
+
+        if (config.clearOverlayArt === true) {
+            clearOverlayArt();
+        }
+
+        if (config.resetStatus === true) {
+            resetStatus();
+        }
+    }
+
+    function play() {
+        showStatusIcon('play');
+    }
+
+    function pause() {
+        showStatusIcon('pause');
+    }
+
     window.OverlayWidget = {
-        setActive: setActive,
-        setOverlayArt: setOverlayArt,
-        clearOverlayArt: clearOverlayArt,
-        showStatusIcon: showStatusIcon,
-        resetStatus: resetStatus
+        show: show,
+        hide: hide,
     };
 })();

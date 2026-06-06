@@ -9,6 +9,12 @@
     let suppressTransitionsUntilNextFrame = false;
     let bridgeSourceIndex = -1;
     let bridgeEntrancePending = false;
+    let latestLyricsData = null;
+    let renderedLyricsData = null;
+    let hasLyricsForCurrentTrack = false;
+    let lyricsRevealUnlocked = false;
+    let hideTransitionInProgress = false;
+    let pendingHideCallbacks = [];
 
     const MIN_STEP_PX = 112;
     const STEP_PADDING_PX = 26;
@@ -40,8 +46,8 @@
         return { prev: contextPrevEl, next: contextNextEl };
     }
 
-    function computeLineUnitPx(el) {
-        const style = window.getComputedStyle(el);
+    function computeLineUnitPx(lineElement) {
+        const style = window.getComputedStyle(lineElement);
         const fontSize = parseFloat(style.fontSize) || 28;
         const lineHeight = parseFloat(style.lineHeight) || (fontSize * 1.25);
         return Math.ceil(lineHeight);
@@ -62,8 +68,8 @@
             }
         });
 
-        const contextHeights = [context.prev, context.next].map(function (el) {
-            return Math.ceil(el.getBoundingClientRect().height || 0);
+        const contextHeights = [context.prev, context.next].map(function (contextElement) {
+            return Math.ceil(contextElement.getBoundingClientRect().height || 0);
         });
 
         maxHeight = Math.max(maxHeight, contextHeights[0], contextHeights[1]);
@@ -85,12 +91,12 @@
         return activeIndex;
     }
 
-    function applyLineVisuals(el, text, yPx, opacity, isActive) {
-        el.textContent = text || '';
-        el.style.transform = 'translateY(calc(' + yPx + 'px - 50%))';
-        el.style.opacity = text ? String(opacity) : '0';
-        el.classList.toggle('active', isActive && Boolean(text));
-        el.classList.toggle('no-motion', suppressTransitionsUntilNextFrame);
+    function applyLineVisuals(lineElement, text, yPx, opacity, isActive) {
+        lineElement.textContent = text || '';
+        lineElement.style.transform = 'translateY(calc(' + yPx + 'px - 50%))';
+        lineElement.style.opacity = text ? String(opacity) : '0';
+        lineElement.classList.toggle('active', isActive && Boolean(text));
+        lineElement.classList.toggle('no-motion', suppressTransitionsUntilNextFrame);
     }
 
     function withSuppressedTransitions(work) {
@@ -230,15 +236,15 @@
                     uiLines[i].text = lineObj.text;
                     uiLines[i].element.textContent = lineObj.text;
                 } else {
-                    const el = document.createElement('div');
-                    el.className = 'lyric-line no-motion';
-                    el.textContent = lineObj.text;
-                    container.insertBefore(el, insertBeforeNode);
+                    const lyricLineElement = document.createElement('div');
+                    lyricLineElement.className = 'lyric-line no-motion';
+                    lyricLineElement.textContent = lineObj.text;
+                    container.insertBefore(lyricLineElement, insertBeforeNode);
 
                     uiLines.push({
                         time: lineObj.time,
                         text: lineObj.text,
-                        element: el
+                        element: lyricLineElement
                     });
                 }
             }
@@ -327,11 +333,181 @@
         contextNextEl = null;
     }
 
+    function getLyricsWidgetElement() {
+        return document.getElementById('lyrics-widget');
+    }
+
+    function flushPendingHideCallbacks() {
+        while (pendingHideCallbacks.length > 0) {
+            const callback = pendingHideCallbacks.shift();
+            if (callback) callback();
+        }
+    }
+
+    function displayWidget() {
+        const element = getLyricsWidgetElement();
+        if (!element) return;
+
+        cancelPendingHide();
+        element.style.display = 'block';
+        void element.offsetWidth;
+        element.classList.add('visible');
+    }
+
+    function shouldDisplayWidgetForCurrentState() {
+        return interTrackBridgeActive || Boolean(lyricsRevealUnlocked && hasLyricsForCurrentTrack && latestLyricsData);
+    }
+
+    function show(options) {
+        if (options) {
+            if (Object.prototype.hasOwnProperty.call(options, 'lyricsData')) {
+                setLyricsDataForCurrentTrack(options.lyricsData);
+            }
+
+            if (typeof options.progressSeconds === 'number') {
+                syncProgress(options.progressSeconds);
+            }
+
+            if (options.previousTrackLine || options.upcomingTrackLine) {
+                setTrackContext({
+                    previousTrackLine: options.previousTrackLine,
+                    upcomingTrackLine: options.upcomingTrackLine
+                });
+            }
+
+            if (options.enterInterTrackBridge) {
+                enterInterTrackBridge({
+                    previousTrackLine: options.previousTrackLine,
+                    upcomingTrackLine: options.upcomingTrackLine
+                });
+            }
+
+            if (options.isPlaying === true) {
+                unlockLyricsReveal();
+            }
+
+            if (typeof options.isPlaying === 'boolean' || typeof options.isPlaybackVisualActive === 'boolean') {
+                const isPlaying = typeof options.isPlaying === 'boolean' ? options.isPlaying : true;
+                const awaitingMusicStart = options.awaitingMusicStart === true;
+                syncLyricsVisibilityWithPlaybackState(isPlaying, awaitingMusicStart);
+            } else if (shouldDisplayWidgetForCurrentState()) {
+                displayWidget();
+            }
+        } else {
+            displayWidget();
+        }
+    }
+
+    function hide(onHiddenCallback) {
+        const element = getLyricsWidgetElement();
+
+        if (onHiddenCallback) {
+            pendingHideCallbacks.push(onHiddenCallback);
+        }
+
+        if (!element) {
+            flushPendingHideCallbacks();
+            return;
+        }
+
+        if (element.style.display === 'none') {
+            element.ontransitionend = null;
+            flushPendingHideCallbacks();
+            return;
+        }
+
+        if (hideTransitionInProgress) return;
+        hideTransitionInProgress = true;
+
+        element.ontransitionend = function (event) {
+            if (!event || event.propertyName !== 'transform') return;
+            if (element.classList.contains('visible')) return;
+
+            element.style.display = 'none';
+            element.ontransitionend = null;
+            hideTransitionInProgress = false;
+            flushPendingHideCallbacks();
+        };
+
+        element.classList.remove('visible');
+    }
+
+    function cancelPendingHide() {
+        const element = getLyricsWidgetElement();
+        hideTransitionInProgress = false;
+        pendingHideCallbacks = [];
+        if (element) element.ontransitionend = null;
+    }
+
+    function setLyricsDataForCurrentTrack(lyricsData) {
+        const hasValidLines = lyricsData && Array.isArray(lyricsData.lines) && lyricsData.lines.length > 0;
+        hasLyricsForCurrentTrack = hasValidLines;
+        latestLyricsData = hasValidLines ? lyricsData : null;
+
+        if (!hasValidLines) {
+            clear();
+            renderedLyricsData = null;
+        }
+    }
+
+    function unlockLyricsReveal() {
+        lyricsRevealUnlocked = true;
+    }
+
+    function lockLyricsReveal() {
+        lyricsRevealUnlocked = false;
+    }
+
+    function hasLyrics() {
+        return hasLyricsForCurrentTrack;
+    }
+
+    function syncLyricsVisibilityWithPlaybackState(isPlayingState, awaitingMusicStart) {
+        if (awaitingMusicStart || !lyricsRevealUnlocked) {
+            hide();
+            return;
+        }
+
+        if (hasLyricsForCurrentTrack && latestLyricsData) {
+            if (window.VisualizerWidget && window.VisualizerWidget.hide) {
+                window.VisualizerWidget.hide();
+            }
+
+            displayWidget();
+
+            if (renderedLyricsData !== latestLyricsData) {
+                updateLyrics(latestLyricsData);
+                renderedLyricsData = latestLyricsData;
+            }
+            return;
+        }
+
+        hide(function () {
+            clear();
+            renderedLyricsData = null;
+        });
+
+        if (window.VisualizerWidget && window.VisualizerWidget.play) {
+            window.VisualizerWidget.play();
+        }
+    }
+
+    function clearAndReset() {
+        cancelPendingHide();
+
+        latestLyricsData = null;
+        renderedLyricsData = null;
+        hasLyricsForCurrentTrack = false;
+        lyricsRevealUnlocked = false;
+
+        hide(function () {
+            clear();
+        });
+    }
+
     window.LyricsWidget = {
-        updateLyrics: updateLyrics,
-        syncProgress: syncProgress,
-        setTrackContext: setTrackContext,
-        enterInterTrackBridge: enterInterTrackBridge,
-        clear: clear
+        show: show,
+        hide: hide,
+        hasLyrics: hasLyrics
     };
 })();

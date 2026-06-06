@@ -7,24 +7,21 @@
         return document.getElementById('context-message-text');
     }
 
-    function showError(message) {
+    function show(message) {
         var container = getContainer();
-        var textEl = getTextElement();
-        if (!container || !textEl) return;
+        var textElement = getTextElement();
 
-        textEl.textContent = message;
+        textElement.textContent = message || '';
         container.classList.add('visible');
     }
 
     function hide() {
         var container = getContainer();
-        if (container) {
-            container.classList.remove('visible');
-        }
+        container.classList.remove('visible');
     }
 
     window.ContextMessageWidget = {
-        showError: showError,
-        hide: hide
+        show: show,
+        hide: hide,
     };
 })();

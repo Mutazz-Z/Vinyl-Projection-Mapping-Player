@@ -63,11 +63,7 @@
                 setBootStatus('BOOT: Loading scripts...');
 
                 await loadScript('js/state.js');
-                await loadScript('widgets/progress/progress_controller.js');
                 await loadScript('js/track_resolver.js');
-                await loadScript('widgets/lyrics/lyrics_controller.js');
-                await loadScript('widgets/tracklist/tracklist_controller.js');
-                await loadScript('widgets/record/record_controller.js');
 
                 await loadScript('js/mapping.js');
                 await loadScript('js/qrcode.min.js');
@@ -83,12 +79,7 @@
                 await loadScript('widgets/qrcode/qrcode_app.js');
                 await loadScript('js/playback_controller.js');
                 await loadScript('js/datasource.js');
-                await loadScript('js/projector_payload.js');
                 await loadScript('js/websocket_router.js');
-
-                if (window.ProjectorPlayback && window.ProjectorPlayback.restoreState) {
-                    window.ProjectorPlayback.restoreState();
-                }
 
                 setBootStatus('BOOT: Ready');
                 setTimeout(() => { if (bootStatus) bootStatus.style.display = 'none'; }, 3000);

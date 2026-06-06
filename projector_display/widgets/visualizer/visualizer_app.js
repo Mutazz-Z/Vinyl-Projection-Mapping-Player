@@ -1,30 +1,34 @@
 (function () {
     var visualizerInterval = null;
 
-    function start() {
-        var viz = document.getElementById('visualizer');
-        if (!viz) return;
-        viz.classList.remove('paused', 'hidden');
+    function getVisualizerElement() {
+        return document.getElementById('visualizer');
+    }
+
+    function play() {
+        var visualizerElement = getVisualizerElement();
+        if (!visualizerElement) return;
+        visualizerElement.classList.remove('paused', 'hidden');
 
         clearInterval(visualizerInterval);
 
-        var bars = viz.querySelectorAll('.bar');
+        var barElements = visualizerElement.querySelectorAll('.bar');
         visualizerInterval = setInterval(function () {
-            bars.forEach(function (bar) {
-                bar.style.height = (Math.random() * 80 + 20) + '%';
+            barElements.forEach(function (barElement) {
+                barElement.style.height = (Math.random() * 80 + 20) + '%';
             });
         }, 140);
     }
 
     function pause() {
-        var viz = document.getElementById('visualizer');
-        if (viz) {
-            if (!viz.classList.contains('hidden')) {
-                viz.classList.add('paused');
+        var visualizerElement = getVisualizerElement();
+        if (visualizerElement) {
+            if (!visualizerElement.classList.contains('hidden')) {
+                visualizerElement.classList.add('paused');
 
-                var bars = viz.querySelectorAll('.bar');
-                bars.forEach(function (bar) {
-                    bar.style.height = '2%';
+                var barElements = visualizerElement.querySelectorAll('.bar');
+                barElements.forEach(function (barElement) {
+                    barElement.style.height = '2%';
                 });
             }
         }
@@ -34,14 +38,14 @@
     }
 
     function stop() {
-        var viz = document.getElementById('visualizer');
-        if (viz) {
-            viz.classList.remove('paused');
-            viz.classList.add('hidden');
+        var visualizerElement = getVisualizerElement();
+        if (visualizerElement) {
+            visualizerElement.classList.remove('paused');
+            visualizerElement.classList.add('hidden');
 
-            var bars = viz.querySelectorAll('.bar');
-            bars.forEach(function (bar) {
-                bar.style.height = '0%';
+            var barElements = visualizerElement.querySelectorAll('.bar');
+            barElements.forEach(function (barElement) {
+                barElement.style.height = '0%';
             });
         }
 
@@ -49,9 +53,18 @@
         visualizerInterval = null;
     }
 
+    function show() {
+        play();
+    }
+
+    function hide() {
+        stop();
+    }
+
     window.VisualizerWidget = {
-        start: start,
+        show: show,
+        hide: hide,
+        play: play,
         pause: pause,
-        stop: stop
     };
 })();

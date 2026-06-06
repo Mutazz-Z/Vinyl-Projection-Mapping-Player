@@ -5,36 +5,36 @@
         return document.querySelector('#info-widget .info-container') || document.querySelector('.info-container');
     }
 
-    function resetMarquee(el) {
-        if (!el) return;
-        el.classList.remove('marquee');
-        if (el.dataset.originalText !== undefined) {
-            el.textContent = el.dataset.originalText;
-            delete el.dataset.originalText;
+    function resetMarquee(element) {
+        if (!element) return;
+        element.classList.remove('marquee');
+        if (element.dataset.originalText !== undefined) {
+            element.textContent = element.dataset.originalText;
+            delete element.dataset.originalText;
         }
     }
 
-    function applyMarquee(el) {
-        if (!el) return;
-        var text = el.textContent;
-        el.dataset.originalText = text;
+    function applyMarquee(element) {
+        if (!element) return;
+        var text = element.textContent;
+        element.dataset.originalText = text;
 
-        el.innerHTML = '';
+        element.innerHTML = '';
 
-        var span1 = document.createElement('span');
-        span1.textContent = text;
+        var firstTextSpan = document.createElement('span');
+        firstTextSpan.textContent = text;
 
-        var spacer = document.createElement('span');
-        spacer.className = 'spacer';
+        var spacerSpan = document.createElement('span');
+        spacerSpan.className = 'spacer';
 
-        var span2 = document.createElement('span');
-        span2.textContent = text;
+        var secondTextSpan = document.createElement('span');
+        secondTextSpan.textContent = text;
 
-        el.appendChild(span1);
-        el.appendChild(spacer);
-        el.appendChild(span2);
+        element.appendChild(firstTextSpan);
+        element.appendChild(spacerSpan);
+        element.appendChild(secondTextSpan);
 
-        el.classList.add('marquee');
+        element.classList.add('marquee');
     }
 
     function updateLayout() {
@@ -101,16 +101,15 @@
         updateLayout();
     }
 
-    function setAlbumAndArtist(album, artist) {
+    function show(albumTitleText, artistNameText) {
         var container = getContainer();
         if (hideTimer) {
             clearTimeout(hideTimer);
             hideTimer = null;
         }
 
-        setText(album, artist);
+        setText(albumTitleText, artistNameText);
 
-        if (!container) return;
         container.classList.remove('hiding');
         if (!container.classList.contains('visible')) {
             requestAnimationFrame(function () {
@@ -119,7 +118,7 @@
         }
     }
 
-    function setIdle() {
+    function hide() {
         var container = getContainer();
 
         if (container && container.classList.contains('hiding')) {
@@ -152,7 +151,7 @@
     });
 
     window.InfoWidget = {
-        setAlbumAndArtist: setAlbumAndArtist,
-        setIdle: setIdle
+        show: show,
+        hide: hide,
     };
 })();

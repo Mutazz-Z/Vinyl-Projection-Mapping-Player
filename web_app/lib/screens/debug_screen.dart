@@ -12,7 +12,7 @@ class DebugScreen extends StatefulWidget {
 
 class _DebugScreenState extends State<DebugScreen> {
   final TextEditingController _uidController = TextEditingController(
-    text: '83-E4-14-AD',
+    text: '04-A5-1E-1A-2D-59-80',
   );
 
   @override
@@ -31,6 +31,7 @@ class _DebugScreenState extends State<DebugScreen> {
     }
 
     try {
+      systemDataSource.write(globalCurrentShelfStatus, ShelfStatus_t.ShelfStatus_Occupied);
       systemDataSource.write(globalLastKnownUidScanned, uid);
 
       ScaffoldMessenger.of(

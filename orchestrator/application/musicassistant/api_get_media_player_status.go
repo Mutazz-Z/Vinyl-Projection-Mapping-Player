@@ -75,20 +75,24 @@ type MediaPlayerStatus_t struct {
 	ActiveTrack   typedefs.ActiveTrack_t        `json:"active_track"`
 }
 
-func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier string) MediaPlayerStatus_t {
+func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier string) (MediaPlayerStatus_t, error) {
 	commandArguments := map[string]interface{}{
 		"queue_id": targetPlayerIdentifier,
 	}
-	response, _ := instance._private.messageRouter.ExecuteRemoteProcedureCall("player_queues/get", commandArguments)
+	response, responseError := instance._private.messageRouter.ExecuteRemoteProcedureCall("player_queues/get", commandArguments)
+	if responseError != nil {
+		return MediaPlayerStatus_t{}, responseError
+	}
 
 	rawResult, ok := response["result"]
 	if !ok {
-		fmt.Println("Response did not contain a 'result' field")
-		return MediaPlayerStatus_t{}
+		return MediaPlayerStatus_t{}, fmt.Errorf("response did not contain a 'result' field")
 	}
 
 	var parsedState RawMediaPlayerStatus_t
-	mapstructure.Decode(rawResult, &parsedState)
+	if decodeError := mapstructure.Decode(rawResult, &parsedState); decodeError != nil {
+		return MediaPlayerStatus_t{}, fmt.Errorf("failed to decode media player status: %w", decodeError)
+	}
 	resolvedTrackIndex := parseQueueTrackIndex(rawResult, parsedState.CurrentIndex)
 
 	return MediaPlayerStatus_t{
@@ -102,7 +106,7 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 			AlbumItemId: parsedState.CurrentItem.MediaItem.Album.ItemId,
 			Provider:    parsedState.CurrentItem.MediaItem.Provider,
 		},
-	}
+	}, nil
 }
 
 func parsePlayerState(rawState string) typedefs.MediaPlaybackState_t {
