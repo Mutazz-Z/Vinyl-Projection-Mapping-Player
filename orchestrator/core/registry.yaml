@@ -144,11 +144,6 @@ variables:
     type: typedefs.TrackListWidgetData_t
     default: "typedefs.TrackListWidgetData_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0, ReadyForDisplay: false}"
 
-  - name: CurrentQueueList
-    storage: Volatile
-    type: typedefs.QueueList_t
-    default: "typedefs.QueueList_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0}"
-
   - name: TrackListWidgetState
     storage: Volatile
     type: typedefs.WidgetState_t

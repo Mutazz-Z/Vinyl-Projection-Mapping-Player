@@ -101,6 +101,14 @@ func (dataSource *SQLiteDataSource) Write(key core.StateKey_t, value interface{}
 		}
 	}
 
+	dataSource.cacheMutex.RLock()
+	cachedValue := dataSource.memoryCache[key]
+	dataSource.cacheMutex.RUnlock()
+
+	if reflect.DeepEqual(cachedValue, value) {
+		return nil
+	}
+
 	dataSource.cacheMutex.Lock()
 	dataSource.memoryCache[key] = value
 	dataSource.cacheMutex.Unlock()
@@ -157,6 +165,31 @@ func (dataSource *SQLiteDataSource) Subscribe(topic string) <-chan Event {
 	return newSubscriberChannel
 }
 
+func (dataSource *SQLiteDataSource) Unsubscribe(topic string, subscription <-chan Event) {
+	dataSource.subscriberMutex.Lock()
+	defer dataSource.subscriberMutex.Unlock()
+
+	subscriberChannels, topicExists := dataSource.eventSubscribers[topic]
+	if !topicExists {
+		return
+	}
+
+	filtered := make([]chan Event, 0, len(subscriberChannels))
+	for _, channel := range subscriberChannels {
+		if channel == subscription {
+			continue
+		}
+		filtered = append(filtered, channel)
+	}
+
+	if len(filtered) == 0 {
+		delete(dataSource.eventSubscribers, topic)
+		return
+	}
+
+	dataSource.eventSubscribers[topic] = filtered
+}
+
 type Event struct {
 	Topic   string
 	Payload interface{}
@@ -167,4 +200,5 @@ type DataSource interface {
 	Write(key core.StateKey_t, value interface{}) error
 	Publish(topic string, payload interface{})
 	Subscribe(topic string) <-chan Event
+	Unsubscribe(topic string, subscription <-chan Event)
 }

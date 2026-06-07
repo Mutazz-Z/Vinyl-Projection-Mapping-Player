@@ -54,46 +54,8 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 	return stopMediaError
 }
 
-func (instance *SystemMediaPlayer_t) queueListDiffers(previousQueueList, nextQueueList typedefs.QueueList_t) bool {
-	if len(previousQueueList.Tracks) != len(nextQueueList.Tracks) {
-		return true
-	}
-
-	for i := range previousQueueList.Tracks {
-		if previousQueueList.Tracks[i].Track != nextQueueList.Tracks[i].Track {
-			return true
-		}
-		if previousQueueList.Tracks[i].TrackIndex != nextQueueList.Tracks[i].TrackIndex {
-			return true
-		}
-	}
-
-	if previousQueueList.CurrentPlayingIndex != nextQueueList.CurrentPlayingIndex {
-		return true
-	}
-
-	return false
-}
-
 func (instance *SystemMediaPlayer_t) activeTracksDontMatch(previousTrack, currentTrack typedefs.ActiveTrack_t) bool {
 	return previousTrack != currentTrack
-}
-
-func (instance *SystemMediaPlayer_t) refreshQueueWhilePlayingMedia() {
-	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
-
-	var activeTrack typedefs.ActiveTrack_t
-	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &activeTrack)
-	if currentMediaQueue.CurrentPlayingIndex == 0 && activeTrack.TrackIndex > 0 {
-		currentMediaQueue.CurrentPlayingIndex = activeTrack.TrackIndex
-	}
-
-	var previousQueueList typedefs.QueueList_t
-	utils.Read(instance._private.systemDataSource, core.Global_CurrentQueueList, &previousQueueList)
-
-	if instance.queueListDiffers(previousQueueList, currentMediaQueue) {
-		utils.Write(instance._private.systemDataSource, core.Global_CurrentQueueList, currentMediaQueue)
-	}
 }
 
 func (instance *SystemMediaPlayer_t) applyStatusSnapshotToDataSource(statusSnapshot MediaPlayerStatus_t) {
@@ -162,8 +124,6 @@ func (instance *SystemMediaPlayer_t) applyQueueUpdatedEvent(eventPayload interfa
 		utils.Write(instance._private.systemDataSource, core.Global_ActiveTrack, currentTrack)
 	}
 
-	go instance.refreshQueueWhilePlayingMedia()
-
 	instance._private.interpolationMutex.Lock()
 	instance._private.isPlaying = state == typedefs.PlayerState_Playing
 	instance._private.interpolationMutex.Unlock()
@@ -227,7 +187,6 @@ func (instance *SystemMediaPlayer_t) startListening() {
 			if wasSuspended && !isSuspended {
 				targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
 				instance.syncStatusSnapshotForTargetPlayer(targetPlayerIdentifier)
-				go instance.refreshQueueWhilePlayingMedia()
 			}
 		}
 
@@ -239,7 +198,6 @@ func (instance *SystemMediaPlayer_t) startListening() {
 			return
 		}
 		instance.applyStatusSnapshotToDataSource(mediaPlayerStatus)
-		go instance.refreshQueueWhilePlayingMedia()
 
 		targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
 		onStatusSnapshotTimerExpired := instance.buildStatusSnapshotTimerHandler(ctx, &isSyncSuspended, targetPlayerIdentifier)

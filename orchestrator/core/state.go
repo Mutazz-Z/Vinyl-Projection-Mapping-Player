@@ -339,17 +339,6 @@ func init() {
 	}
 }
 
-// ── CurrentQueueList ──────────────────────────────────
-
-var Global_CurrentQueueList = TypedKey[typedefs.QueueList_t]{Key: "Global_CurrentQueueList"}
-
-func init() {
-	StateRegistry[Global_CurrentQueueList.Key] = StateMetadata{
-		StorageType: Volatile,
-		DefaultData: typedefs.QueueList_t(typedefs.QueueList_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0}),
-	}
-}
-
 // ── TrackListWidgetState ──────────────────────────────────
 
 var Global_TrackListWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_TrackListWidgetState"}
