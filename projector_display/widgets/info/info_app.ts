@@ -1,5 +1,5 @@
 (function () {
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingTransitionCleanup: (() => void) | null = null;
     const appWindow = window as unknown as {
         resizeTimer?: ReturnType<typeof setTimeout>;
         InfoWidget: {
@@ -113,9 +113,9 @@
         const container = getContainer();
         if (!container) return;
 
-        if (hideTimer) {
-            clearTimeout(hideTimer);
-            hideTimer = null;
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
         }
 
         container.classList.remove('hiding');
@@ -133,25 +133,48 @@
             return;
         }
 
-        if (hideTimer) {
-            clearTimeout(hideTimer);
-            hideTimer = null;
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
         }
 
-        if (!container || !container.classList.contains('visible')) {
+        if (!container) {
             return;
         }
 
-        container.classList.remove('visible');
-        container.classList.add('hiding');
+        const onTransitionEnd = function (event: Event) {
+            const transitionEvent = event as TransitionEvent;
+            if (transitionEvent.target !== container) return;
+            if (transitionEvent.propertyName !== 'transform') return;
 
-        hideTimer = setTimeout(function () {
             container.classList.remove('hiding');
-            hideTimer = null;
-        }, 1000);
+            container.removeEventListener('transitionend', onTransitionEnd);
+            if (pendingTransitionCleanup === cleanup) {
+                pendingTransitionCleanup = null;
+            }
+        };
+
+        const cleanup = function (): void {
+            container.removeEventListener('transitionend', onTransitionEnd);
+            container.classList.remove('hiding');
+        };
+
+        pendingTransitionCleanup = cleanup;
+        container.addEventListener('transitionend', onTransitionEnd);
+        container.classList.remove('hiding');
+        container.classList.add('visible');
+        void (container as HTMLElement).offsetHeight;
+        requestAnimationFrame(function () {
+            container.classList.add('hiding');
+            container.classList.remove('visible');
+        });
     }
 
     function updateData(albumInfo: TitleAndArtist_t): void {
+        if (!albumInfo || (!albumInfo.title && !albumInfo.artist)) {
+            return;
+        }
+
         setText(albumInfo.title, albumInfo.artist);
     }
 

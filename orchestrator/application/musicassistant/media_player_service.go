@@ -54,16 +54,24 @@ func (instance *SystemMediaPlayer_t) StopMedia() error {
 	return stopMediaError
 }
 
-func (instance *SystemMediaPlayer_t) queueListsDontMatch(previousQueue, currentQueue typedefs.QueueList_t) bool {
-	if len(previousQueue.Tracks) != len(currentQueue.Tracks) {
+func (instance *SystemMediaPlayer_t) queueListDiffers(previousQueueList, nextQueueList typedefs.QueueList_t) bool {
+	if len(previousQueueList.Tracks) != len(nextQueueList.Tracks) {
 		return true
 	}
 
-	for i := range previousQueue.Tracks {
-		if previousQueue.Tracks[i] != currentQueue.Tracks[i] {
+	for i := range previousQueueList.Tracks {
+		if previousQueueList.Tracks[i].Track != nextQueueList.Tracks[i].Track {
+			return true
+		}
+		if previousQueueList.Tracks[i].TrackIndex != nextQueueList.Tracks[i].TrackIndex {
 			return true
 		}
 	}
+
+	if previousQueueList.CurrentPlayingIndex != nextQueueList.CurrentPlayingIndex {
+		return true
+	}
+
 	return false
 }
 
@@ -74,11 +82,17 @@ func (instance *SystemMediaPlayer_t) activeTracksDontMatch(previousTrack, curren
 func (instance *SystemMediaPlayer_t) refreshQueueWhilePlayingMedia() {
 	currentMediaQueue, _ := instance.getMediaPlayerQueueList(instance.retrieveTargetPlayerIdentifier())
 
-	var previousMediaQueue typedefs.QueueList_t
-	utils.Read(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, &previousMediaQueue)
+	var activeTrack typedefs.ActiveTrack_t
+	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &activeTrack)
+	if currentMediaQueue.CurrentPlayingIndex == 0 && activeTrack.TrackIndex > 0 {
+		currentMediaQueue.CurrentPlayingIndex = activeTrack.TrackIndex
+	}
 
-	if instance.queueListsDontMatch(previousMediaQueue, currentMediaQueue) {
-		utils.Write(instance._private.systemDataSource, core.Global_CurrentMediaPlaybackQueue, currentMediaQueue)
+	var previousQueueList typedefs.QueueList_t
+	utils.Read(instance._private.systemDataSource, core.Global_CurrentQueueList, &previousQueueList)
+
+	if instance.queueListDiffers(previousQueueList, currentMediaQueue) {
+		utils.Write(instance._private.systemDataSource, core.Global_CurrentQueueList, currentMediaQueue)
 	}
 }
 

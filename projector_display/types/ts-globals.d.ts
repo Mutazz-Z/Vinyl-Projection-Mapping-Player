@@ -42,6 +42,28 @@ declare class TrackLyrics_t {
   static fromJson(json: unknown): TrackLyrics_t;
 }
 
+declare class TrackListItem_t {
+  trackIndex: number;
+  track: string;
+  static fromJson(json: unknown): TrackListItem_t;
+}
+
+declare class TrackListWidgetData_t {
+  tracks: TrackListItem_t[];
+  currentPlayingIndex: number;
+  readyForDisplay: boolean;
+  static fromJson(json: unknown): TrackListWidgetData_t;
+}
+
+declare class ActiveTrack_t {
+  trackName: string;
+  trackIndex: number;
+  provider: string;
+  trackItemId: string;
+  albumItemId: string;
+  static fromJson(json: unknown): ActiveTrack_t;
+}
+
 declare class AlbumTrackList_t {
   track: string;
   duration: number;
@@ -106,15 +128,16 @@ declare const Global_CurrentShelfStatus: string;
 declare const Global_ProjectorHeartbeatSignal: { key: string };
 declare const Global_ProjectorHeartbeat: string;
 declare const Global_CurrentProjectorData: { key: string; fromJson: (json: unknown) => ProjectorData_t };
-declare const Global_CurrentMediaPlaybackQueue: { key: string };
 declare const Global_InfoWidgetData: { key: string; fromJson: (json: unknown) => TitleAndArtist_t };
 declare const Global_InfoWidgetState: string;
 declare const Global_OverlayWidgetData: { key: string; fromJson: (json: unknown) => OverlayData_t };
 declare const Global_OverlayWidgetState: string;
 declare const Global_RecordWidgetData: { key: string; fromJson: (json: unknown) => RecordDesignData_t };
 declare const Global_RecordWidgetState: string;
+declare const Global_TrackListWidgetData: { key: string; fromJson: (json: unknown) => TrackListWidgetData_t };
+declare const Global_TrackListWidgetState: string;
 declare const Global_LoadingWidgetState: string;
-declare const Global_ActiveTrack: { key: string };
+declare const Global_ActiveTrack: { key: string; fromJson: (json: unknown) => ActiveTrack_t };
 
 declare const TrackResolver: {
   buildLyricsLookupFromTrackList: (trackList: AlbumTrackList_t[]) => void;
@@ -172,6 +195,7 @@ interface ContextMessageWidgetApi {
 interface TracklistWidgetApi {
   show?: (options?: unknown) => void;
   hide?: (options?: unknown) => void;
+  updateData?: (trackListWidgetData: TrackListWidgetData_t) => void;
 }
 
 interface RecordWidgetApi {

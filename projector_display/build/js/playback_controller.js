@@ -4,22 +4,13 @@
     const RECORD_SLIDE_MS = 700;
     let playbackToken = 0;
     let sceneActive = false;
-    function getPlaybackToken() {
-        return playbackToken;
-    }
     function clearAllTransitionTimers() {
-        if (window.TracklistWidget && window.TracklistWidget.hide) {
-            window.TracklistWidget.hide({
-                visible: false,
-                cancelPendingTransitions: true,
-            });
-        }
+        return;
     }
     function runPlaybackEntranceSequence(token) {
         if (token !== playbackToken)
             return;
         window.ProgressWidget?.show?.();
-        window.TracklistWidget?.show?.();
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
                 isPlaybackVisualActive: sceneActive,
@@ -30,17 +21,13 @@
     function prepareWidgetsForPlayback(projectorData) {
         window.ContextMessageWidget?.hide();
         window.QrCodeWidget?.hide?.();
-        window.TracklistWidget?.show?.({
-            visible: false,
-            projectorData: projectorData,
-            prepareForPlayback: true,
-        });
+        TrackResolver.clearTrackPositionOnly();
+        TrackResolver.buildLyricsLookupFromTrackList(projectorData?.tagData?.trackList || []);
         window.RecordWidget?.show?.({
             visible: false,
             prepareForPlayback: true,
         });
         window.ProgressWidget?.hide?.({ reset: true });
-        window.TracklistWidget?.hide?.();
         window.VisualizerWidget?.hide?.();
         window.ProgressWidget?.hide?.({ visible: false, reset: true });
         window.LyricsWidget?.hide?.();
@@ -49,7 +36,6 @@
         if (token !== playbackToken)
             return;
         window.ProgressWidget?.show?.();
-        window.TracklistWidget?.show?.();
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
                 isPlaybackVisualActive: sceneActive,
@@ -57,15 +43,8 @@
             });
         }
     }
-    function prepareWidgetsForStop(token, isError) {
+    function prepareWidgetsForStop(isError) {
         window.ProgressWidget?.hide?.({ reset: true });
-        window.TracklistWidget?.hide?.({
-            visible: false,
-            beginStopSequence: {
-                token: token,
-                getPlaybackToken: getPlaybackToken,
-            },
-        });
         window.QrCodeWidget?.hide?.();
         window.VisualizerWidget?.hide?.();
         window.ProgressWidget?.hide?.({ visible: false, reset: true });
@@ -88,9 +67,9 @@
     }
     function stopPlayback(isError = false) {
         sceneActive = false;
-        const token = ++playbackToken;
+        ++playbackToken;
         clearAllTransitionTimers();
-        prepareWidgetsForStop(token, isError);
+        prepareWidgetsForStop(isError);
     }
     function showUnknownTag(projectorData) {
         stopPlayback();

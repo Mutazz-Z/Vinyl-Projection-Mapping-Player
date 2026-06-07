@@ -328,6 +328,39 @@ func init() {
 	}
 }
 
+// ── TrackListWidgetData ──────────────────────────────────
+
+var Global_TrackListWidgetData = TypedKey[typedefs.TrackListWidgetData_t]{Key: "Global_TrackListWidgetData"}
+
+func init() {
+	StateRegistry[Global_TrackListWidgetData.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.TrackListWidgetData_t(typedefs.TrackListWidgetData_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0, ReadyForDisplay: false}),
+	}
+}
+
+// ── CurrentQueueList ──────────────────────────────────
+
+var Global_CurrentQueueList = TypedKey[typedefs.QueueList_t]{Key: "Global_CurrentQueueList"}
+
+func init() {
+	StateRegistry[Global_CurrentQueueList.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.QueueList_t(typedefs.QueueList_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0}),
+	}
+}
+
+// ── TrackListWidgetState ──────────────────────────────────
+
+var Global_TrackListWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_TrackListWidgetState"}
+
+func init() {
+	StateRegistry[Global_TrackListWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
 // ── MediaPlaybackState ──────────────────────────────────
 
 var Global_MediaPlaybackState = TypedKey[typedefs.MediaPlaybackState_t]{Key: "Global_MediaPlaybackState"}
@@ -336,17 +369,6 @@ func init() {
 	StateRegistry[Global_MediaPlaybackState.Key] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: typedefs.MediaPlaybackState_t(typedefs.PlayerState_Idle),
-	}
-}
-
-// ── CurrentMediaPlaybackQueue ──────────────────────────────────
-
-var Global_CurrentMediaPlaybackQueue = TypedKey[typedefs.QueueList_t]{Key: "Global_CurrentMediaPlaybackQueue"}
-
-func init() {
-	StateRegistry[Global_CurrentMediaPlaybackQueue.Key] = StateMetadata{
-		StorageType: Volatile,
-		DefaultData: typedefs.QueueList_t(typedefs.QueueList_t{Tracks: []string{}}),
 	}
 }
 

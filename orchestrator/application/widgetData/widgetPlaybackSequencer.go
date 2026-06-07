@@ -23,6 +23,7 @@ func (instance *WidgetPlaybackSequencer_t) startProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetState, typedefs.WidgetState_Show)
 	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Show)
 	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Show)
+	utils.Write(instance._private.systemDataSource, core.Global_TrackListWidgetState, typedefs.WidgetState_Show)
 
 }
 
@@ -45,10 +46,14 @@ func (instance *WidgetPlaybackSequencer_t) checkIfReadyForProjectorPlayback() {
 	var overlayData typedefs.OverlayData_t
 	utils.Read(instance._private.systemDataSource, core.Global_OverlayWidgetData, &overlayData)
 
+	var trackListData typedefs.TrackListWidgetData_t
+	utils.Read(instance._private.systemDataSource, core.Global_TrackListWidgetData, &trackListData)
+
 	var widgetsStatus = []bool{
 		titleAndArtist.ReadyForDisplay,
 		recordDesignData.ReadyForDisplay,
-		overlayData.ReadyForDisplay}
+		overlayData.ReadyForDisplay,
+		trackListData.ReadyForDisplay}
 
 	if instance.widgetsAreReadyForProjectorPlayback(widgetsStatus) && instance.targetMediaPlayerIsPlaying() {
 		fmt.Println("All widgets are ready for projector playback. Starting playback...")
@@ -64,11 +69,11 @@ func (instance *WidgetPlaybackSequencer_t) stopProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Hide)
-	
-	time.Sleep(1 * time.Second)
-	
-	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Idle)
+	utils.Write(instance._private.systemDataSource, core.Global_TrackListWidgetState, typedefs.WidgetState_Hide)
 
+	time.Sleep(1 * time.Second)
+
+	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Idle)
 }
 
 func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {

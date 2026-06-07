@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    let hideTimer = null;
+    let pendingTransitionCleanup = null;
     const appWindow = window;
     function getContainer() {
         return document.querySelector('#info-widget .info-container') || document.querySelector('.info-container');
@@ -84,9 +84,9 @@
         const container = getContainer();
         if (!container)
             return;
-        if (hideTimer) {
-            clearTimeout(hideTimer);
-            hideTimer = null;
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
         }
         container.classList.remove('hiding');
         if (!container.classList.contains('visible')) {
@@ -100,21 +100,43 @@
         if (container && container.classList.contains('hiding')) {
             return;
         }
-        if (hideTimer) {
-            clearTimeout(hideTimer);
-            hideTimer = null;
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
         }
-        if (!container || !container.classList.contains('visible')) {
+        if (!container) {
             return;
         }
-        container.classList.remove('visible');
-        container.classList.add('hiding');
-        hideTimer = setTimeout(function () {
+        const onTransitionEnd = function (event) {
+            const transitionEvent = event;
+            if (transitionEvent.target !== container)
+                return;
+            if (transitionEvent.propertyName !== 'transform')
+                return;
             container.classList.remove('hiding');
-            hideTimer = null;
-        }, 1000);
+            container.removeEventListener('transitionend', onTransitionEnd);
+            if (pendingTransitionCleanup === cleanup) {
+                pendingTransitionCleanup = null;
+            }
+        };
+        const cleanup = function () {
+            container.removeEventListener('transitionend', onTransitionEnd);
+            container.classList.remove('hiding');
+        };
+        pendingTransitionCleanup = cleanup;
+        container.addEventListener('transitionend', onTransitionEnd);
+        container.classList.remove('hiding');
+        container.classList.add('visible');
+        void container.offsetHeight;
+        requestAnimationFrame(function () {
+            container.classList.add('hiding');
+            container.classList.remove('visible');
+        });
     }
     function updateData(albumInfo) {
+        if (!albumInfo || (!albumInfo.title && !albumInfo.artist)) {
+            return;
+        }
         setText(albumInfo.title, albumInfo.artist);
     }
     window.addEventListener('resize', function () {

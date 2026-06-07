@@ -4,17 +4,6 @@
 
 // ── Enum value maps ───────────────────────────────────────────────────────────
 
-const MediaPlaybackState = Object.freeze({
-    Playing: 0,
-    Paused: 1,
-    Idle: 2,
-    Buffering: 3,
-    Unknown: 4,
-    Stopped: 5,
-    Error: 6,
-    Offline: 7,
-});
-
 const WidgetState = Object.freeze({
     Hide: 0,
     Show: 1,
@@ -31,9 +20,15 @@ const VisualDataState = Object.freeze({
     DisplayIdle: 3,
 });
 
-const ShelfStatus = Object.freeze({
-    Empty: false,
-    Occupied: true,
+const MediaPlaybackState = Object.freeze({
+    Playing: 0,
+    Paused: 1,
+    Idle: 2,
+    Buffering: 3,
+    Unknown: 4,
+    Stopped: 5,
+    Error: 6,
+    Offline: 7,
 });
 
 const ReaderStatus = Object.freeze({
@@ -41,29 +36,150 @@ const ReaderStatus = Object.freeze({
     Online: true,
 });
 
+const ShelfStatus = Object.freeze({
+    Empty: false,
+    Occupied: true,
+});
+
 // ── Struct classes ──────────────────────────────────────────────────────────
 
-class AvailableMediaPlayers_t {
+class ActiveTrack_t {
     constructor({
-        playerID,
-        displayName,
+        trackName,
+        trackIndex,
+        provider,
+        trackItemId,
+        albumItemId,
     }) {
-        this.playerID = playerID;
-        this.displayName = displayName;
+        this.trackName = trackName;
+        this.trackIndex = trackIndex;
+        this.provider = provider;
+        this.trackItemId = trackItemId;
+        this.albumItemId = albumItemId;
     }
 
     static fromJson(json) {
-        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
-        return new AvailableMediaPlayers_t({
-            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
-            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
+        if (!json || typeof json !== 'object') return new ActiveTrack_t({});
+        return new ActiveTrack_t({
+            trackName: typeof json['track_name'] === 'string' ? json['track_name'] : '',
+            trackIndex: Number(json['track_index'] ?? 0),
+            provider: typeof json['provider'] === 'string' ? json['provider'] : '',
+            trackItemId: typeof json['track_item_id'] === 'string' ? json['track_item_id'] : '',
+            albumItemId: typeof json['album_item_id'] === 'string' ? json['album_item_id'] : '',
         });
     }
 
     toJson() {
         return {
-            'player_id': this.playerID,
-            'display_name': this.displayName,
+            'track_name': this.trackName,
+            'track_index': this.trackIndex,
+            'provider': this.provider,
+            'track_item_id': this.trackItemId,
+            'album_item_id': this.albumItemId,
+        };
+    }
+}
+
+class TrackListWidgetData_t {
+    constructor({
+        tracks,
+        currentPlayingIndex,
+        readyForDisplay,
+    }) {
+        this.tracks = tracks;
+        this.currentPlayingIndex = currentPlayingIndex;
+        this.readyForDisplay = readyForDisplay;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new TrackListWidgetData_t({});
+        return new TrackListWidgetData_t({
+            tracks: Array.isArray(json['tracks']) ? json['tracks'].map(TrackListItem_t.fromJson) : [],
+            currentPlayingIndex: Number(json['currentPlayingIndex'] ?? 0),
+            readyForDisplay: json['readyForDisplay'] === true,
+        });
+    }
+
+    toJson() {
+        return {
+            'tracks': this.tracks.map(function(e) { return e.toJson(); }),
+            'currentPlayingIndex': this.currentPlayingIndex,
+            'readyForDisplay': this.readyForDisplay,
+        };
+    }
+}
+
+class TrackLyrics_t {
+    constructor({
+        lines,
+    }) {
+        this.lines = lines;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new TrackLyrics_t({});
+        return new TrackLyrics_t({
+            lines: Array.isArray(json['lines']) ? json['lines'].map(LyricLine_t.fromJson) : [],
+        });
+    }
+
+    toJson() {
+        return {
+            'lines': this.lines.map(function(e) { return e.toJson(); }),
+        };
+    }
+}
+
+class TrackListItem_t {
+    constructor({
+        trackIndex,
+        track,
+    }) {
+        this.trackIndex = trackIndex;
+        this.track = track;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new TrackListItem_t({});
+        return new TrackListItem_t({
+            trackIndex: Number(json['trackIndex'] ?? 0),
+            track: typeof json['track'] === 'string' ? json['track'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'trackIndex': this.trackIndex,
+            'track': this.track,
+        };
+    }
+}
+
+class RecordDesignData_t {
+    constructor({
+        labelDesign,
+        ringDesign,
+        readyForDisplay,
+    }) {
+        this.labelDesign = labelDesign;
+        this.ringDesign = ringDesign;
+        this.readyForDisplay = readyForDisplay;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new RecordDesignData_t({});
+        return new RecordDesignData_t({
+            labelDesign: LabelDesignData_t.fromJson(json['labelDesign'] ?? {}),
+            ringDesign: RingDesignData_t.fromJson(json['ringDesign'] ?? {}),
+            readyForDisplay: json['readyForDisplay'] === true,
+        });
+    }
+
+    toJson() {
+        return {
+            'labelDesign': this.labelDesign,
+            'ringDesign': this.ringDesign,
+            'readyForDisplay': this.readyForDisplay,
         };
     }
 }
@@ -97,172 +213,6 @@ class AlbumTrackList_t {
             'duration': this.duration,
             'cover_image': this.coverImage,
             'lyrics': this.lyrics,
-        };
-    }
-}
-
-class ProjectorData_t {
-    constructor({
-        tagData,
-        visualDataState,
-        registerTagUrl,
-        errorMessage,
-    }) {
-        this.tagData = tagData;
-        this.visualDataState = visualDataState;
-        this.registerTagUrl = registerTagUrl;
-        this.errorMessage = errorMessage;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new ProjectorData_t({});
-        return new ProjectorData_t({
-            tagData: VinylRecordTagData_t.fromJson(json['tag_data'] ?? {}),
-            visualDataState: Number(json['visual_data_state'] ?? 0),
-            registerTagUrl: typeof json['register_tag_url'] === 'string' ? json['register_tag_url'] : '',
-            errorMessage: typeof json['error_message'] === 'string' ? json['error_message'] : '',
-        });
-    }
-
-    toJson() {
-        return {
-            'tag_data': this.tagData,
-            'visual_data_state': this.visualDataState,
-            'register_tag_url': this.registerTagUrl,
-            'error_message': this.errorMessage,
-        };
-    }
-}
-
-class LabelDesignData_t {
-    constructor({
-        usesImage,
-        labelColor,
-        labelImage,
-    }) {
-        this.usesImage = usesImage;
-        this.labelColor = labelColor;
-        this.labelImage = labelImage;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new LabelDesignData_t({});
-        return new LabelDesignData_t({
-            usesImage: json['usesImage'] === true,
-            labelColor: typeof json['labelColor'] === 'string' ? json['labelColor'] : '',
-            labelImage: typeof json['labelImage'] === 'string' ? json['labelImage'] : '',
-        });
-    }
-
-    toJson() {
-        return {
-            'usesImage': this.usesImage,
-            'labelColor': this.labelColor,
-            'labelImage': this.labelImage,
-        };
-    }
-}
-
-class AlbumsInLibrary_t {
-    constructor({
-        itemId,
-        provider,
-        mediaTitle,
-        artist,
-        coverImage,
-    }) {
-        this.itemId = itemId;
-        this.provider = provider;
-        this.mediaTitle = mediaTitle;
-        this.artist = artist;
-        this.coverImage = coverImage;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new AlbumsInLibrary_t({});
-        return new AlbumsInLibrary_t({
-            itemId: typeof json['item_id'] === 'string' ? json['item_id'] : '',
-            provider: typeof json['provider'] === 'string' ? json['provider'] : '',
-            mediaTitle: typeof json['media_title'] === 'string' ? json['media_title'] : '',
-            artist: typeof json['artist'] === 'string' ? json['artist'] : '',
-            coverImage: typeof json['cover_image'] === 'string' ? json['cover_image'] : '',
-        });
-    }
-
-    toJson() {
-        return {
-            'item_id': this.itemId,
-            'provider': this.provider,
-            'media_title': this.mediaTitle,
-            'artist': this.artist,
-            'cover_image': this.coverImage,
-        };
-    }
-}
-
-class QueueList_t {
-    constructor({
-        tracks,
-    }) {
-        this.tracks = tracks;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new QueueList_t({});
-        return new QueueList_t({
-            tracks: Array.isArray(json['tracks']) ? json['tracks'] : [],
-        });
-    }
-
-    toJson() {
-        return {
-            'tracks': this.tracks,
-        };
-    }
-}
-
-class LyricLine_t {
-    constructor({
-        timeStart,
-        text,
-    }) {
-        this.timeStart = timeStart;
-        this.text = text;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new LyricLine_t({});
-        return new LyricLine_t({
-            timeStart: Number(json['time_start'] ?? 0),
-            text: typeof json['text'] === 'string' ? json['text'] : '',
-        });
-    }
-
-    toJson() {
-        return {
-            'time_start': this.timeStart,
-            'text': this.text,
-        };
-    }
-}
-
-class TrackLyrics_t {
-    constructor({
-        lines,
-    }) {
-        this.lines = lines;
-    }
-
-    static fromJson(json) {
-        if (!json || typeof json !== 'object') return new TrackLyrics_t({});
-        return new TrackLyrics_t({
-            lines: Array.isArray(json['lines']) ? json['lines'].map(LyricLine_t.fromJson) : [],
-        });
-    }
-
-    toJson() {
-        return {
-            'lines': this.lines.map(function(e) { return e.toJson(); }),
         };
     }
 }
@@ -332,31 +282,35 @@ class VinylRecordTagData_t {
     }
 }
 
-class RecordDesignData_t {
+class ProjectorData_t {
     constructor({
-        labelDesign,
-        ringDesign,
-        readyForDisplay,
+        tagData,
+        visualDataState,
+        registerTagUrl,
+        errorMessage,
     }) {
-        this.labelDesign = labelDesign;
-        this.ringDesign = ringDesign;
-        this.readyForDisplay = readyForDisplay;
+        this.tagData = tagData;
+        this.visualDataState = visualDataState;
+        this.registerTagUrl = registerTagUrl;
+        this.errorMessage = errorMessage;
     }
 
     static fromJson(json) {
-        if (!json || typeof json !== 'object') return new RecordDesignData_t({});
-        return new RecordDesignData_t({
-            labelDesign: LabelDesignData_t.fromJson(json['labelDesign'] ?? {}),
-            ringDesign: RingDesignData_t.fromJson(json['ringDesign'] ?? {}),
-            readyForDisplay: json['readyForDisplay'] === true,
+        if (!json || typeof json !== 'object') return new ProjectorData_t({});
+        return new ProjectorData_t({
+            tagData: VinylRecordTagData_t.fromJson(json['tag_data'] ?? {}),
+            visualDataState: Number(json['visual_data_state'] ?? 0),
+            registerTagUrl: typeof json['register_tag_url'] === 'string' ? json['register_tag_url'] : '',
+            errorMessage: typeof json['error_message'] === 'string' ? json['error_message'] : '',
         });
     }
 
     toJson() {
         return {
-            'labelDesign': this.labelDesign,
-            'ringDesign': this.ringDesign,
-            'readyForDisplay': this.readyForDisplay,
+            'tag_data': this.tagData,
+            'visual_data_state': this.visualDataState,
+            'register_tag_url': this.registerTagUrl,
+            'error_message': this.errorMessage,
         };
     }
 }
@@ -390,68 +344,114 @@ class RingDesignData_t {
     }
 }
 
-class TitleAndArtist_t {
+class AlbumsInLibrary_t {
     constructor({
-        title,
+        itemId,
+        provider,
+        mediaTitle,
         artist,
-        readyForDisplay,
+        coverImage,
     }) {
-        this.title = title;
+        this.itemId = itemId;
+        this.provider = provider;
+        this.mediaTitle = mediaTitle;
         this.artist = artist;
-        this.readyForDisplay = readyForDisplay;
+        this.coverImage = coverImage;
     }
 
     static fromJson(json) {
-        if (!json || typeof json !== 'object') return new TitleAndArtist_t({});
-        return new TitleAndArtist_t({
-            title: typeof json['title'] === 'string' ? json['title'] : '',
+        if (!json || typeof json !== 'object') return new AlbumsInLibrary_t({});
+        return new AlbumsInLibrary_t({
+            itemId: typeof json['item_id'] === 'string' ? json['item_id'] : '',
+            provider: typeof json['provider'] === 'string' ? json['provider'] : '',
+            mediaTitle: typeof json['media_title'] === 'string' ? json['media_title'] : '',
             artist: typeof json['artist'] === 'string' ? json['artist'] : '',
-            readyForDisplay: json['readyForDisplay'] === true,
+            coverImage: typeof json['cover_image'] === 'string' ? json['cover_image'] : '',
         });
     }
 
     toJson() {
         return {
-            'title': this.title,
+            'item_id': this.itemId,
+            'provider': this.provider,
+            'media_title': this.mediaTitle,
             'artist': this.artist,
-            'readyForDisplay': this.readyForDisplay,
+            'cover_image': this.coverImage,
         };
     }
 }
 
-class ActiveTrack_t {
+class LyricLine_t {
     constructor({
-        trackName,
-        trackIndex,
-        provider,
-        trackItemId,
-        albumItemId,
+        timeStart,
+        text,
     }) {
-        this.trackName = trackName;
-        this.trackIndex = trackIndex;
-        this.provider = provider;
-        this.trackItemId = trackItemId;
-        this.albumItemId = albumItemId;
+        this.timeStart = timeStart;
+        this.text = text;
     }
 
     static fromJson(json) {
-        if (!json || typeof json !== 'object') return new ActiveTrack_t({});
-        return new ActiveTrack_t({
-            trackName: typeof json['track_name'] === 'string' ? json['track_name'] : '',
-            trackIndex: Number(json['track_index'] ?? 0),
-            provider: typeof json['provider'] === 'string' ? json['provider'] : '',
-            trackItemId: typeof json['track_item_id'] === 'string' ? json['track_item_id'] : '',
-            albumItemId: typeof json['album_item_id'] === 'string' ? json['album_item_id'] : '',
+        if (!json || typeof json !== 'object') return new LyricLine_t({});
+        return new LyricLine_t({
+            timeStart: Number(json['time_start'] ?? 0),
+            text: typeof json['text'] === 'string' ? json['text'] : '',
         });
     }
 
     toJson() {
         return {
-            'track_name': this.trackName,
-            'track_index': this.trackIndex,
-            'provider': this.provider,
-            'track_item_id': this.trackItemId,
-            'album_item_id': this.albumItemId,
+            'time_start': this.timeStart,
+            'text': this.text,
+        };
+    }
+}
+
+class QueueList_t {
+    constructor({
+        tracks,
+        currentPlayingIndex,
+    }) {
+        this.tracks = tracks;
+        this.currentPlayingIndex = currentPlayingIndex;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new QueueList_t({});
+        return new QueueList_t({
+            tracks: Array.isArray(json['tracks']) ? json['tracks'].map(TrackListItem_t.fromJson) : [],
+            currentPlayingIndex: Number(json['currentPlayingIndex'] ?? 0),
+        });
+    }
+
+    toJson() {
+        return {
+            'tracks': this.tracks.map(function(e) { return e.toJson(); }),
+            'currentPlayingIndex': this.currentPlayingIndex,
+        };
+    }
+}
+
+class AvailableMediaPlayers_t {
+    constructor({
+        playerID,
+        displayName,
+    }) {
+        this.playerID = playerID;
+        this.displayName = displayName;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new AvailableMediaPlayers_t({});
+        return new AvailableMediaPlayers_t({
+            playerID: typeof json['player_id'] === 'string' ? json['player_id'] : '',
+            displayName: typeof json['display_name'] === 'string' ? json['display_name'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'player_id': this.playerID,
+            'display_name': this.displayName,
         };
     }
 }
@@ -476,6 +476,64 @@ class OverlayData_t {
     toJson() {
         return {
             'overlayImage': this.overlayImage,
+            'readyForDisplay': this.readyForDisplay,
+        };
+    }
+}
+
+class LabelDesignData_t {
+    constructor({
+        usesImage,
+        labelColor,
+        labelImage,
+    }) {
+        this.usesImage = usesImage;
+        this.labelColor = labelColor;
+        this.labelImage = labelImage;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new LabelDesignData_t({});
+        return new LabelDesignData_t({
+            usesImage: json['usesImage'] === true,
+            labelColor: typeof json['labelColor'] === 'string' ? json['labelColor'] : '',
+            labelImage: typeof json['labelImage'] === 'string' ? json['labelImage'] : '',
+        });
+    }
+
+    toJson() {
+        return {
+            'usesImage': this.usesImage,
+            'labelColor': this.labelColor,
+            'labelImage': this.labelImage,
+        };
+    }
+}
+
+class TitleAndArtist_t {
+    constructor({
+        title,
+        artist,
+        readyForDisplay,
+    }) {
+        this.title = title;
+        this.artist = artist;
+        this.readyForDisplay = readyForDisplay;
+    }
+
+    static fromJson(json) {
+        if (!json || typeof json !== 'object') return new TitleAndArtist_t({});
+        return new TitleAndArtist_t({
+            title: typeof json['title'] === 'string' ? json['title'] : '',
+            artist: typeof json['artist'] === 'string' ? json['artist'] : '',
+            readyForDisplay: json['readyForDisplay'] === true,
+        });
+    }
+
+    toJson() {
+        return {
+            'title': this.title,
+            'artist': this.artist,
             'readyForDisplay': this.readyForDisplay,
         };
     }
@@ -510,8 +568,10 @@ const Global_OverlayWidgetData = { key: 'Global_OverlayWidgetData', fromJson: Ov
 const Global_OverlayWidgetState = 'Global_OverlayWidgetState';
 const Global_RecordWidgetData = { key: 'Global_RecordWidgetData', fromJson: RecordDesignData_t.fromJson };
 const Global_RecordWidgetState = 'Global_RecordWidgetState';
+const Global_TrackListWidgetData = { key: 'Global_TrackListWidgetData', fromJson: TrackListWidgetData_t.fromJson };
+const Global_CurrentQueueList = { key: 'Global_CurrentQueueList', fromJson: QueueList_t.fromJson };
+const Global_TrackListWidgetState = 'Global_TrackListWidgetState';
 const Global_MediaPlaybackState = 'Global_MediaPlaybackState';
-const Global_CurrentMediaPlaybackQueue = { key: 'Global_CurrentMediaPlaybackQueue', fromJson: QueueList_t.fromJson };
 const Global_ActiveTrack = { key: 'Global_ActiveTrack', fromJson: ActiveTrack_t.fromJson };
 const Global_ActiveTrackProgressInSeconds = 'Global_ActiveTrackProgressInSeconds';
 const Global_ActiveTrackTotalDurationInSeconds = 'Global_ActiveTrackTotalDurationInSeconds';

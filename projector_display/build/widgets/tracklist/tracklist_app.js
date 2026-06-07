@@ -4,8 +4,8 @@
     const RECORD_SLIDE_MS = 700;
     let currentActiveIndex = 0;
     let uiTracks = [];
-    let pendingHideTimer = null;
-    let pendingClearTimer = null;
+    let renderedTrackSignature = '';
+    let pendingTransitionCleanup = null;
     function renderTracklist(tracks) {
         const container = document.getElementById('tracklist-arc');
         if (!container)
@@ -14,7 +14,7 @@
         currentActiveIndex = 0;
         uiTracks = [];
         (tracks || []).forEach(function (trackItem) {
-            const trackName = typeof trackItem === 'string' ? trackItem : (trackItem.track || '');
+            const trackName = trackItem.track || '';
             if (!trackName)
                 return;
             const trackElement = document.createElement('div');
@@ -24,39 +24,33 @@
             uiTracks.push({
                 name: trackName,
                 element: trackElement,
-                data: trackItem,
             });
         });
+        renderedTrackSignature = tracks.map(function (trackItem) {
+            return String(trackItem.trackIndex) + ':' + trackItem.track;
+        }).join('|');
     }
     function getContainer() {
         return document.querySelector('#tracklist-widget .tracklist-container');
     }
     function show(options) {
         const config = (options && typeof options === 'object') ? options : {};
-        if (config.prepareForPlayback === true) {
-            const projectorData = config.projectorData;
-            const trackList = projectorData?.tagData?.trackList || [];
-            TrackResolver.clearTrackPositionOnly();
-            TrackResolver.buildLyricsLookupFromTrackList(trackList);
-            consumeQueueList(trackList.map(function (entry) {
-                return entry.track;
-            }));
-        }
-        if (Object.prototype.hasOwnProperty.call(config, 'queueList')) {
-            consumeQueueList(config.queueList || []);
-        }
-        if (config.activeTrack) {
-            consumeActiveTrack(config.activeTrack);
-        }
         if (config.visible === false) {
             return;
         }
         const container = getContainer();
+        console.debug('[TL] show()', { container: !!container, uiTracks: uiTracks.length, sig: renderedTrackSignature });
         if (!container)
             return;
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
+        }
+        container.classList.remove('hiding');
         container.classList.add('visible');
         container.classList.add('carousel');
         updateArcCarousel(currentActiveIndex);
+        console.debug('[TL] show() done', { classes: container.className, uiTracks: uiTracks.length });
     }
     function hide(options) {
         const config = (options && typeof options === 'object') ? options : {};
@@ -66,14 +60,10 @@
         if (config.beginStopSequence) {
             const stopConfig = config.beginStopSequence;
             cancelPendingTransitions();
-            const timers = hideAndClearAfterStopAnimation(stopConfig.token, stopConfig.getPlaybackToken, function () {
+            hideAndClearAfterStopAnimation(stopConfig.token, stopConfig.getPlaybackToken, function () {
                 TrackResolver.clear();
             });
-            if (timers) {
-                pendingHideTimer = timers.hideTimer || null;
-                pendingClearTimer = timers.clearTimer || null;
-            }
-            return timers;
+            return null;
         }
         if (config.clear === true) {
             clear();
@@ -84,7 +74,37 @@
         const container = getContainer();
         if (!container)
             return;
-        container.classList.remove('visible');
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
+        }
+        const onTransitionEnd = function (event) {
+            const transitionEvent = event;
+            if (transitionEvent.target !== container)
+                return;
+            if (transitionEvent.propertyName !== 'opacity')
+                return;
+            container.classList.remove('hiding');
+            container.removeEventListener('transitionend', onTransitionEnd);
+            if (pendingTransitionCleanup === cleanup) {
+                pendingTransitionCleanup = null;
+            }
+        };
+        const cleanup = function () {
+            container.removeEventListener('transitionend', onTransitionEnd);
+            container.classList.remove('hiding');
+        };
+        pendingTransitionCleanup = cleanup;
+        container.addEventListener('transitionend', onTransitionEnd);
+        container.classList.remove('hiding');
+        container.classList.add('visible');
+        container.classList.add('carousel');
+        void container.offsetHeight;
+        requestAnimationFrame(function () {
+            container.classList.add('hiding');
+            container.classList.remove('visible');
+            container.classList.remove('carousel');
+        });
     }
     function setLinearLayout() {
         if (uiTracks.length === 0)
@@ -163,43 +183,39 @@
         if (container)
             container.innerHTML = '';
         uiTracks = [];
-    }
-    function consumeQueueList(tracks) {
-        renderTracklist(tracks || []);
-        updateArcCarousel(currentActiveIndex);
-    }
-    function consumeActiveTrack(activeTrack) {
-        if (!activeTrack)
-            return;
-        let resolvedIndex = null;
-        if (activeTrack.track_index !== undefined && activeTrack.track_index !== null) {
-            const numeric = Number(activeTrack.track_index);
-            if (!Number.isNaN(numeric)) {
-                resolvedIndex = numeric;
-            }
+        renderedTrackSignature = '';
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
         }
-        if (resolvedIndex === null && activeTrack.track_name) {
-            const incomingName = String(activeTrack.track_name).trim().toLowerCase();
-            for (let i = 0; i < uiTracks.length; i++) {
-                if (String(uiTracks[i].name).trim().toLowerCase() === incomingName) {
-                    resolvedIndex = i;
-                    break;
-                }
-            }
-        }
-        if (resolvedIndex === null)
+    }
+    function updateData(trackListWidgetData) {
+        const payload = trackListWidgetData || {};
+        const tracks = payload.tracks || [];
+        console.debug('[TL] updateData()', { incoming: tracks.length, sig: renderedTrackSignature });
+        if (tracks.length === 0) {
             return;
-        currentActiveIndex = Math.max(0, Math.min(uiTracks.length - 1, Math.floor(resolvedIndex)));
+        }
+        cancelPendingTransitions();
+        const incomingIndex = Number(payload.currentPlayingIndex ?? 0);
+        const nextSignature = tracks.map(function (trackItem) {
+            return String(trackItem.trackIndex) + ':' + trackItem.track;
+        }).join('|');
+        if (nextSignature !== renderedTrackSignature) {
+            renderTracklist(tracks);
+            console.debug('[TL] rendered', { uiTracks: uiTracks.length });
+        }
+        TrackResolver.setTrackNames(tracks.map(function (entry) {
+            return entry.track;
+        }));
+        const safeIndex = Number.isNaN(incomingIndex) ? 0 : Math.floor(incomingIndex);
+        currentActiveIndex = Math.max(0, Math.min(tracks.length - 1, safeIndex));
         updateArcCarousel(currentActiveIndex);
     }
     function cancelPendingTransitions() {
-        if (pendingHideTimer) {
-            clearTimeout(pendingHideTimer);
-            pendingHideTimer = null;
-        }
-        if (pendingClearTimer) {
-            clearTimeout(pendingClearTimer);
-            pendingClearTimer = null;
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
         }
     }
     function hideAndClearAfterStopAnimation(guardToken, getPlaybackToken, onCleared) {
@@ -213,22 +229,45 @@
         container.classList.remove('carousel');
         container.classList.add('visible');
         setLinearLayout();
-        const hideTimer = setTimeout(function () {
+        if (pendingTransitionCleanup) {
+            pendingTransitionCleanup();
+            pendingTransitionCleanup = null;
+        }
+        const onTransitionEnd = function (event) {
+            const transitionEvent = event;
+            if (transitionEvent.target !== container)
+                return;
+            if (transitionEvent.propertyName !== 'opacity')
+                return;
             if (guardToken !== getPlaybackToken())
                 return;
-            container.classList.remove('visible');
-        }, RECORD_SLIDE_MS);
-        const clearTimer = setTimeout(function () {
-            if (guardToken !== getPlaybackToken())
-                return;
-            clear();
+            container.classList.remove('hiding');
+            container.removeEventListener('transitionend', onTransitionEnd);
+            if (pendingTransitionCleanup === cleanup) {
+                pendingTransitionCleanup = null;
+            }
             if (onCleared)
                 onCleared();
-        }, RECORD_SLIDE_MS + TRACKLIST_FADE_MS);
-        return { hideTimer: hideTimer, clearTimer: clearTimer };
+        };
+        const cleanup = function () {
+            container.removeEventListener('transitionend', onTransitionEnd);
+            container.classList.remove('hiding');
+        };
+        pendingTransitionCleanup = cleanup;
+        container.addEventListener('transitionend', onTransitionEnd);
+        container.classList.remove('carousel');
+        container.classList.add('visible');
+        void container.offsetHeight;
+        requestAnimationFrame(function () {
+            container.classList.add('hiding');
+            container.classList.remove('visible');
+            container.classList.remove('carousel');
+        });
+        return null;
     }
     window.TracklistWidget = {
         show: show,
         hide: hide,
+        updateData: updateData,
     };
 })();

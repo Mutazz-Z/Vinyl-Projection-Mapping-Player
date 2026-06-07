@@ -5,24 +5,14 @@
     let playbackToken = 0;
     let sceneActive = false;
 
-    function getPlaybackToken(): number {
-        return playbackToken;
-    }
-
     function clearAllTransitionTimers(): void {
-        if (window.TracklistWidget && window.TracklistWidget.hide) {
-            window.TracklistWidget.hide({
-                visible: false,
-                cancelPendingTransitions: true,
-            });
-        }
+        return;
     }
 
     function runPlaybackEntranceSequence(token: number): void {
         if (token !== playbackToken) return;
 
         window.ProgressWidget?.show?.();
-        window.TracklistWidget?.show?.();
 
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
@@ -36,18 +26,15 @@
         window.ContextMessageWidget?.hide();
         window.QrCodeWidget?.hide?.();
 
-        window.TracklistWidget?.show?.({
-            visible: false,
-            projectorData: projectorData,
-            prepareForPlayback: true,
-        });
+        TrackResolver.clearTrackPositionOnly();
+        TrackResolver.buildLyricsLookupFromTrackList(projectorData?.tagData?.trackList || []);
+
         window.RecordWidget?.show?.({
             visible: false,
             prepareForPlayback: true,
         });
 
         window.ProgressWidget?.hide?.({ reset: true });
-        window.TracklistWidget?.hide?.();
 
         window.VisualizerWidget?.hide?.();
         window.ProgressWidget?.hide?.({ visible: false, reset: true });
@@ -58,7 +45,6 @@
         if (token !== playbackToken) return;
 
         window.ProgressWidget?.show?.();
-        window.TracklistWidget?.show?.();
 
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
@@ -68,16 +54,8 @@
         }
     }
 
-    function prepareWidgetsForStop(token: number, isError: boolean): void {
+    function prepareWidgetsForStop(isError: boolean): void {
         window.ProgressWidget?.hide?.({ reset: true });
-
-        window.TracklistWidget?.hide?.({
-            visible: false,
-            beginStopSequence: {
-                token: token,
-                getPlaybackToken: getPlaybackToken,
-            },
-        });
 
         window.QrCodeWidget?.hide?.();
 
@@ -109,10 +87,10 @@
 
     function stopPlayback(isError = false): void {
         sceneActive = false;
-        const token = ++playbackToken;
+        ++playbackToken;
         clearAllTransitionTimers();
 
-        prepareWidgetsForStop(token, isError);
+        prepareWidgetsForStop(isError);
     }
 
     function showUnknownTag(projectorData: ProjectorData_t): void {

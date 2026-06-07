@@ -6,16 +6,56 @@ package musicassistant
 
 import (
 	"fmt"
+	"strconv"
+
+	"vinyl-orchestrator/typedefs"
 
 	"github.com/mitchellh/mapstructure"
-	"vinyl-orchestrator/typedefs"
 )
 
 type RawQueueItem_t struct {
+	Index       int    `json:"index" mapstructure:"index"`
 	DisplayName string `json:"name" mapstructure:"name"`
 	MediaItem   struct {
 		Name string `json:"name" mapstructure:"name"`
 	} `json:"media_item" mapstructure:"media_item"`
+}
+
+func parseQueueCurrentPlayingIndex(fallback int, payloads ...interface{}) int {
+	for _, payload := range payloads {
+		resultMap, ok := payload.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		rawIndex, exists := resultMap["current_index"]
+		if !exists {
+			rawIndex, exists = resultMap["currentIndex"]
+			if !exists {
+				continue
+			}
+		}
+
+		switch value := rawIndex.(type) {
+		case int:
+			return value
+		case int32:
+			return int(value)
+		case int64:
+			return int(value)
+		case float32:
+			return int(value)
+		case float64:
+			return int(value)
+		case string:
+			parsed, err := strconv.Atoi(value)
+			if err == nil {
+				return parsed
+			}
+		}
+	}
+
+	return fallback
 }
 
 func (instance *SystemMediaPlayer_t) getMediaPlayerQueueList(targetPlayerIdentifier string) (typedefs.QueueList_t, error) {
@@ -39,13 +79,23 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerQueueList(targetPlayerIdentif
 		return typedefs.QueueList_t{}, fmt.Errorf("failed to decode queue list: %w", err)
 	}
 
-	var trackNames []string
+	currentPlayingIndex := parseQueueCurrentPlayingIndex(0, rawResult, response)
+	tracks := make([]typedefs.TrackListItem_t, 0, len(rawQueueList))
 	for i := range rawQueueList {
-		trackNames = append(trackNames, rawQueueList[i].MediaItem.Name)
+		trackIndex := rawQueueList[i].Index
+		if trackIndex < 0 {
+			trackIndex = i
+		}
+
+		tracks = append(tracks, typedefs.TrackListItem_t{
+			TrackIndex: trackIndex,
+			Track:      rawQueueList[i].MediaItem.Name,
+		})
 	}
 
 	result := typedefs.QueueList_t{
-		Tracks: trackNames,
+		Tracks:              tracks,
+		CurrentPlayingIndex: currentPlayingIndex,
 	}
 
 	return result, nil
