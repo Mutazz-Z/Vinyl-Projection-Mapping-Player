@@ -1,5 +1,7 @@
 "use strict";
 (function () {
+    const LOADING_SCALE = 0.33;
+    const HIDE_HOLD_MS = 1000;
     let loadingTransitionToken = 0;
     let scheduledFadeOutTimer = null;
     let scheduledIdleRestoreTimer = null;
@@ -54,27 +56,17 @@
             return Promise.resolve();
         const transitionToken = ++loadingTransitionToken;
         outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
-        outline.style.opacity = '1';
-        outline.style.transform = 'translate(-50%, -50%) scale(0.5)';
-        return waitForTransition(outline, 'transform', 520).then(function () {
-            if (transitionToken !== loadingTransitionToken)
-                return;
-            outline.classList.add('pulsing');
-        });
-    }
-    function expandToOverlay() {
-        const outline = getOutline();
-        if (!outline)
-            return Promise.resolve();
-        loadingTransitionToken++;
-        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
         freezeCurrentVisualState(outline);
         outline.style.opacity = '1';
         void outline.offsetWidth;
         requestAnimationFrame(function () {
-            outline.style.transform = 'translate(-50%, -50%) scale(1)';
+            outline.style.transform = `translate(-50%, -50%) scale(${LOADING_SCALE})`;
         });
-        return waitForTransition(outline, 'transform', 520);
+        return waitForTransition(outline, 'transform', 560).then(function () {
+            if (transitionToken !== loadingTransitionToken)
+                return;
+            outline.classList.add('pulsing');
+        });
     }
     function fadeOut() {
         const outline = getOutline();
@@ -86,6 +78,31 @@
         return waitForTransition(outline, 'opacity', 420)
             .then(function () {
             outline.classList.add('hidden');
+        });
+    }
+    function waitMs(ms) {
+        return new Promise(function (resolve) {
+            scheduledFadeOutTimer = setTimeout(function () {
+                scheduledFadeOutTimer = null;
+                resolve();
+            }, ms);
+        });
+    }
+    function expandToOverlay() {
+        const outline = getOutline();
+        if (!outline)
+            return Promise.resolve();
+        const transitionToken = ++loadingTransitionToken;
+        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
+        freezeCurrentVisualState(outline);
+        outline.style.opacity = '1';
+        void outline.offsetWidth;
+        requestAnimationFrame(function () {
+            outline.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
+        return waitForTransition(outline, 'transform', 560).then(function () {
+            if (transitionToken !== loadingTransitionToken)
+                return;
         });
     }
     function revealIdleFromOverlay() {
@@ -131,7 +148,7 @@
         outline.classList.remove('pulsing', 'hidden');
         outline.style.opacity = '1';
         void outline.offsetWidth;
-        outline.style.transform = 'translate(-50%, -50%) scale(0.5)';
+        outline.style.transform = `translate(-50%, -50%) scale(${LOADING_SCALE})`;
         return new Promise(function (resolve) {
             requestAnimationFrame(function () {
                 outline.classList.add('error-fill');
@@ -164,11 +181,9 @@
     }
     function loading() {
         cancelScheduledTransitions();
-        return beginScanLoading().then(function () {
-            return expandToOverlay();
-        });
+        return beginScanLoading();
     }
-    function play(options) {
+    function hide(options) {
         const config = options || {};
         const delayMs = typeof config.fadeOutDelayMs === 'number' ? config.fadeOutDelayMs : 0;
         const onBeforeFadeOut = config.onBeforeFadeOut;
@@ -180,15 +195,27 @@
         if (delayMs > 0) {
             scheduledFadeOutTimer = setTimeout(function () {
                 scheduledFadeOutTimer = null;
-                if (onBeforeFadeOut)
-                    onBeforeFadeOut();
-                void fadeOut();
+                void expandToOverlay()
+                    .then(function () {
+                    return waitMs(HIDE_HOLD_MS);
+                })
+                    .then(function () {
+                    if (onBeforeFadeOut)
+                        onBeforeFadeOut();
+                    return fadeOut();
+                });
             }, delayMs);
             return Promise.resolve();
         }
-        if (onBeforeFadeOut)
-            onBeforeFadeOut();
-        return fadeOut();
+        return expandToOverlay()
+            .then(function () {
+            return waitMs(HIDE_HOLD_MS);
+        })
+            .then(function () {
+            if (onBeforeFadeOut)
+                onBeforeFadeOut();
+            return fadeOut();
+        });
     }
     function error() {
         cancelScheduledTransitions();
@@ -197,7 +224,7 @@
     window.LoadingWidget = {
         idle: idle,
         loading: loading,
-        play: play,
+        hide: hide,
         error: error,
     };
     idle();

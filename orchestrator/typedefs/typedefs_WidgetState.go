@@ -9,4 +9,5 @@ const (
 	WidgetState_Resume
 
 	WidgetState_Loading
+	WidgetState_Idle
 )

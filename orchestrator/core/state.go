@@ -251,12 +251,23 @@ func init() {
 	}
 }
 
-// ── CurrentPlayingAlbumTitleAndArtist ──────────────────────────────────
+// ── LoadingWidgetState ──────────────────────────────────
 
-var Global_CurrentPlayingAlbumTitleAndArtist = TypedKey[typedefs.TitleAndArtist_t]{Key: "Global_CurrentPlayingAlbumTitleAndArtist"}
+var Global_LoadingWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_LoadingWidgetState"}
 
 func init() {
-	StateRegistry[Global_CurrentPlayingAlbumTitleAndArtist.Key] = StateMetadata{
+	StateRegistry[Global_LoadingWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── InfoWidgetData ──────────────────────────────────
+
+var Global_InfoWidgetData = TypedKey[typedefs.TitleAndArtist_t]{Key: "Global_InfoWidgetData"}
+
+func init() {
+	StateRegistry[Global_InfoWidgetData.Key] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: typedefs.TitleAndArtist_t(typedefs.TitleAndArtist_t{}),
 	}
@@ -273,12 +284,12 @@ func init() {
 	}
 }
 
-// ── CurrentPlayingAlbumOverlay ──────────────────────────────────
+// ── OverlayWidgetData ──────────────────────────────────
 
-var Global_CurrentPlayingAlbumOverlay = TypedKey[typedefs.OverlayData_t]{Key: "Global_CurrentPlayingAlbumOverlay"}
+var Global_OverlayWidgetData = TypedKey[typedefs.OverlayData_t]{Key: "Global_OverlayWidgetData"}
 
 func init() {
-	StateRegistry[Global_CurrentPlayingAlbumOverlay.Key] = StateMetadata{
+	StateRegistry[Global_OverlayWidgetData.Key] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: typedefs.OverlayData_t(typedefs.OverlayData_t{}),
 	}
@@ -295,12 +306,12 @@ func init() {
 	}
 }
 
-// ── CurrentPlayingAlbumRecordDesign ──────────────────────────────────
+// ── RecordWidgetData ──────────────────────────────────
 
-var Global_CurrentPlayingAlbumRecordDesign = TypedKey[typedefs.RecordDesignData_t]{Key: "Global_CurrentPlayingAlbumRecordDesign"}
+var Global_RecordWidgetData = TypedKey[typedefs.RecordDesignData_t]{Key: "Global_RecordWidgetData"}
 
 func init() {
-	StateRegistry[Global_CurrentPlayingAlbumRecordDesign.Key] = StateMetadata{
+	StateRegistry[Global_RecordWidgetData.Key] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: typedefs.RecordDesignData_t(typedefs.RecordDesignData_t{}),
 	}

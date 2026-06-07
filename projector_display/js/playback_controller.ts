@@ -1,7 +1,6 @@
 (function () {
     const TRACKLIST_FADE_MS = 220;
     const RECORD_SLIDE_MS = 700;
-    const LOADING_FADE_DELAY_MS = TRACKLIST_FADE_MS + RECORD_SLIDE_MS + 80;
 
     let playbackToken = 0;
     let sceneActive = false;
@@ -25,17 +24,12 @@
         window.ProgressWidget?.show?.();
         window.TracklistWidget?.show?.();
 
-        window.LoadingWidget?.play?.({
-            fadeOutDelayMs: LOADING_FADE_DELAY_MS,
-            onBeforeFadeOut: function () {
-                if (window.LyricsWidget) {
-                    window.LyricsWidget.show?.({
-                        isPlaybackVisualActive: sceneActive,
-                        isPlaying: true,
-                    });
-                }
-            }
-        });
+        if (window.LyricsWidget) {
+            window.LyricsWidget.show?.({
+                isPlaybackVisualActive: sceneActive,
+                isPlaying: true,
+            });
+        }
     }
 
     function prepareWidgetsForPlayback(projectorData: ProjectorData_t): void {
@@ -60,19 +54,8 @@
         window.LyricsWidget?.hide?.();
     }
 
-    function runTagScanSequence(token: number): void {
-        if (window.LoadingWidget && window.LoadingWidget.loading) {
-            window.LoadingWidget.loading().then(function () {
-                if (token !== playbackToken) return;
-                runPlaybackEntranceSequence(token);
-            });
-        }
-    }
-
     function runPlaybackRestoreSequence(token: number): void {
         if (token !== playbackToken) return;
-
-        window.LoadingWidget?.play?.({ immediate: true });
 
         window.ProgressWidget?.show?.();
         window.TracklistWidget?.show?.();
@@ -107,18 +90,6 @@
         }
     }
 
-    function runTagRemovalSequence(token: number, wasPlaying: boolean): void {
-        if (wasPlaying) {
-            window.LoadingWidget?.idle?.({
-                fromOverlay: true,
-                delayMs: RECORD_SLIDE_MS + TRACKLIST_FADE_MS + 100,
-            });
-            return;
-        }
-
-        window.LoadingWidget?.idle?.();
-    }
-
     function startPlayback(projectorData: ProjectorData_t, options?: { restore?: boolean }): void {
         const startOptions = options || {};
 
@@ -133,20 +104,15 @@
             return;
         }
 
-        runTagScanSequence(token);
+        runPlaybackEntranceSequence(token);
     }
 
     function stopPlayback(isError = false): void {
-        const wasPlaying = sceneActive;
-
         sceneActive = false;
         const token = ++playbackToken;
         clearAllTransitionTimers();
 
         prepareWidgetsForStop(token, isError);
-        if (isError) return;
-
-        runTagRemovalSequence(token, wasPlaying);
     }
 
     function showUnknownTag(projectorData: ProjectorData_t): void {
@@ -169,7 +135,6 @@
 
         setTimeout(function () {
             if (currentToken !== playbackToken) return;
-            window.LoadingWidget?.error?.();
             window.RecordWidget?.ejectRecord?.();
             if (window.ContextMessageWidget) {
                 window.ContextMessageWidget.show(message);
@@ -185,6 +150,4 @@
         showUnknownTag,
         showPlaybackError,
     };
-
-    window.LoadingWidget?.idle?.();
 })();

@@ -95,6 +95,7 @@ declare const WidgetState: {
   readonly Hide: number;
   readonly Show: number;
   readonly Loading: number;
+  readonly Idle: number;
 };
 
 declare const Global_MediaPlaybackState: string;
@@ -106,12 +107,13 @@ declare const Global_ProjectorHeartbeatSignal: { key: string };
 declare const Global_ProjectorHeartbeat: string;
 declare const Global_CurrentProjectorData: { key: string; fromJson: (json: unknown) => ProjectorData_t };
 declare const Global_CurrentMediaPlaybackQueue: { key: string };
-declare const Global_CurrentPlayingAlbumTitleAndArtist: { key: string; fromJson: (json: unknown) => TitleAndArtist_t };
+declare const Global_InfoWidgetData: { key: string; fromJson: (json: unknown) => TitleAndArtist_t };
 declare const Global_InfoWidgetState: string;
-declare const Global_CurrentPlayingAlbumOverlay: { key: string; fromJson: (json: unknown) => OverlayData_t };
+declare const Global_OverlayWidgetData: { key: string; fromJson: (json: unknown) => OverlayData_t };
 declare const Global_OverlayWidgetState: string;
-declare const Global_CurrentPlayingAlbumRecordDesign: { key: string; fromJson: (json: unknown) => RecordDesignData_t };
+declare const Global_RecordWidgetData: { key: string; fromJson: (json: unknown) => RecordDesignData_t };
 declare const Global_RecordWidgetState: string;
+declare const Global_LoadingWidgetState: string;
 declare const Global_ActiveTrack: { key: string };
 
 declare const TrackResolver: {
@@ -152,7 +154,7 @@ interface PlaybackControlWidget {
 
 interface LoadingWidgetApi {
   loading?: () => Promise<void>;
-  play?: (options?: { immediate?: boolean; fadeOutDelayMs?: number; onBeforeFadeOut?: () => void }) => void;
+  hide?: (options?: { immediate?: boolean; fadeOutDelayMs?: number; onBeforeFadeOut?: () => void }) => void;
   idle?: (options?: { fromOverlay?: boolean; delayMs?: number }) => void;
   error?: () => void;
 }

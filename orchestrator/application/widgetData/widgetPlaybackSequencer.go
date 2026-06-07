@@ -2,13 +2,24 @@ package widgetdata
 
 import (
 	"fmt"
+	"time"
+
 	"vinyl-orchestrator/application/database"
 	"vinyl-orchestrator/core"
 	"vinyl-orchestrator/typedefs"
 	"vinyl-orchestrator/utils"
 )
 
+func (instance *WidgetPlaybackSequencer_t) targetMediaPlayerIsPlaying() bool {
+	var mediaPlayerStatus typedefs.MediaPlaybackState_t
+	utils.Read(instance._private.systemDataSource, core.Global_MediaPlaybackState, &mediaPlayerStatus)
+
+	return mediaPlayerStatus == typedefs.PlayerState_Playing
+}
+
 func (instance *WidgetPlaybackSequencer_t) startProjectorPlayback() {
+	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Hide)
+
 	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetState, typedefs.WidgetState_Show)
 	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Show)
 	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Show)
@@ -26,20 +37,20 @@ func (instance *WidgetPlaybackSequencer_t) widgetsAreReadyForProjectorPlayback(w
 
 func (instance *WidgetPlaybackSequencer_t) checkIfReadyForProjectorPlayback() {
 	var titleAndArtist typedefs.TitleAndArtist_t
-	utils.Read(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumTitleAndArtist, &titleAndArtist)
+	utils.Read(instance._private.systemDataSource, core.Global_InfoWidgetData, &titleAndArtist)
 
 	var recordDesignData typedefs.RecordDesignData_t
-	utils.Read(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumRecordDesign, &recordDesignData)
+	utils.Read(instance._private.systemDataSource, core.Global_RecordWidgetData, &recordDesignData)
 
 	var overlayData typedefs.OverlayData_t
-	utils.Read(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumOverlay, &overlayData)
+	utils.Read(instance._private.systemDataSource, core.Global_OverlayWidgetData, &overlayData)
 
 	var widgetsStatus = []bool{
 		titleAndArtist.ReadyForDisplay,
 		recordDesignData.ReadyForDisplay,
 		overlayData.ReadyForDisplay}
 
-	if instance.widgetsAreReadyForProjectorPlayback(widgetsStatus) {
+	if instance.widgetsAreReadyForProjectorPlayback(widgetsStatus) && instance.targetMediaPlayerIsPlaying() {
 		fmt.Println("All widgets are ready for projector playback. Starting playback...")
 		utils.StopTimer(&instance._private.timer)
 		instance.startProjectorPlayback()
@@ -53,6 +64,10 @@ func (instance *WidgetPlaybackSequencer_t) stopProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Hide)
+	
+	time.Sleep(1 * time.Second)
+	
+	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Idle)
 
 }
 
@@ -67,6 +82,7 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 				instance.stopProjectorPlayback()
 
 			} else {
+				utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Loading)
 				utils.StartPeriodicTimer(&instance._private.timer, 250, instance.checkIfReadyForProjectorPlayback)
 			}
 		}

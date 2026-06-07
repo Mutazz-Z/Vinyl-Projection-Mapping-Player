@@ -19,8 +19,8 @@ func (instance *RecordAndOverlayArt) clearCurrentPlayingAlbumRecordAndOverlayArt
 		ReadyForDisplay: false,
 	}
 
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumRecordDesign, clearRecordDesignData)
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumOverlay, clearOverlayData)
+	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetData, clearRecordDesignData)
+	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetData, clearOverlayData)
 }
 
 func (instance *RecordAndOverlayArt) updateCurrentPlayingAlbumRecordAndOverlayArt(currentUidScanned string) {
@@ -41,7 +41,7 @@ func (instance *RecordAndOverlayArt) updateCurrentPlayingAlbumRecordAndOverlayAr
 		OuterRingUsesImage = true
 	}
 	OuterRingDesignData := typedefs.RingDesignData_t{
-		UsesImage:  OuterRingUsesImage,
+		UsesImage: OuterRingUsesImage,
 		RingColor: retrievedAlbumRecord.OuterRingColor,
 		RingImage: retrievedAlbumRecord.OuterRingImage,
 	}
@@ -56,9 +56,9 @@ func (instance *RecordAndOverlayArt) updateCurrentPlayingAlbumRecordAndOverlayAr
 		OverlayImage:    retrievedAlbumRecord.ProjectionOverlay,
 		ReadyForDisplay: true,
 	}
-	
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumRecordDesign, recordDesignData)
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumOverlay, overlayData)
+
+	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetData, recordDesignData)
+	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetData, overlayData)
 }
 
 func (instance *RecordAndOverlayArt) onDataSourceChanged(dataSourceChanged <-chan database.Event) {

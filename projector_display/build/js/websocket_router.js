@@ -167,6 +167,20 @@
             });
         }
     }
+    function applyLoadingWidgetStateToWidgets(state) {
+        const numericState = Number(state);
+        if (numericState === WidgetState.Loading) {
+            void window.LoadingWidget?.loading?.();
+            return;
+        }
+        if (numericState === WidgetState.Hide) {
+            void window.LoadingWidget?.hide?.();
+            return;
+        }
+        if (numericState === WidgetState.Idle) {
+            window.LoadingWidget?.idle?.();
+        }
+    }
     function connect() {
         const wsUrl = `ws://${wsHost}:${wsPort}/ws`;
         console.log('Projector WS connecting to:', wsUrl);
@@ -231,13 +245,13 @@
                         }
                         applyTrackStateToWidgets(currentPlaybackState);
                         break;
-                    case Global_CurrentPlayingAlbumTitleAndArtist.key:
+                    case Global_InfoWidgetData.key:
                         applyNowPlayingTitleAndArtistToWidgets(TitleAndArtist_t.fromJson(data));
                         break;
-                    case Global_CurrentPlayingAlbumOverlay.key:
+                    case Global_OverlayWidgetData.key:
                         applyOverlayDataToWidgets(OverlayData_t.fromJson(data));
                         break;
-                    case Global_CurrentPlayingAlbumRecordDesign.key:
+                    case Global_RecordWidgetData.key:
                         applyRecordDesignDataToWidgets(RecordDesignData_t.fromJson(data));
                         break;
                     case Global_InfoWidgetState:
@@ -248,6 +262,9 @@
                         break;
                     case Global_RecordWidgetState:
                         applyRecordWidgetStateToWidgets(Number(data));
+                        break;
+                    case Global_LoadingWidgetState:
+                        applyLoadingWidgetStateToWidgets(Number(data));
                         break;
                 }
             });
@@ -261,11 +278,11 @@
                     queueList: queueState.tracks || [],
                 });
             }
-            const currentPlayingAlbumTitleAndArtist = await DataSource_Read(dataSource, Global_CurrentPlayingAlbumTitleAndArtist.key);
+            const currentPlayingAlbumTitleAndArtist = await DataSource_Read(dataSource, Global_InfoWidgetData.key);
             applyNowPlayingTitleAndArtistToWidgets(currentPlayingAlbumTitleAndArtist);
-            const currentPlayingAlbumOverlay = await DataSource_Read(dataSource, Global_CurrentPlayingAlbumOverlay.key);
+            const currentPlayingAlbumOverlay = await DataSource_Read(dataSource, Global_OverlayWidgetData.key);
             applyOverlayDataToWidgets(currentPlayingAlbumOverlay);
-            const currentPlayingAlbumRecordDesign = await DataSource_Read(dataSource, Global_CurrentPlayingAlbumRecordDesign.key);
+            const currentPlayingAlbumRecordDesign = await DataSource_Read(dataSource, Global_RecordWidgetData.key);
             applyRecordDesignDataToWidgets(currentPlayingAlbumRecordDesign);
             const infoWidgetState = await DataSource_Read(dataSource, Global_InfoWidgetState);
             applyInfoWidgetStateToWidgets(infoWidgetState);
@@ -273,6 +290,8 @@
             applyOverlayWidgetStateToWidgets(overlayWidgetState);
             const recordWidgetState = await DataSource_Read(dataSource, Global_RecordWidgetState);
             applyRecordWidgetStateToWidgets(recordWidgetState);
+            const loadingWidgetState = await DataSource_Read(dataSource, Global_LoadingWidgetState);
+            applyLoadingWidgetStateToWidgets(loadingWidgetState);
             const activeTrack = await DataSource_Read(dataSource, Global_ActiveTrack.key);
             currentPlaybackState.track_name = activeTrack.track_name || '';
             currentPlaybackState.track_index = activeTrack.track_index ?? 0;

@@ -14,7 +14,7 @@ func (instance *TitleAndArtist_t) clearCurrentPlayingAlbumTitleAndArtist() {
 		ReadyForDisplay: false,
 	}
 
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumTitleAndArtist, currentTitleAndArtist)
+	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetData, currentTitleAndArtist)
 }
 
 func (instance *TitleAndArtist_t) updateCurrentPlayingAlbumTitleAndArtist(currentUidScanned string) {
@@ -26,7 +26,7 @@ func (instance *TitleAndArtist_t) updateCurrentPlayingAlbumTitleAndArtist(curren
 		ReadyForDisplay: true,
 	}
 
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumTitleAndArtist, currentTitleAndArtist)
+	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetData, currentTitleAndArtist)
 }
 
 func (instance *TitleAndArtist_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {

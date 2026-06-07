@@ -221,6 +221,24 @@
         }
     }
 
+    function applyLoadingWidgetStateToWidgets(state: WidgetState_t): void {
+        const numericState = Number(state);
+
+        if (numericState === WidgetState.Loading) {
+            void window.LoadingWidget?.loading?.();
+            return;
+        }
+
+        if (numericState === WidgetState.Hide) {
+            void window.LoadingWidget?.hide?.();
+            return;
+        }
+
+        if (numericState === WidgetState.Idle) {
+            window.LoadingWidget?.idle?.();
+        }
+    }
+
     function connect(): void {
         const wsUrl = `ws://${wsHost}:${wsPort}/ws`;
         console.log('Projector WS connecting to:', wsUrl);
@@ -298,15 +316,15 @@
                         applyTrackStateToWidgets(currentPlaybackState);
                         break;
 
-                    case Global_CurrentPlayingAlbumTitleAndArtist.key:
+                    case Global_InfoWidgetData.key:
                         applyNowPlayingTitleAndArtistToWidgets(TitleAndArtist_t.fromJson(data));
                         break;
 
-                    case Global_CurrentPlayingAlbumOverlay.key:
+                    case Global_OverlayWidgetData.key:
                         applyOverlayDataToWidgets(OverlayData_t.fromJson(data));
                         break;
 
-                    case Global_CurrentPlayingAlbumRecordDesign.key:
+                    case Global_RecordWidgetData.key:
                         applyRecordDesignDataToWidgets(RecordDesignData_t.fromJson(data));
                         break;
 
@@ -320,6 +338,10 @@
 
                     case Global_RecordWidgetState:
                         applyRecordWidgetStateToWidgets(Number(data) as WidgetState_t);
+                        break;
+
+                    case Global_LoadingWidgetState:
+                        applyLoadingWidgetStateToWidgets(Number(data) as WidgetState_t);
                         break;
                 }
             });
@@ -336,13 +358,13 @@
                 });
             }
 
-            const currentPlayingAlbumTitleAndArtist = await DataSource_Read<TitleAndArtist_t>(dataSource, Global_CurrentPlayingAlbumTitleAndArtist.key);
+            const currentPlayingAlbumTitleAndArtist = await DataSource_Read<TitleAndArtist_t>(dataSource, Global_InfoWidgetData.key);
             applyNowPlayingTitleAndArtistToWidgets(currentPlayingAlbumTitleAndArtist);
 
-            const currentPlayingAlbumOverlay = await DataSource_Read<OverlayData_t>(dataSource, Global_CurrentPlayingAlbumOverlay.key);
+            const currentPlayingAlbumOverlay = await DataSource_Read<OverlayData_t>(dataSource, Global_OverlayWidgetData.key);
             applyOverlayDataToWidgets(currentPlayingAlbumOverlay);
 
-            const currentPlayingAlbumRecordDesign = await DataSource_Read<RecordDesignData_t>(dataSource, Global_CurrentPlayingAlbumRecordDesign.key);
+            const currentPlayingAlbumRecordDesign = await DataSource_Read<RecordDesignData_t>(dataSource, Global_RecordWidgetData.key);
             applyRecordDesignDataToWidgets(currentPlayingAlbumRecordDesign);
 
             const infoWidgetState = await DataSource_Read<WidgetState_t>(dataSource, Global_InfoWidgetState);
@@ -353,6 +375,9 @@
 
             const recordWidgetState = await DataSource_Read<WidgetState_t>(dataSource, Global_RecordWidgetState);
             applyRecordWidgetStateToWidgets(recordWidgetState);
+
+            const loadingWidgetState = await DataSource_Read<WidgetState_t>(dataSource, Global_LoadingWidgetState);
+            applyLoadingWidgetStateToWidgets(loadingWidgetState);
 
             const activeTrack = await DataSource_Read<ActiveTrackState>(dataSource, Global_ActiveTrack.key);
             currentPlaybackState.track_name = activeTrack.track_name || '';
