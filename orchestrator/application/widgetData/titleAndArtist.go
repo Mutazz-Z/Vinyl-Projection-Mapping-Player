@@ -7,18 +7,29 @@ import (
 	"vinyl-orchestrator/utils"
 )
 
-func (instance *TitleAndArtist) updateCurrentPlayingAlbumTitleAndArtist(currentUidScanned string) {
-	retrievedAlbumRecord := instance._private.albumLibrary.RetrieveAlbumByUid(currentUidScanned)
-
+func (instance *TitleAndArtist_t) clearCurrentPlayingAlbumTitleAndArtist() {
 	currentTitleAndArtist := typedefs.TitleAndArtist_t{
-		Title:  retrievedAlbumRecord.MediaTitle,
-		Artist: retrievedAlbumRecord.Artist,
+		Title:           "",
+		Artist:          "",
+		ReadyForDisplay: false,
 	}
 
 	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumTitleAndArtist, currentTitleAndArtist)
 }
 
-func (instance *TitleAndArtist) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
+func (instance *TitleAndArtist_t) updateCurrentPlayingAlbumTitleAndArtist(currentUidScanned string) {
+	retrievedAlbumRecord := instance._private.albumLibrary.RetrieveAlbumByUid(currentUidScanned)
+
+	currentTitleAndArtist := typedefs.TitleAndArtist_t{
+		Title:           retrievedAlbumRecord.MediaTitle,
+		Artist:          retrievedAlbumRecord.Artist,
+		ReadyForDisplay: true,
+	}
+
+	utils.Write(instance._private.systemDataSource, core.Global_CurrentPlayingAlbumTitleAndArtist, currentTitleAndArtist)
+}
+
+func (instance *TitleAndArtist_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
@@ -26,18 +37,24 @@ func (instance *TitleAndArtist) onDataSourceChanged(dataSourceChanged <-chan dat
 			currentUidScanned, _ := args.Data.(string)
 			instance.updateCurrentPlayingAlbumTitleAndArtist(currentUidScanned)
 
+		case core.Global_CurrentShelfStatus.Key:
+			currentShelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)
+			if currentShelfStatus == typedefs.ShelfStatus_Empty {
+				instance.clearCurrentPlayingAlbumTitleAndArtist()
+			}
+
 		}
 	})
 }
 
-type TitleAndArtist struct {
+type TitleAndArtist_t struct {
 	_private struct {
 		systemDataSource database.DataSource
 		albumLibrary     database.AlbumLibrary
 	}
 }
 
-func (instance *TitleAndArtist) Init(dataSource database.DataSource, albumLibrary database.AlbumLibrary) {
+func (instance *TitleAndArtist_t) Init(dataSource database.DataSource, albumLibrary database.AlbumLibrary) {
 	instance._private.systemDataSource = dataSource
 	instance._private.albumLibrary = albumLibrary
 

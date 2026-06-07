@@ -1,18 +1,29 @@
 (function () {
-    function getContainer() {
+    type QrHideOptions = {
+        visible?: boolean;
+        clearUnknownTagIndicator?: boolean;
+    };
+
+    type QrShowInput =
+        | ProjectorData_t
+        | {
+            projectorData?: ProjectorData_t;
+        };
+
+    function getContainer(): HTMLElement | null {
         return document.getElementById('qrcode-container');
     }
 
-    function getUnknownTagIndicator() {
+    function getUnknownTagIndicator(): HTMLElement | null {
         return document.getElementById('unknown-tag-indicator');
     }
 
-    function buildRegistrationUrl(projectorData) {
+    function buildRegistrationUrl(projectorData?: ProjectorData_t): string {
         if (projectorData && projectorData.registerTagUrl) {
             return String(projectorData.registerTagUrl).replace(':8000', '');
         }
 
-        var fallbackUid = '';
+        let fallbackUid = '';
         if (projectorData && projectorData.tagData && projectorData.tagData.tagUid) {
             fallbackUid = projectorData.tagData.tagUid;
         }
@@ -22,12 +33,19 @@
         return 'http://' + piIp + '/?uid=' + encodeURIComponent(fallbackUid);
     }
 
-    function show(input) {
-        var config = input || {};
-        var projectorData = config && config.projectorData ? config.projectorData : input;
+    function resolveProjectorData(input?: QrShowInput): ProjectorData_t | undefined {
+        if (!input) return undefined;
+        if (typeof input === 'object' && input !== null && 'projectorData' in input) {
+            return (input as { projectorData?: ProjectorData_t }).projectorData;
+        }
+        return input as ProjectorData_t;
+    }
+
+    function show(input?: QrShowInput): void {
+        const projectorData = resolveProjectorData(input);
 
         const container = getContainer();
-        const qrImageElement = document.getElementById('unknown-tag-qr');
+        const qrImageElement = document.getElementById('unknown-tag-qr') as HTMLImageElement | null;
         const uidLabelElement = document.getElementById('unknown-tag-uid');
         if (!container || !qrImageElement || !uidLabelElement) return;
 
@@ -42,14 +60,14 @@
                 text: registrationUrl,
                 width: 240,
                 height: 240,
-                correctLevel: QRCode.CorrectLevel.M
+                correctLevel: QRCode.CorrectLevel.M,
             });
 
-            const qrCanvasElement = hiddenQRCodeContainer.querySelector('canvas');
+            const qrCanvasElement = hiddenQRCodeContainer.querySelector('canvas') as HTMLCanvasElement | null;
             if (qrCanvasElement) {
                 qrImageElement.src = qrCanvasElement.toDataURL('image/png');
             } else {
-                const qrImageFallbackElement = hiddenQRCodeContainer.querySelector('img');
+                const qrImageFallbackElement = hiddenQRCodeContainer.querySelector('img') as HTMLImageElement | null;
                 if (qrImageFallbackElement && qrImageFallbackElement.src) {
                     qrImageElement.src = qrImageFallbackElement.src;
                 }
@@ -57,19 +75,15 @@
             document.body.removeChild(hiddenQRCodeContainer);
         }
 
-        var tagUid = '';
-        if (projectorData && projectorData.tagData && projectorData.tagData.tagUid) {
-            tagUid = projectorData.tagData.tagUid;
-        }
-
+        const tagUid = projectorData?.tagData?.tagUid || '';
         uidLabelElement.textContent = tagUid ? ('UID: ' + tagUid) : '';
 
         void container.offsetWidth;
         container.classList.add('visible');
     }
 
-    function hide(options) {
-        var config = options || {};
+    function hide(options?: unknown): void {
+        const config: QrHideOptions = (options && typeof options === 'object') ? (options as QrHideOptions) : {};
         const container = getContainer();
 
         if (config.visible !== false && container) {

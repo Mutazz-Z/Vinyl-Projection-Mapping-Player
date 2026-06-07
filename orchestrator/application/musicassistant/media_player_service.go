@@ -7,6 +7,7 @@ package musicassistant
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"vinyl-orchestrator/application/database"
@@ -173,11 +174,21 @@ func (instance *SystemMediaPlayer_t) GetAvailablePlayers() ([]typedefs.Available
 	return instance.getAvailablePlayers()
 }
 
+func (instance *SystemMediaPlayer_t) buildStatusSnapshotTimerHandler(ctx context.Context, isSyncSuspended *atomic.Bool, targetPlayerIdentifier string) func() {
+	return func() {
+		if ctx.Err() != nil || isSyncSuspended.Load() {
+			return
+		}
+		instance.syncStatusSnapshotForTargetPlayer(targetPlayerIdentifier)
+	}
+}
+
 func (instance *SystemMediaPlayer_t) startListening() {
 	instance._private.listenerMutex.Lock()
 	defer instance._private.listenerMutex.Unlock()
 
 	if instance._private.listenerCancel != nil {
+		utils.StopTimer(&instance._private.statusSnapshotTimer)
 		instance._private.listenerCancel()
 	}
 
@@ -185,7 +196,9 @@ func (instance *SystemMediaPlayer_t) startListening() {
 	instance._private.listenerCancel = cancel
 
 	go func(ctx context.Context) {
-		isSyncSuspended := false
+		defer utils.StopTimer(&instance._private.statusSnapshotTimer)
+
+		var isSyncSuspended atomic.Bool
 
 		updateSuspensionFromProjectorData := func() {
 			var projectorData typedefs.ProjectorData_t
@@ -193,10 +206,11 @@ func (instance *SystemMediaPlayer_t) startListening() {
 				return
 			}
 
-			wasSuspended := isSyncSuspended
-			isSyncSuspended = projectorData.VisualDataState != typedefs.VisualDataState_DisplayAlbumVisuals
+			wasSuspended := isSyncSuspended.Load()
+			isSuspended := projectorData.VisualDataState != typedefs.VisualDataState_DisplayAlbumVisuals
+			isSyncSuspended.Store(isSuspended)
 
-			if wasSuspended && !isSyncSuspended {
+			if wasSuspended && !isSuspended {
 				targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
 				instance.syncStatusSnapshotForTargetPlayer(targetPlayerIdentifier)
 				go instance.refreshQueueWhilePlayingMedia()
@@ -214,8 +228,8 @@ func (instance *SystemMediaPlayer_t) startListening() {
 		go instance.refreshQueueWhilePlayingMedia()
 
 		targetPlayerIdentifier := instance.retrieveTargetPlayerIdentifier()
-		statusSnapshotTicker := time.NewTicker(250 * time.Millisecond)
-		defer statusSnapshotTicker.Stop()
+		onStatusSnapshotTimerExpired := instance.buildStatusSnapshotTimerHandler(ctx, &isSyncSuspended, targetPlayerIdentifier)
+		utils.StartPeriodicTimer(&instance._private.statusSnapshotTimer, 250, onStatusSnapshotTimerExpired)
 
 		for {
 			select {
@@ -230,18 +244,13 @@ func (instance *SystemMediaPlayer_t) startListening() {
 				if args.Variable == core.Global_CurrentProjectorData.Key {
 					updateSuspensionFromProjectorData()
 				}
-			case <-statusSnapshotTicker.C:
-				if isSyncSuspended {
-					continue
-				}
-				instance.syncStatusSnapshotForTargetPlayer(targetPlayerIdentifier)
 			case event := <-instance._private.queueUpdatedEvents:
-				if isSyncSuspended {
+				if isSyncSuspended.Load() {
 					continue
 				}
 				instance.applyQueueUpdatedEvent(event.Payload)
 			case event := <-instance._private.playerUpdatedEvents:
-				if isSyncSuspended {
+				if isSyncSuspended.Load() {
 					continue
 				}
 				instance.applyPlayerUpdatedEvent(event.Payload)
@@ -255,6 +264,7 @@ func (instance *SystemMediaPlayer_t) stopListening() {
 	defer instance._private.listenerMutex.Unlock()
 
 	if instance._private.listenerCancel != nil {
+		utils.StopTimer(&instance._private.statusSnapshotTimer)
 		instance._private.listenerCancel()
 		instance._private.listenerCancel = nil
 	}
@@ -272,6 +282,7 @@ type SystemMediaPlayer_t struct {
 		queueUpdatedEvents  <-chan database.Event
 		playerUpdatedEvents <-chan database.Event
 		dataSourceEvents    <-chan database.Event
+		statusSnapshotTimer utils.Timer_t
 
 		interpolationMutex sync.Mutex
 		lastKnownPosition  float64

@@ -63,23 +63,23 @@
                 setBootStatus('BOOT: Loading scripts...');
 
                 await loadScript('js/state.js');
-                await loadScript('js/track_resolver.js');
+                await loadScript('build/js/track_resolver.js');
 
-                await loadScript('js/mapping.js');
+                await loadScript('build/js/mapping.js');
                 await loadScript('js/qrcode.min.js');
-                await loadScript('widgets/tracklist/tracklist_app.js');
-                await loadScript('widgets/visualizer/visualizer_app.js');
-                await loadScript('widgets/overlay/overlay_app.js');
-                await loadScript('widgets/loading/loading_app.js');
-                await loadScript('widgets/lyrics/lyrics_app.js');
-                await loadScript('widgets/record/record_app.js');
-                await loadScript('widgets/info/info_app.js');
-                await loadScript('widgets/progress/progress_app.js');
-                await loadScript('widgets/context_message/context_message_app.js');
-                await loadScript('widgets/qrcode/qrcode_app.js');
-                await loadScript('js/playback_controller.js');
-                await loadScript('js/datasource.js');
-                await loadScript('js/websocket_router.js');
+                await loadScript('build/widgets/tracklist/tracklist_app.js');
+                await loadScript('build/widgets/visualizer/visualizer_app.js');
+                await loadScript('build/widgets/overlay/overlay_app.js');
+                await loadScript('build/widgets/loading/loading_app.js');
+                await loadScript('build/widgets/lyrics/lyrics_app.js');
+                await loadScript('build/widgets/record/record_app.js');
+                await loadScript('build/widgets/info/info_app.js');
+                await loadScript('build/widgets/progress/progress_app.js');
+                await loadScript('build/widgets/context_message/context_message_app.js');
+                await loadScript('build/widgets/qrcode/qrcode_app.js');
+                await loadScript('build/js/playback_controller.js');
+                await loadScript('build/js/datasource.js');
+                await loadScript('build/js/websocket_router.js');
 
                 setBootStatus('BOOT: Ready');
                 setTimeout(() => { if (bootStatus) bootStatus.style.display = 'none'; }, 3000);

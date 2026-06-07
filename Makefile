@@ -14,6 +14,8 @@ DATABASE     = builds/data/vinyl.db
 	clean-binaries \
 	clean-database \
 	run-mac-stack \
+	projection-build-ts \
+	projection-watch-ts \
 	projection \
 	build-flutter-web \
 	hotfix_orchestrator \
@@ -41,8 +43,15 @@ run-mac-stack: build-macos-arm64
 build-flutter-web:
 	cd web_app && flutter build web --release
 
+projection-build-ts:
+	cd projector_display && npm run build:ts
+
+projection-watch-ts:
+	cd projector_display && npm run watch:ts
+
 projection:
 	@echo "Starting projector display server on http://localhost:8000 (serving projector_display)..."
+	$(MAKE) projection-build-ts
 	cd projector_display && python3 -m http.server 8000
 
 hotfix_orchestrator: build-rpi64

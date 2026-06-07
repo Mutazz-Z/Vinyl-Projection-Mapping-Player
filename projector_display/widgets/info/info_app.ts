@@ -1,11 +1,19 @@
 (function () {
-    var hideTimer = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const appWindow = window as unknown as {
+        resizeTimer?: ReturnType<typeof setTimeout>;
+        InfoWidget: {
+            show: () => void;
+            hide: () => void;
+            updateData: (albumInfo: TitleAndArtist_t) => void;
+        };
+    };
 
-    function getContainer() {
+    function getContainer(): HTMLElement | null {
         return document.querySelector('#info-widget .info-container') || document.querySelector('.info-container');
     }
 
-    function resetMarquee(element) {
+    function resetMarquee(element: HTMLElement | null): void {
         if (!element) return;
         element.classList.remove('marquee');
         if (element.dataset.originalText !== undefined) {
@@ -14,20 +22,20 @@
         }
     }
 
-    function applyMarquee(element) {
+    function applyMarquee(element: HTMLElement | null): void {
         if (!element) return;
-        var text = element.textContent;
+        const text = element.textContent || '';
         element.dataset.originalText = text;
 
         element.innerHTML = '';
 
-        var firstTextSpan = document.createElement('span');
+        const firstTextSpan = document.createElement('span');
         firstTextSpan.textContent = text;
 
-        var spacerSpan = document.createElement('span');
+        const spacerSpan = document.createElement('span');
         spacerSpan.className = 'spacer';
 
-        var secondTextSpan = document.createElement('span');
+        const secondTextSpan = document.createElement('span');
         secondTextSpan.textContent = text;
 
         element.appendChild(firstTextSpan);
@@ -37,18 +45,18 @@
         element.classList.add('marquee');
     }
 
-    function updateLayout() {
-        var container = getContainer();
+    function updateLayout(): void {
+        const container = getContainer();
         if (!container) return;
 
-        var titleEl = document.getElementById('album-title');
-        var artistEl = document.getElementById('artist-name');
-        var artistWrap = document.getElementById('artist-wrap');
-        var titleWrap = document.getElementById('title-wrap');
+        const titleEl = document.getElementById('album-title');
+        const artistEl = document.getElementById('artist-name');
+        const artistWrap = document.getElementById('artist-wrap');
+        const titleWrap = document.getElementById('title-wrap');
 
         if (!titleEl || !artistEl || !titleWrap || !artistWrap) return;
 
-        container.style.setProperty('--scale', 1);
+        container.style.setProperty('--scale', '1');
         titleWrap.style.width = 'auto';
         titleWrap.style.flex = 'none';
         artistWrap.style.width = 'auto';
@@ -57,23 +65,23 @@
 
         void container.offsetHeight;
 
-        var rawTitleWidth = titleEl.scrollWidth;
-        var rawArtistWidth = artistWrap.scrollWidth;
-        var availableWidth = container.clientWidth - 8;
+        const rawTitleWidth = titleEl.scrollWidth;
+        const rawArtistWidth = artistWrap.scrollWidth;
+        const availableWidth = container.clientWidth - 8;
 
         if (rawTitleWidth === 0 && rawArtistWidth === 0) return;
 
-        var actualGap = (rawTitleWidth > 0 && rawArtistWidth > 0) ? 20 : 0;
+        const actualGap = (rawTitleWidth > 0 && rawArtistWidth > 0) ? 20 : 0;
 
-        var totalContentWidth = rawTitleWidth + rawArtistWidth + actualGap;
-        var scale = Math.max(0.8, Math.min(1.2, availableWidth / totalContentWidth));
+        const totalContentWidth = rawTitleWidth + rawArtistWidth + actualGap;
+        const scale = Math.max(0.8, Math.min(1.2, availableWidth / totalContentWidth));
 
-        var scaledArtistWidth = Math.ceil(rawArtistWidth * scale);
-        var scaledTitleTextWidth = Math.ceil(rawTitleWidth * scale);
+        const scaledArtistWidth = Math.ceil(rawArtistWidth * scale);
+        const scaledTitleTextWidth = Math.ceil(rawTitleWidth * scale);
 
-        var maxTitleBoxWidth = Math.floor(availableWidth - scaledArtistWidth - actualGap);
+        const maxTitleBoxWidth = Math.floor(availableWidth - scaledArtistWidth - actualGap);
 
-        container.style.setProperty('--scale', scale);
+        container.style.setProperty('--scale', String(scale));
 
         artistWrap.style.width = scaledArtistWidth + 'px';
         artistWrap.style.flex = '0 0 ' + scaledArtistWidth + 'px';
@@ -86,9 +94,9 @@
         }
     }
 
-    function setText(album, artist) {
-        var albumTitle = document.getElementById('album-title');
-        var artistName = document.getElementById('artist-name');
+    function setText(album: string, artist: string): void {
+        const albumTitle = document.getElementById('album-title');
+        const artistName = document.getElementById('artist-name');
 
         if (albumTitle) {
             resetMarquee(albumTitle);
@@ -101,8 +109,8 @@
         updateLayout();
     }
 
-    function show() {
-        var container = getContainer();
+    function show(): void {
+        const container = getContainer();
         if (!container) return;
 
         if (hideTimer) {
@@ -118,8 +126,8 @@
         }
     }
 
-    function hide() {
-        var container = getContainer();
+    function hide(): void {
+        const container = getContainer();
 
         if (container && container.classList.contains('hiding')) {
             return;
@@ -143,16 +151,16 @@
         }, 1000);
     }
 
-    function updateData(albumInfo) {
+    function updateData(albumInfo: TitleAndArtist_t): void {
         setText(albumInfo.title, albumInfo.artist);
     }
 
     window.addEventListener('resize', function () {
-        clearTimeout(window.resizeTimer);
-        window.resizeTimer = setTimeout(updateLayout, 100);
+        clearTimeout(appWindow.resizeTimer);
+        appWindow.resizeTimer = setTimeout(updateLayout, 100);
     });
 
-    window.InfoWidget = {
+    appWindow.InfoWidget = {
         show: show,
         hide: hide,
         updateData: updateData,

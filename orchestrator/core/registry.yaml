@@ -107,7 +107,32 @@ variables:
   - name: CurrentPlayingAlbumTitleAndArtist
     storage: Volatile
     type: typedefs.TitleAndArtist_t
-    default: 'typedefs.TitleAndArtist_t{Title: "", Artist: ""}'
+    default: "typedefs.TitleAndArtist_t{}"
+
+  - name: InfoWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: CurrentPlayingAlbumOverlay
+    storage: Volatile
+    type: typedefs.OverlayData_t
+    default: "typedefs.OverlayData_t{}"
+
+  - name: OverlayWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: CurrentPlayingAlbumRecordDesign
+    storage: Volatile
+    type: typedefs.RecordDesignData_t
+    default: "typedefs.RecordDesignData_t{}"
+
+  - name: RecordWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
 
   # ── Active Record Shelf ──────────────────────────────────────────────────
   - name: MediaPlaybackState

@@ -15,6 +15,11 @@ func (instance *WidgetDataPlugin) Init(dataSource database.DataSource, albumLibr
 	instance._private.systemDataSource = dataSource
 	instance._private.albumLibrary = albumLibrary
 
-	titleAndArtistWidget := &TitleAndArtist{}
+	titleAndArtistWidget := &TitleAndArtist_t{}
+	widgetPlaybackSequencer := &WidgetPlaybackSequencer_t{}
+	recordAndOverlayArtWidget := &RecordAndOverlayArt{}
+
+	recordAndOverlayArtWidget.Init(instance._private.systemDataSource, instance._private.albumLibrary)
 	titleAndArtistWidget.Init(instance._private.systemDataSource, instance._private.albumLibrary)
+	widgetPlaybackSequencer.Init(instance._private.systemDataSource, instance._private.albumLibrary)
 }

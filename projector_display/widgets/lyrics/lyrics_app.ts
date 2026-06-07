@@ -1,33 +1,47 @@
 (function () {
-    let uiLines = [];
-    let currentActiveIndex = null;
+    let uiLines: Array<{ time: number; text: string; element: HTMLElement }> = [];
+    let currentActiveIndex: number | null = null;
     let currentTimeSeconds = 0;
     let fixedStepPx = 120;
-    let contextPrevEl = null;
-    let contextNextEl = null;
+    let contextPrevEl: HTMLElement | null = null;
+    let contextNextEl: HTMLElement | null = null;
     let interTrackBridgeActive = false;
     let suppressTransitionsUntilNextFrame = false;
     let bridgeSourceIndex = -1;
     let bridgeEntrancePending = false;
-    let latestLyricsData = null;
-    let renderedLyricsData = null;
+    let latestLyricsData: TrackLyrics_t | null = null;
+    let renderedLyricsData: TrackLyrics_t | null = null;
     let hasLyricsForCurrentTrack = false;
     let lyricsRevealUnlocked = false;
     let hideTransitionInProgress = false;
-    let pendingHideCallbacks = [];
+    let pendingHideCallbacks: Array<() => void> = [];
 
     const MIN_STEP_PX = 112;
     const STEP_PADDING_PX = 26;
     const contextLines = {
         previousTrackLine: '',
-        upcomingTrackLine: ''
+        upcomingTrackLine: '',
     };
 
-    function getContainer() {
+    type LyricsContext = {
+        previousTrackLine?: string;
+        upcomingTrackLine?: string;
+    };
+
+    type LyricsShowOptions = LyricsContext & {
+        lyricsData?: TrackLyrics_t | null;
+        progressSeconds?: number;
+        enterInterTrackBridge?: boolean;
+        isPlaying?: boolean;
+        isPlaybackVisualActive?: boolean;
+        awaitingMusicStart?: boolean;
+    };
+
+    function getContainer(): HTMLElement | null {
         return document.getElementById('lyrics-scroll');
     }
 
-    function ensureContextElements() {
+    function ensureContextElements(): { prev: HTMLElement; next: HTMLElement } | null {
         const container = getContainer();
         if (!container) return null;
 
@@ -46,14 +60,14 @@
         return { prev: contextPrevEl, next: contextNextEl };
     }
 
-    function computeLineUnitPx(lineElement) {
+    function computeLineUnitPx(lineElement: HTMLElement): number {
         const style = window.getComputedStyle(lineElement);
         const fontSize = parseFloat(style.fontSize) || 28;
         const lineHeight = parseFloat(style.lineHeight) || (fontSize * 1.25);
         return Math.ceil(lineHeight);
     }
 
-    function recomputeFixedStep() {
+    function recomputeFixedStep(): void {
         const context = ensureContextElements();
         if (!context) return;
 
@@ -76,7 +90,7 @@
         fixedStepPx = Math.max(MIN_STEP_PX, maxHeight + STEP_PADDING_PX);
     }
 
-    function findActiveIndex(timeSeconds) {
+    function findActiveIndex(timeSeconds: number): number {
         if (uiLines.length === 0) return -1;
 
         let activeIndex = -1;
@@ -91,7 +105,7 @@
         return activeIndex;
     }
 
-    function applyLineVisuals(lineElement, text, yPx, opacity, isActive) {
+    function applyLineVisuals(lineElement: HTMLElement, text: string, yPx: number, opacity: number, isActive: boolean): void {
         lineElement.textContent = text || '';
         lineElement.style.transform = 'translateY(calc(' + yPx + 'px - 50%))';
         lineElement.style.opacity = text ? String(opacity) : '0';
@@ -99,7 +113,7 @@
         lineElement.classList.toggle('no-motion', suppressTransitionsUntilNextFrame);
     }
 
-    function withSuppressedTransitions(work) {
+    function withSuppressedTransitions(work: () => void): void {
         suppressTransitionsUntilNextFrame = true;
         try {
             work();
@@ -115,7 +129,7 @@
         }
     }
 
-    function renderState() {
+    function renderState(): void {
         const context = ensureContextElements();
         if (!context) return;
 
@@ -203,22 +217,22 @@
         currentActiveIndex = activeIndex;
     }
 
-    function sanitizeLines(lyricsData) {
+    function sanitizeLines(lyricsData: TrackLyrics_t | null): Array<{ time: number; text: string }> {
         if (!lyricsData || !Array.isArray(lyricsData.lines)) return [];
 
-        const lines = [];
+        const lines: Array<{ time: number; text: string }> = [];
         lyricsData.lines.forEach(function (lineObj) {
             if (!lineObj || !lineObj.text) return;
             lines.push({
                 time: Number(lineObj.timeStart) || 0,
-                text: lineObj.text
+                text: lineObj.text,
             });
         });
 
         return lines;
     }
 
-    function updateLyrics(lyricsData) {
+    function updateLyrics(lyricsData: TrackLyrics_t | null): void {
         const container = getContainer();
         if (!container) return;
 
@@ -244,7 +258,7 @@
                     uiLines.push({
                         time: lineObj.time,
                         text: lineObj.text,
-                        element: lyricLineElement
+                        element: lyricLineElement,
                     });
                 }
             }
@@ -275,7 +289,7 @@
         });
     }
 
-    function syncProgress(timeSeconds) {
+    function syncProgress(timeSeconds: number): void {
         currentTimeSeconds = Number(timeSeconds) || 0;
 
         if (interTrackBridgeActive && uiLines.length > 0) {
@@ -290,18 +304,18 @@
         renderState();
     }
 
-    function setTrackContext(context) {
+    function setTrackContext(context?: LyricsContext): void {
         contextLines.previousTrackLine = (context && context.previousTrackLine) ? String(context.previousTrackLine) : '';
         contextLines.upcomingTrackLine = (context && context.upcomingTrackLine) ? String(context.upcomingTrackLine) : '';
         renderState();
     }
 
-    function enterInterTrackBridge(context) {
+    function enterInterTrackBridge(context?: LyricsContext): void {
         contextLines.previousTrackLine = (context && context.previousTrackLine) ? String(context.previousTrackLine) : '';
         contextLines.upcomingTrackLine = (context && context.upcomingTrackLine) ? String(context.upcomingTrackLine) : '';
         currentTimeSeconds = 0;
         const resolvedActive = findActiveIndex(currentTimeSeconds);
-        bridgeSourceIndex = currentActiveIndex >= 0
+        bridgeSourceIndex = currentActiveIndex !== null && currentActiveIndex >= 0
             ? currentActiveIndex
             : (resolvedActive >= 0 ? resolvedActive : (uiLines.length > 0 ? uiLines.length - 1 : -1));
         bridgeEntrancePending = true;
@@ -314,7 +328,7 @@
         });
     }
 
-    function clear() {
+    function clear(): void {
         uiLines = [];
         currentActiveIndex = null;
         currentTimeSeconds = 0;
@@ -333,18 +347,18 @@
         contextNextEl = null;
     }
 
-    function getLyricsWidgetElement() {
+    function getLyricsWidgetElement(): HTMLElement | null {
         return document.getElementById('lyrics-widget');
     }
 
-    function flushPendingHideCallbacks() {
+    function flushPendingHideCallbacks(): void {
         while (pendingHideCallbacks.length > 0) {
             const callback = pendingHideCallbacks.shift();
             if (callback) callback();
         }
     }
 
-    function displayWidget() {
+    function displayWidget(): void {
         const element = getLyricsWidgetElement();
         if (!element) return;
 
@@ -354,14 +368,14 @@
         element.classList.add('visible');
     }
 
-    function shouldDisplayWidgetForCurrentState() {
+    function shouldDisplayWidgetForCurrentState(): boolean {
         return interTrackBridgeActive || Boolean(lyricsRevealUnlocked && hasLyricsForCurrentTrack && latestLyricsData);
     }
 
-    function show(options) {
+    function show(options?: LyricsShowOptions): void {
         if (options) {
             if (Object.prototype.hasOwnProperty.call(options, 'lyricsData')) {
-                setLyricsDataForCurrentTrack(options.lyricsData);
+                setLyricsDataForCurrentTrack(options.lyricsData || null);
             }
 
             if (typeof options.progressSeconds === 'number') {
@@ -371,14 +385,14 @@
             if (options.previousTrackLine || options.upcomingTrackLine) {
                 setTrackContext({
                     previousTrackLine: options.previousTrackLine,
-                    upcomingTrackLine: options.upcomingTrackLine
+                    upcomingTrackLine: options.upcomingTrackLine,
                 });
             }
 
             if (options.enterInterTrackBridge) {
                 enterInterTrackBridge({
                     previousTrackLine: options.previousTrackLine,
-                    upcomingTrackLine: options.upcomingTrackLine
+                    upcomingTrackLine: options.upcomingTrackLine,
                 });
             }
 
@@ -398,7 +412,7 @@
         }
     }
 
-    function hide(onHiddenCallback) {
+    function hide(onHiddenCallback?: () => void): void {
         const element = getLyricsWidgetElement();
 
         if (onHiddenCallback) {
@@ -419,7 +433,7 @@
         if (hideTransitionInProgress) return;
         hideTransitionInProgress = true;
 
-        element.ontransitionend = function (event) {
+        element.ontransitionend = function (event: TransitionEvent) {
             if (!event || event.propertyName !== 'transform') return;
             if (element.classList.contains('visible')) return;
 
@@ -432,15 +446,15 @@
         element.classList.remove('visible');
     }
 
-    function cancelPendingHide() {
+    function cancelPendingHide(): void {
         const element = getLyricsWidgetElement();
         hideTransitionInProgress = false;
         pendingHideCallbacks = [];
         if (element) element.ontransitionend = null;
     }
 
-    function setLyricsDataForCurrentTrack(lyricsData) {
-        const hasValidLines = lyricsData && Array.isArray(lyricsData.lines) && lyricsData.lines.length > 0;
+    function setLyricsDataForCurrentTrack(lyricsData: TrackLyrics_t | null): void {
+        const hasValidLines = !!(lyricsData && Array.isArray(lyricsData.lines) && lyricsData.lines.length > 0);
         hasLyricsForCurrentTrack = hasValidLines;
         latestLyricsData = hasValidLines ? lyricsData : null;
 
@@ -450,28 +464,22 @@
         }
     }
 
-    function unlockLyricsReveal() {
+    function unlockLyricsReveal(): void {
         lyricsRevealUnlocked = true;
     }
 
-    function lockLyricsReveal() {
-        lyricsRevealUnlocked = false;
-    }
-
-    function hasLyrics() {
+    function hasLyrics(): boolean {
         return hasLyricsForCurrentTrack;
     }
 
-    function syncLyricsVisibilityWithPlaybackState(isPlayingState, awaitingMusicStart) {
+    function syncLyricsVisibilityWithPlaybackState(isPlayingState: boolean, awaitingMusicStart: boolean): void {
         if (awaitingMusicStart || !lyricsRevealUnlocked) {
             hide();
             return;
         }
 
         if (hasLyricsForCurrentTrack && latestLyricsData) {
-            if (window.VisualizerWidget && window.VisualizerWidget.hide) {
-                window.VisualizerWidget.hide();
-            }
+            window.VisualizerWidget?.hide?.();
 
             displayWidget();
 
@@ -487,27 +495,12 @@
             renderedLyricsData = null;
         });
 
-        if (window.VisualizerWidget && window.VisualizerWidget.play) {
-            window.VisualizerWidget.play();
-        }
-    }
-
-    function clearAndReset() {
-        cancelPendingHide();
-
-        latestLyricsData = null;
-        renderedLyricsData = null;
-        hasLyricsForCurrentTrack = false;
-        lyricsRevealUnlocked = false;
-
-        hide(function () {
-            clear();
-        });
+        window.VisualizerWidget?.play?.();
     }
 
     window.LyricsWidget = {
         show: show,
         hide: hide,
-        hasLyrics: hasLyrics
+        hasLyrics: hasLyrics,
     };
 })();

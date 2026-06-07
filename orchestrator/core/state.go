@@ -258,7 +258,62 @@ var Global_CurrentPlayingAlbumTitleAndArtist = TypedKey[typedefs.TitleAndArtist_
 func init() {
 	StateRegistry[Global_CurrentPlayingAlbumTitleAndArtist.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: typedefs.TitleAndArtist_t(typedefs.TitleAndArtist_t{Title: "", Artist: ""}),
+		DefaultData: typedefs.TitleAndArtist_t(typedefs.TitleAndArtist_t{}),
+	}
+}
+
+// ── InfoWidgetState ──────────────────────────────────
+
+var Global_InfoWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_InfoWidgetState"}
+
+func init() {
+	StateRegistry[Global_InfoWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── CurrentPlayingAlbumOverlay ──────────────────────────────────
+
+var Global_CurrentPlayingAlbumOverlay = TypedKey[typedefs.OverlayData_t]{Key: "Global_CurrentPlayingAlbumOverlay"}
+
+func init() {
+	StateRegistry[Global_CurrentPlayingAlbumOverlay.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.OverlayData_t(typedefs.OverlayData_t{}),
+	}
+}
+
+// ── OverlayWidgetState ──────────────────────────────────
+
+var Global_OverlayWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_OverlayWidgetState"}
+
+func init() {
+	StateRegistry[Global_OverlayWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── CurrentPlayingAlbumRecordDesign ──────────────────────────────────
+
+var Global_CurrentPlayingAlbumRecordDesign = TypedKey[typedefs.RecordDesignData_t]{Key: "Global_CurrentPlayingAlbumRecordDesign"}
+
+func init() {
+	StateRegistry[Global_CurrentPlayingAlbumRecordDesign.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.RecordDesignData_t(typedefs.RecordDesignData_t{}),
+	}
+}
+
+// ── RecordWidgetState ──────────────────────────────────
+
+var Global_RecordWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_RecordWidgetState"}
+
+func init() {
+	StateRegistry[Global_RecordWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
 	}
 }
 
