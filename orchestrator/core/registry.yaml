@@ -45,13 +45,13 @@ variables:
   # ── NFC Reader ───────────────────────────────────────────────────────────
   - name: LastKnownUidScanned
     storage: Volatile
-    type: string
-    default: '""'
+    type: typedefs.UidScanned_t
+    default: "typedefs.UidScanned_t{}"
 
   - name: LastUnknownUidScanned
     storage: Volatile
-    type: string
-    default: '""'
+    type: typedefs.UidScanned_t
+    default: "typedefs.UidScanned_t{}"
 
   - name: CurrentShelfStatus
     storage: Volatile
@@ -145,6 +145,16 @@ variables:
     default: "typedefs.TrackListWidgetData_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0, ReadyForDisplay: false}"
 
   - name: TrackListWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: ProgressWidgetData
+    storage: Volatile
+    type: typedefs.ProgressData_t
+    default: "typedefs.ProgressData_t{}"
+
+  - name: ProgressWidgetState
     storage: Volatile
     type: typedefs.WidgetState_t
     default: "typedefs.WidgetState_Hide"

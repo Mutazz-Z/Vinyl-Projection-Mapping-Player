@@ -10,6 +10,8 @@ class DebugScreen extends StatefulWidget {
   State<DebugScreen> createState() => _DebugScreenState();
 }
 
+int signalCounter = 0;
+
 class _DebugScreenState extends State<DebugScreen> {
   final TextEditingController _uidController = TextEditingController(
     text: '04-A5-1E-1A-2D-59-80',
@@ -22,8 +24,9 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   void _mockPlaceTag() {
-    final String uid = _uidController.text.trim();
-    if (uid.isEmpty) {
+    signalCounter++;
+    final UidScanned_t uid = UidScanned_t(signal: signalCounter, uid: _uidController.text.trim());
+    if (uid.uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a UID to mock placement.')),
       );

@@ -10,6 +10,8 @@
     let isPlaybackVisualActive = false;
     let recordWidgetTransitionToken = 0;
     let tracklistWidgetTransitionToken = 0;
+    let currentProgressWidgetState = WidgetState.Hide;
+    let hasProgressWidgetStateKey = true;
     const RECORD_SLIDE_MS = 700;
     function resolveTrackIndex(snapshot) {
         if (snapshot && snapshot.track_index !== undefined && snapshot.track_index !== null) {
@@ -76,13 +78,11 @@
         }
         syncLyricsAndVisualizerFromPlaybackState(snapshot);
     }
-    function applyProgressToWidgets(snapshot) {
-        if (window.ProgressWidget && window.ProgressWidget.show) {
-            window.ProgressWidget.show({
-                visible: false,
-                snapshot: snapshot,
-            });
+    function applyProgressWidgetDataToWidgets(progressData) {
+        if (currentProgressWidgetState === WidgetState.Show) {
+            setProgressWidgetVisible(true);
         }
+        window.ProgressWidget?.updateData?.(progressData);
     }
     function applyTrackStateToWidgets(snapshot) {
         const resolvedIndex = resolveTrackIndex(snapshot);
@@ -178,6 +178,29 @@
             });
         }
     }
+    function setProgressWidgetVisible(visible) {
+        const progressContainer = document.querySelector('#progress-widget .progress-container');
+        if (!progressContainer)
+            return;
+        if (visible) {
+            progressContainer.classList.add('visible');
+            return;
+        }
+        progressContainer.classList.remove('visible');
+    }
+    function applyProgressWidgetStateToWidgets(state) {
+        const numericState = Number(state);
+        currentProgressWidgetState = numericState;
+        if (numericState === WidgetState.Show) {
+            setProgressWidgetVisible(true);
+            window.ProgressWidget?.show?.();
+            return;
+        }
+        if (numericState === WidgetState.Hide) {
+            setProgressWidgetVisible(false);
+            window.ProgressWidget?.hide?.({ reset: true });
+        }
+    }
     function applyLoadingWidgetStateToWidgets(state) {
         const numericState = Number(state);
         if (numericState === WidgetState.Loading) {
@@ -219,12 +242,14 @@
                     case Global_TrackListWidgetData.key:
                         applyTrackListWidgetDataToWidgets(TrackListWidgetData_t.fromJson(data), currentPlaybackState);
                         break;
+                    case Global_ProgressWidgetData.key:
+                        applyProgressWidgetDataToWidgets(ProgressData_t.fromJson(data));
+                        break;
                     case Global_ActiveTrackTotalDurationInSeconds:
                         currentPlaybackState.duration = Number(data);
                         break;
                     case Global_ActiveTrackProgressInSeconds:
                         currentPlaybackState.position = Number(data);
-                        applyProgressToWidgets(currentPlaybackState);
                         break;
                     case Global_ActiveTrack.key: {
                         const activeTrack = ActiveTrack_t.fromJson(data);
@@ -264,6 +289,12 @@
                         break;
                     case Global_TrackListWidgetState:
                         applyTrackListWidgetStateToWidgets(Number(data));
+                        if (!hasProgressWidgetStateKey) {
+                            applyProgressWidgetStateToWidgets(Number(data));
+                        }
+                        break;
+                    case Global_ProgressWidgetState:
+                        applyProgressWidgetStateToWidgets(Number(data));
                         break;
                     case Global_LoadingWidgetState:
                         applyLoadingWidgetStateToWidgets(Number(data));
@@ -274,6 +305,8 @@
             handleVisualUpdate(ProjectorData_t.fromJson(projectorData), { restore: true });
             const trackListWidgetData = await DataSource_Read(dataSource, Global_TrackListWidgetData.key);
             applyTrackListWidgetDataToWidgets(trackListWidgetData, currentPlaybackState);
+            const progressWidgetData = await DataSource_Read(dataSource, Global_ProgressWidgetData.key);
+            applyProgressWidgetDataToWidgets(progressWidgetData);
             const activeTrack = await DataSource_Read(dataSource, Global_ActiveTrack.key);
             currentPlaybackState.track_index = Number(activeTrack.trackIndex || 0);
             currentPlaybackState.track_name = activeTrack.trackName || '';
@@ -291,13 +324,17 @@
             applyRecordWidgetStateToWidgets(recordWidgetState);
             const trackListWidgetState = await DataSource_Read(dataSource, Global_TrackListWidgetState);
             applyTrackListWidgetStateToWidgets(trackListWidgetState);
+            try {
+                const progressWidgetState = await DataSource_Read(dataSource, Global_ProgressWidgetState);
+                applyProgressWidgetStateToWidgets(progressWidgetState);
+            }
+            catch (error) {
+                hasProgressWidgetStateKey = false;
+                console.warn('[Progress] Global_ProgressWidgetState unavailable; mirroring TrackListWidgetState for visibility fallback.', error);
+                applyProgressWidgetStateToWidgets(trackListWidgetState);
+            }
             const loadingWidgetState = await DataSource_Read(dataSource, Global_LoadingWidgetState);
             applyLoadingWidgetStateToWidgets(loadingWidgetState);
-            const totalDuration = await DataSource_Read(dataSource, Global_ActiveTrackTotalDurationInSeconds);
-            currentPlaybackState.duration = Number(totalDuration);
-            const elapsedTime = await DataSource_Read(dataSource, Global_ActiveTrackProgressInSeconds);
-            currentPlaybackState.position = Number(elapsedTime);
-            applyProgressToWidgets(currentPlaybackState);
             const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
             currentPlaybackState.state = Number(playbackState);
             applyPlaybackStateToWidgets(currentPlaybackState);

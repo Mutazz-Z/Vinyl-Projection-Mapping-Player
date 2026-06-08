@@ -22,7 +22,9 @@ function DataSource__dispatch(dataSource, messageEvent) {
         clearTimeout(pending.timeoutId);
         delete dataSource._pendingReads[message.req_id];
         if (message.action === 'read_error') {
-            pending.reject(new Error(message.error));
+            const requestedKey = message.key;
+            const keyLabel = typeof requestedKey === 'string' && requestedKey ? requestedKey : 'unknown-key';
+            pending.reject(new Error(`DataSource_Read('${keyLabel}') failed: ${message.error}`));
         }
         else {
             pending.resolve(message.value);

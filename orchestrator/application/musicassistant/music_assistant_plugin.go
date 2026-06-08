@@ -27,6 +27,24 @@ func (plugin *MusicAssistantPlugin) GetAlbumTracklist(itemId string, provider st
 	return plugin.getAlbumTrackList(itemId, provider)
 }
 
+func (plugin *MusicAssistantPlugin) GetCurrentQueueList() (typedefs.QueueList_t, error) {
+	targetPlayerIdentifier := plugin.mediaPlayer.retrieveTargetPlayerIdentifier()
+	if targetPlayerIdentifier == "" {
+		return typedefs.QueueList_t{}, fmt.Errorf("target player identifier is not configured")
+	}
+
+	return plugin.mediaPlayer.getMediaPlayerQueueList(targetPlayerIdentifier)
+}
+
+func (plugin *MusicAssistantPlugin) GetCurrentMediaPlayerStatus() (MediaPlayerStatus_t, error) {
+	targetPlayerIdentifier := plugin.mediaPlayer.retrieveTargetPlayerIdentifier()
+	if targetPlayerIdentifier == "" {
+		return MediaPlayerStatus_t{}, fmt.Errorf("target player identifier is not configured")
+	}
+
+	return plugin.mediaPlayer.getMediaPlayerStatus(targetPlayerIdentifier)
+}
+
 func (plugin *MusicAssistantPlugin) ValidateSystemCredentials() error {
 	if plugin.connectionManager == nil {
 		return fmt.Errorf("internal error: websocket manager is offline")
@@ -66,6 +84,14 @@ type MusicAssistantPlayer_t interface {
 	GetAvailablePlayers() ([]typedefs.AvailableMediaPlayers_t, error)
 	PlayMedia(mediaResourceIdentifier string) error
 	StopMedia() error
+}
+
+type QueueListProvider interface {
+	GetCurrentQueueList() (typedefs.QueueList_t, error)
+}
+
+type MediaPlayerStatusProvider interface {
+	GetCurrentMediaPlayerStatus() (MediaPlayerStatus_t, error)
 }
 
 type MusicAssistantPlugin struct {

@@ -259,8 +259,19 @@
         });
     }
 
+    function updateData(progressData: ProgressData_t): void {
+        if (!progressData || typeof progressData !== 'object') return;
+
+        applyProgressSample(
+            Number(progressData.currentDurationInTrack || 0),
+            Number(progressData.totalDurationInTrack || 0),
+            { running: false }
+        );
+    }
+
     window.ProgressWidget = {
         show: show,
         hide: hide,
+        updateData: updateData,
     };
 })();

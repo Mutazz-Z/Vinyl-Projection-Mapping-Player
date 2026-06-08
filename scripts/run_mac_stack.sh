@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-BINARY_MACOS="builds/vinyl-orchestrator-macos-arm64"
+BINARY_MACOS="builds/app/vinyl-orchestrator-macos-arm64"
 PORT=57988
 
 cleanup() {
@@ -35,7 +35,7 @@ if [ -n "$PORT_PIDS" ]; then
     kill $PORT_PIDS >/dev/null 2>&1 || true
 fi
 
-export VINYL_DATABASE_PATH="$PWD/builds/vinyl.db"
+export VINYL_DATABASE_PATH="$PWD/builds/data/vinyl.db"
 ./"$BINARY_MACOS" &
 ORCH_PID=$!
 echo "Started orchestrator engine (pid $ORCH_PID)"

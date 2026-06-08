@@ -72,8 +72,8 @@ func (instance *PlaybackApplicationService) onDataSourceChanged(dataSourceChange
 
 		switch args.Variable {
 		case core.Global_LastKnownUidScanned.Key:
-			currentUid, _ := args.Data.(string)
-			instance.processScannedNfcTag(currentUid)
+			currentUid, _ := args.Data.(typedefs.UidScanned_t)
+			instance.processScannedNfcTag(currentUid.Uid)
 
 		case core.Global_CurrentShelfStatus.Key:
 			shelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)

@@ -121,23 +121,23 @@ func init() {
 
 // ── LastKnownUidScanned ──────────────────────────────────
 
-var Global_LastKnownUidScanned = TypedKey[string]{Key: "Global_LastKnownUidScanned"}
+var Global_LastKnownUidScanned = TypedKey[typedefs.UidScanned_t]{Key: "Global_LastKnownUidScanned"}
 
 func init() {
 	StateRegistry[Global_LastKnownUidScanned.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: string(""),
+		DefaultData: typedefs.UidScanned_t(typedefs.UidScanned_t{}),
 	}
 }
 
 // ── LastUnknownUidScanned ──────────────────────────────────
 
-var Global_LastUnknownUidScanned = TypedKey[string]{Key: "Global_LastUnknownUidScanned"}
+var Global_LastUnknownUidScanned = TypedKey[typedefs.UidScanned_t]{Key: "Global_LastUnknownUidScanned"}
 
 func init() {
 	StateRegistry[Global_LastUnknownUidScanned.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: string(""),
+		DefaultData: typedefs.UidScanned_t(typedefs.UidScanned_t{}),
 	}
 }
 
@@ -345,6 +345,28 @@ var Global_TrackListWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_
 
 func init() {
 	StateRegistry[Global_TrackListWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── ProgressWidgetData ──────────────────────────────────
+
+var Global_ProgressWidgetData = TypedKey[typedefs.ProgressData_t]{Key: "Global_ProgressWidgetData"}
+
+func init() {
+	StateRegistry[Global_ProgressWidgetData.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.ProgressData_t(typedefs.ProgressData_t{}),
+	}
+}
+
+// ── ProgressWidgetState ──────────────────────────────────
+
+var Global_ProgressWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_ProgressWidgetState"}
+
+func init() {
+	StateRegistry[Global_ProgressWidgetState.Key] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
 	}

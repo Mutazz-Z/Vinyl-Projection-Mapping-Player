@@ -58,22 +58,27 @@ func (instance *MqttPlugin_t) startWatchdogTimer() {
 
 func (instance *MqttPlugin_t) checkUidAgainstLibrary(uid string) {
 	exists := instance._private.AlbumLibrary.CheckUidExistsInLibrary(uid)
+
+	var uidScannedData typedefs.UidScanned_t
+	uidScannedData.Uid = uid
+	uidScannedData.Signal = instance._private.scanCountSignal
+
 	if !exists {
 		fmt.Printf("[Mqtt Plugin]: Unknown Tag %s, writing to registry for registration\n", uid)
-		utils.Write(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, uid)
+		utils.Write(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, uidScannedData)
 	} else {
 		fmt.Printf("[Mqtt Plugin]: Scanned Tag %s\n", uid)
-		utils.Write(instance._private.systemDataSource, core.Global_LastKnownUidScanned, uid)
+		utils.Write(instance._private.systemDataSource, core.Global_LastKnownUidScanned, uidScannedData)
 	}
 	utils.Write(instance._private.systemDataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Occupied)
 }
 
 func (instance *MqttPlugin_t) scannedUidIsTheSameAsPreviousAndWatchdogNotExpired(uid string) bool {
-	var previousKnownUidScanned, previousUnknownUidScanned string
+	var previousKnownUidScanned, previousUnknownUidScanned typedefs.UidScanned_t
 	utils.Read(instance._private.systemDataSource, core.Global_LastKnownUidScanned, &previousKnownUidScanned)
 	utils.Read(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, &previousUnknownUidScanned)
 
-	return (previousKnownUidScanned == uid || previousUnknownUidScanned == uid) && !instance._private.watchdogExpired
+	return (previousKnownUidScanned.Uid == uid || previousUnknownUidScanned.Uid == uid) && !instance._private.watchdogExpired
 }
 
 func (instance *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client, incomingMessage eclipseMqtt.Message) {
@@ -88,6 +93,7 @@ func (instance *MqttPlugin_t) handleIncomingMessage(client eclipseMqtt.Client, i
 		if instance.scannedUidIsTheSameAsPreviousAndWatchdogNotExpired(vinylShelfMessage.UidScanned) {
 			fmt.Printf("[Mqtt Plugin]: Tag %s already active, ignoring duplicate scan\n", vinylShelfMessage.UidScanned)
 		} else {
+			instance._private.scanCountSignal++
 			instance.checkUidAgainstLibrary(vinylShelfMessage.UidScanned)
 		}
 
@@ -108,7 +114,7 @@ func (instance *MqttPlugin_t) getBrokerServer() string {
 }
 
 type VinylShelfMessage_t struct {
-	UidScanned  string             `json:"uid"`
+	UidScanned  string                 `json:"uid"`
 	ShelfStatus typedefs.ShelfStatus_t `json:"shelfStatus"`
 }
 
@@ -118,6 +124,7 @@ type MqttPlugin_t struct {
 		mqttClient       eclipseMqtt.Client
 		AlbumLibrary     database.AlbumLibrary
 
+		scanCountSignal int
 		watchdogTimer   *time.Timer
 		WatchdogTimeout time.Duration
 		timerMutex      sync.Mutex

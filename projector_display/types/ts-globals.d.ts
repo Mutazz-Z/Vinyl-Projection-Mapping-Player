@@ -55,6 +55,13 @@ declare class TrackListWidgetData_t {
   static fromJson(json: unknown): TrackListWidgetData_t;
 }
 
+declare class ProgressData_t {
+  currentDurationInTrack: number;
+  totalDurationInTrack: number;
+  readyForDisplay: boolean;
+  static fromJson(json: unknown): ProgressData_t;
+}
+
 declare class ActiveTrack_t {
   trackName: string;
   trackIndex: number;
@@ -136,6 +143,8 @@ declare const Global_RecordWidgetData: { key: string; fromJson: (json: unknown) 
 declare const Global_RecordWidgetState: string;
 declare const Global_TrackListWidgetData: { key: string; fromJson: (json: unknown) => TrackListWidgetData_t };
 declare const Global_TrackListWidgetState: string;
+declare const Global_ProgressWidgetData: { key: string; fromJson: (json: unknown) => ProgressData_t };
+declare const Global_ProgressWidgetState: string;
 declare const Global_LoadingWidgetState: string;
 declare const Global_ActiveTrack: { key: string; fromJson: (json: unknown) => ActiveTrack_t };
 
@@ -210,6 +219,7 @@ interface RecordWidgetApi {
 interface ProgressWidgetApi {
   show?: (options?: unknown) => void;
   hide?: (options?: unknown) => void;
+  updateData?: (progressData: ProgressData_t) => void;
 }
 
 interface OverlayWidgetApi {

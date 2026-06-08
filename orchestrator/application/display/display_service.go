@@ -70,14 +70,14 @@ func (instance *DisplayApplicationService) onDataSourceChanged(dataSourceChanged
 		switch args.Variable {
 
 		case core.Global_LastKnownUidScanned.Key:
-			currentUid := args.Data.(string)
+			currentUid := args.Data.(typedefs.UidScanned_t)
 
-			instance.sendDataToProjectorForKnownTag(currentUid)
+			instance.sendDataToProjectorForKnownTag(currentUid.Uid)
 
 		case core.Global_LastUnknownUidScanned.Key:
-			lastUnknownUidScanned := args.Data.(string)
+			lastUnknownUidScanned := args.Data.(typedefs.UidScanned_t)
 
-			instance.sendDataToProjectorForUnknownTag(lastUnknownUidScanned)
+			instance.sendDataToProjectorForUnknownTag(lastUnknownUidScanned.Uid)
 
 		case core.Global_CurrentShelfStatus.Key:
 			shelfStatus := args.Data.(typedefs.ShelfStatus_t)

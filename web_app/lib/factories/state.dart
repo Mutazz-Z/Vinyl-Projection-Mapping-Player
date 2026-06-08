@@ -22,6 +22,21 @@ enum WidgetState_t {
   int toJson() => index;
 }
 
+enum VisualDataState_t {
+  VisualDataState_DisplayAlbumVisuals,
+  VisualDataState_DisplayErrorMessage,
+  VisualDataState_DisplayTagRegistration,
+  VisualDataState_DisplayIdle,
+  ;
+
+  static VisualDataState_t fromJson(dynamic json) {
+    final idx = (json ?? 0) as int;
+    return VisualDataState_t.values[idx.clamp(0, VisualDataState_t.values.length - 1)];
+  }
+
+  int toJson() => index;
+}
+
 enum MediaPlaybackState_t {
   PlayerState_Playing,
   PlayerState_Paused,
@@ -41,19 +56,16 @@ enum MediaPlaybackState_t {
   int toJson() => index;
 }
 
-enum VisualDataState_t {
-  VisualDataState_DisplayAlbumVisuals,
-  VisualDataState_DisplayErrorMessage,
-  VisualDataState_DisplayTagRegistration,
-  VisualDataState_DisplayIdle,
+enum ReaderStatus_t {
+  ReaderStatus_Offline,
+  ReaderStatus_Online,
   ;
 
-  static VisualDataState_t fromJson(dynamic json) {
-    final idx = (json ?? 0) as int;
-    return VisualDataState_t.values[idx.clamp(0, VisualDataState_t.values.length - 1)];
+  static ReaderStatus_t fromJson(dynamic json) {
+    return (json == true) ? ReaderStatus_t.ReaderStatus_Online : ReaderStatus_t.ReaderStatus_Offline;
   }
 
-  int toJson() => index;
+  bool toJson() => this == ReaderStatus_t.ReaderStatus_Online;
 }
 
 enum ShelfStatus_t {
@@ -66,18 +78,6 @@ enum ShelfStatus_t {
   }
 
   bool toJson() => this == ShelfStatus_t.ShelfStatus_Occupied;
-}
-
-enum ReaderStatus_t {
-  ReaderStatus_Offline,
-  ReaderStatus_Online,
-  ;
-
-  static ReaderStatus_t fromJson(dynamic json) {
-    return (json == true) ? ReaderStatus_t.ReaderStatus_Online : ReaderStatus_t.ReaderStatus_Offline;
-  }
-
-  bool toJson() => this == ReaderStatus_t.ReaderStatus_Online;
 }
 
 class ActiveTrack_t {
@@ -115,37 +115,25 @@ class ActiveTrack_t {
   }
 }
 
-class AlbumsInLibrary_t {
-  final String itemId;
-  final String provider;
-  final String mediaTitle;
-  final String artist;
-  final String coverImage;
+class AvailableMediaPlayers_t {
+  final String playerID;
+  final String displayName;
 
-  AlbumsInLibrary_t({
-    required this.itemId,
-    required this.provider,
-    required this.mediaTitle,
-    required this.artist,
-    required this.coverImage,
+  AvailableMediaPlayers_t({
+    required this.playerID,
+    required this.displayName,
   });
 
-  factory AlbumsInLibrary_t.fromJson(Map<String, dynamic> json) {
-    return AlbumsInLibrary_t(
-      itemId: json['item_id']?.toString() ?? '',
-      provider: json['provider']?.toString() ?? '',
-      mediaTitle: json['media_title']?.toString() ?? '',
-      artist: json['artist']?.toString() ?? '',
-      coverImage: json['cover_image']?.toString() ?? '',
+  factory AvailableMediaPlayers_t.fromJson(Map<String, dynamic> json) {
+    return AvailableMediaPlayers_t(
+      playerID: json['player_id']?.toString() ?? '',
+      displayName: json['display_name']?.toString() ?? '',
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'item_id': itemId,
-      'provider': provider,
-      'media_title': mediaTitle,
-      'artist': artist,
-      'cover_image': coverImage,
+      'player_id': playerID,
+      'display_name': displayName,
     };
   }
 }
@@ -188,6 +176,272 @@ class TrackLyrics_t {
   Map<String, dynamic> toJson() {
     return {
       'lines': lines.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class ProgressData_t {
+  final int currentDurationInTrack;
+  final int totalDurationInTrack;
+  final bool readyForDisplay;
+
+  ProgressData_t({
+    required this.currentDurationInTrack,
+    required this.totalDurationInTrack,
+    required this.readyForDisplay,
+  });
+
+  factory ProgressData_t.fromJson(Map<String, dynamic> json) {
+    return ProgressData_t(
+      currentDurationInTrack: int.tryParse(json['currentDurationInTrack']?.toString() ?? '') ?? 0,
+      totalDurationInTrack: int.tryParse(json['totalDurationInTrack']?.toString() ?? '') ?? 0,
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'currentDurationInTrack': currentDurationInTrack,
+      'totalDurationInTrack': totalDurationInTrack,
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
+class RecordDesignData_t {
+  final LabelDesignData_t labelDesign;
+  final RingDesignData_t ringDesign;
+  final bool readyForDisplay;
+
+  RecordDesignData_t({
+    required this.labelDesign,
+    required this.ringDesign,
+    required this.readyForDisplay,
+  });
+
+  factory RecordDesignData_t.fromJson(Map<String, dynamic> json) {
+    return RecordDesignData_t(
+      labelDesign: LabelDesignData_t.fromJson(json['labelDesign'] ?? {}),
+      ringDesign: RingDesignData_t.fromJson(json['ringDesign'] ?? {}),
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'labelDesign': labelDesign.toJson(),
+      'ringDesign': ringDesign.toJson(),
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
+class LabelDesignData_t {
+  final bool usesImage;
+  final String labelColor;
+  final String labelImage;
+
+  LabelDesignData_t({
+    required this.usesImage,
+    required this.labelColor,
+    required this.labelImage,
+  });
+
+  factory LabelDesignData_t.fromJson(Map<String, dynamic> json) {
+    return LabelDesignData_t(
+      usesImage: json['usesImage'] ?? false,
+      labelColor: json['labelColor']?.toString() ?? '',
+      labelImage: json['labelImage']?.toString() ?? '',
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'usesImage': usesImage,
+      'labelColor': labelColor,
+      'labelImage': labelImage,
+    };
+  }
+}
+
+class RingDesignData_t {
+  final bool usesImage;
+  final String ringColor;
+  final String ringImage;
+
+  RingDesignData_t({
+    required this.usesImage,
+    required this.ringColor,
+    required this.ringImage,
+  });
+
+  factory RingDesignData_t.fromJson(Map<String, dynamic> json) {
+    return RingDesignData_t(
+      usesImage: json['usesImage'] ?? false,
+      ringColor: json['ringColor']?.toString() ?? '',
+      ringImage: json['ringImage']?.toString() ?? '',
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'usesImage': usesImage,
+      'ringColor': ringColor,
+      'ringImage': ringImage,
+    };
+  }
+}
+
+class TitleAndArtist_t {
+  final String title;
+  final String artist;
+  final bool readyForDisplay;
+
+  TitleAndArtist_t({
+    required this.title,
+    required this.artist,
+    required this.readyForDisplay,
+  });
+
+  factory TitleAndArtist_t.fromJson(Map<String, dynamic> json) {
+    return TitleAndArtist_t(
+      title: json['title']?.toString() ?? '',
+      artist: json['artist']?.toString() ?? '',
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'artist': artist,
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
+class OverlayData_t {
+  final String overlayImage;
+  final bool readyForDisplay;
+
+  OverlayData_t({
+    required this.overlayImage,
+    required this.readyForDisplay,
+  });
+
+  factory OverlayData_t.fromJson(Map<String, dynamic> json) {
+    return OverlayData_t(
+      overlayImage: json['overlayImage']?.toString() ?? '',
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'overlayImage': overlayImage,
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
+class QueueList_t {
+  final List<TrackListItem_t> tracks;
+  final int currentPlayingIndex;
+
+  QueueList_t({
+    required this.tracks,
+    required this.currentPlayingIndex,
+  });
+
+  factory QueueList_t.fromJson(Map<String, dynamic> json) {
+    return QueueList_t(
+      tracks: (json['tracks'] as List?)?.map((e) => TrackListItem_t.fromJson(e)).toList() ?? [],
+      currentPlayingIndex: int.tryParse(json['currentPlayingIndex']?.toString() ?? '') ?? 0,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'tracks': tracks.map((e) => e.toJson()).toList(),
+      'currentPlayingIndex': currentPlayingIndex,
+    };
+  }
+}
+
+class TrackListItem_t {
+  final int trackIndex;
+  final String track;
+
+  TrackListItem_t({
+    required this.trackIndex,
+    required this.track,
+  });
+
+  factory TrackListItem_t.fromJson(Map<String, dynamic> json) {
+    return TrackListItem_t(
+      trackIndex: int.tryParse(json['trackIndex']?.toString() ?? '') ?? 0,
+      track: json['track']?.toString() ?? '',
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'trackIndex': trackIndex,
+      'track': track,
+    };
+  }
+}
+
+class TrackListWidgetData_t {
+  final List<TrackListItem_t> tracks;
+  final int currentPlayingIndex;
+  final bool readyForDisplay;
+
+  TrackListWidgetData_t({
+    required this.tracks,
+    required this.currentPlayingIndex,
+    required this.readyForDisplay,
+  });
+
+  factory TrackListWidgetData_t.fromJson(Map<String, dynamic> json) {
+    return TrackListWidgetData_t(
+      tracks: (json['tracks'] as List?)?.map((e) => TrackListItem_t.fromJson(e)).toList() ?? [],
+      currentPlayingIndex: int.tryParse(json['currentPlayingIndex']?.toString() ?? '') ?? 0,
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'tracks': tracks.map((e) => e.toJson()).toList(),
+      'currentPlayingIndex': currentPlayingIndex,
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
+class AlbumsInLibrary_t {
+  final String itemId;
+  final String provider;
+  final String mediaTitle;
+  final String artist;
+  final String coverImage;
+
+  AlbumsInLibrary_t({
+    required this.itemId,
+    required this.provider,
+    required this.mediaTitle,
+    required this.artist,
+    required this.coverImage,
+  });
+
+  factory AlbumsInLibrary_t.fromJson(Map<String, dynamic> json) {
+    return AlbumsInLibrary_t(
+      itemId: json['item_id']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      mediaTitle: json['media_title']?.toString() ?? '',
+      artist: json['artist']?.toString() ?? '',
+      coverImage: json['cover_image']?.toString() ?? '',
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'item_id': itemId,
+      'provider': provider,
+      'media_title': mediaTitle,
+      'artist': artist,
+      'cover_image': coverImage,
     };
   }
 }
@@ -317,229 +571,25 @@ class ProjectorData_t {
   }
 }
 
-class QueueList_t {
-  final List<TrackListItem_t> tracks;
-  final int currentPlayingIndex;
+class UidScanned_t {
+  final String uid;
+  final int signal;
 
-  QueueList_t({
-    required this.tracks,
-    required this.currentPlayingIndex,
+  UidScanned_t({
+    required this.uid,
+    required this.signal,
   });
 
-  factory QueueList_t.fromJson(Map<String, dynamic> json) {
-    return QueueList_t(
-      tracks: (json['tracks'] as List?)?.map((e) => TrackListItem_t.fromJson(e)).toList() ?? [],
-      currentPlayingIndex: int.tryParse(json['currentPlayingIndex']?.toString() ?? '') ?? 0,
+  factory UidScanned_t.fromJson(Map<String, dynamic> json) {
+    return UidScanned_t(
+      uid: json['uid']?.toString() ?? '',
+      signal: int.tryParse(json['signal']?.toString() ?? '') ?? 0,
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'tracks': tracks.map((e) => e.toJson()).toList(),
-      'currentPlayingIndex': currentPlayingIndex,
-    };
-  }
-}
-
-class TitleAndArtist_t {
-  final String title;
-  final String artist;
-  final bool readyForDisplay;
-
-  TitleAndArtist_t({
-    required this.title,
-    required this.artist,
-    required this.readyForDisplay,
-  });
-
-  factory TitleAndArtist_t.fromJson(Map<String, dynamic> json) {
-    return TitleAndArtist_t(
-      title: json['title']?.toString() ?? '',
-      artist: json['artist']?.toString() ?? '',
-      readyForDisplay: json['readyForDisplay'] ?? false,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'title': title,
-      'artist': artist,
-      'readyForDisplay': readyForDisplay,
-    };
-  }
-}
-
-class AvailableMediaPlayers_t {
-  final String playerID;
-  final String displayName;
-
-  AvailableMediaPlayers_t({
-    required this.playerID,
-    required this.displayName,
-  });
-
-  factory AvailableMediaPlayers_t.fromJson(Map<String, dynamic> json) {
-    return AvailableMediaPlayers_t(
-      playerID: json['player_id']?.toString() ?? '',
-      displayName: json['display_name']?.toString() ?? '',
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'player_id': playerID,
-      'display_name': displayName,
-    };
-  }
-}
-
-class OverlayData_t {
-  final String overlayImage;
-  final bool readyForDisplay;
-
-  OverlayData_t({
-    required this.overlayImage,
-    required this.readyForDisplay,
-  });
-
-  factory OverlayData_t.fromJson(Map<String, dynamic> json) {
-    return OverlayData_t(
-      overlayImage: json['overlayImage']?.toString() ?? '',
-      readyForDisplay: json['readyForDisplay'] ?? false,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'overlayImage': overlayImage,
-      'readyForDisplay': readyForDisplay,
-    };
-  }
-}
-
-class RecordDesignData_t {
-  final LabelDesignData_t labelDesign;
-  final RingDesignData_t ringDesign;
-  final bool readyForDisplay;
-
-  RecordDesignData_t({
-    required this.labelDesign,
-    required this.ringDesign,
-    required this.readyForDisplay,
-  });
-
-  factory RecordDesignData_t.fromJson(Map<String, dynamic> json) {
-    return RecordDesignData_t(
-      labelDesign: LabelDesignData_t.fromJson(json['labelDesign'] ?? {}),
-      ringDesign: RingDesignData_t.fromJson(json['ringDesign'] ?? {}),
-      readyForDisplay: json['readyForDisplay'] ?? false,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'labelDesign': labelDesign.toJson(),
-      'ringDesign': ringDesign.toJson(),
-      'readyForDisplay': readyForDisplay,
-    };
-  }
-}
-
-class LabelDesignData_t {
-  final bool usesImage;
-  final String labelColor;
-  final String labelImage;
-
-  LabelDesignData_t({
-    required this.usesImage,
-    required this.labelColor,
-    required this.labelImage,
-  });
-
-  factory LabelDesignData_t.fromJson(Map<String, dynamic> json) {
-    return LabelDesignData_t(
-      usesImage: json['usesImage'] ?? false,
-      labelColor: json['labelColor']?.toString() ?? '',
-      labelImage: json['labelImage']?.toString() ?? '',
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'usesImage': usesImage,
-      'labelColor': labelColor,
-      'labelImage': labelImage,
-    };
-  }
-}
-
-class RingDesignData_t {
-  final bool usesImage;
-  final String ringColor;
-  final String ringImage;
-
-  RingDesignData_t({
-    required this.usesImage,
-    required this.ringColor,
-    required this.ringImage,
-  });
-
-  factory RingDesignData_t.fromJson(Map<String, dynamic> json) {
-    return RingDesignData_t(
-      usesImage: json['usesImage'] ?? false,
-      ringColor: json['ringColor']?.toString() ?? '',
-      ringImage: json['ringImage']?.toString() ?? '',
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'usesImage': usesImage,
-      'ringColor': ringColor,
-      'ringImage': ringImage,
-    };
-  }
-}
-
-class TrackListItem_t {
-  final int trackIndex;
-  final String track;
-
-  TrackListItem_t({
-    required this.trackIndex,
-    required this.track,
-  });
-
-  factory TrackListItem_t.fromJson(Map<String, dynamic> json) {
-    return TrackListItem_t(
-      trackIndex: int.tryParse(json['trackIndex']?.toString() ?? '') ?? 0,
-      track: json['track']?.toString() ?? '',
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'trackIndex': trackIndex,
-      'track': track,
-    };
-  }
-}
-
-class TrackListWidgetData_t {
-  final List<TrackListItem_t> tracks;
-  final int currentPlayingIndex;
-  final bool readyForDisplay;
-
-  TrackListWidgetData_t({
-    required this.tracks,
-    required this.currentPlayingIndex,
-    required this.readyForDisplay,
-  });
-
-  factory TrackListWidgetData_t.fromJson(Map<String, dynamic> json) {
-    return TrackListWidgetData_t(
-      tracks: (json['tracks'] as List?)?.map((e) => TrackListItem_t.fromJson(e)).toList() ?? [],
-      currentPlayingIndex: int.tryParse(json['currentPlayingIndex']?.toString() ?? '') ?? 0,
-      readyForDisplay: json['readyForDisplay'] ?? false,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'tracks': tracks.map((e) => e.toJson()).toList(),
-      'currentPlayingIndex': currentPlayingIndex,
-      'readyForDisplay': readyForDisplay,
+      'uid': uid,
+      'signal': signal,
     };
   }
 }
@@ -578,12 +628,16 @@ final globalMqttTcpPort = TypedKey<int>(
   'Global_MqttTcpPort',
 );
 
-final globalLastKnownUidScanned = TypedKey<String>(
+final globalLastKnownUidScanned = TypedKey<UidScanned_t>(
   'Global_LastKnownUidScanned',
+  fromJson: (json) => UidScanned_t.fromJson(json),
+  toJson: (data) => data.toJson(),
 );
 
-final globalLastUnknownUidScanned = TypedKey<String>(
+final globalLastUnknownUidScanned = TypedKey<UidScanned_t>(
   'Global_LastUnknownUidScanned',
+  fromJson: (json) => UidScanned_t.fromJson(json),
+  toJson: (data) => data.toJson(),
 );
 
 final globalCurrentShelfStatus = TypedKey<ShelfStatus_t>(
@@ -682,6 +736,18 @@ final globalTrackListWidgetData = TypedKey<TrackListWidgetData_t>(
 
 final globalTrackListWidgetState = TypedKey<WidgetState_t>(
   'Global_TrackListWidgetState',
+  fromJson: (json) => WidgetState_t.fromJson(json),
+  toJson: (data) => data.toJson(),
+);
+
+final globalProgressWidgetData = TypedKey<ProgressData_t>(
+  'Global_ProgressWidgetData',
+  fromJson: (json) => ProgressData_t.fromJson(json),
+  toJson: (data) => data.toJson(),
+);
+
+final globalProgressWidgetState = TypedKey<WidgetState_t>(
+  'Global_ProgressWidgetState',
   fromJson: (json) => WidgetState_t.fromJson(json),
   toJson: (data) => data.toJson(),
 );

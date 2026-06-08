@@ -42,10 +42,10 @@ func (instance *PlaybackOverridenService) getExpectedAlbum(uid string) {
 func (instance *PlaybackOverridenService) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 		switch args.Variable {
-
 		case core.Global_LastKnownUidScanned.Key:
-			uid := args.Data.(string)
-			instance.getExpectedAlbum(uid)
+			uid := args.Data.(typedefs.UidScanned_t)
+			
+			instance.getExpectedAlbum(uid.Uid)
 
 		case core.Global_ActiveTrack.Key:
 			instance.compareCurrentlyPlayingAlbumAgainstExpected()

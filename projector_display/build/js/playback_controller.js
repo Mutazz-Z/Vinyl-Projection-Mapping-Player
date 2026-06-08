@@ -10,7 +10,6 @@
     function runPlaybackEntranceSequence(token) {
         if (token !== playbackToken)
             return;
-        window.ProgressWidget?.show?.();
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
                 isPlaybackVisualActive: sceneActive,
@@ -27,15 +26,12 @@
             visible: false,
             prepareForPlayback: true,
         });
-        window.ProgressWidget?.hide?.({ reset: true });
         window.VisualizerWidget?.hide?.();
-        window.ProgressWidget?.hide?.({ visible: false, reset: true });
         window.LyricsWidget?.hide?.();
     }
     function runPlaybackRestoreSequence(token) {
         if (token !== playbackToken)
             return;
-        window.ProgressWidget?.show?.();
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
                 isPlaybackVisualActive: sceneActive,
@@ -44,10 +40,8 @@
         }
     }
     function prepareWidgetsForStop(isError) {
-        window.ProgressWidget?.hide?.({ reset: true });
         window.QrCodeWidget?.hide?.();
         window.VisualizerWidget?.hide?.();
-        window.ProgressWidget?.hide?.({ visible: false, reset: true });
         window.LyricsWidget?.hide?.();
         if (!isError && window.ContextMessageWidget) {
             window.ContextMessageWidget.hide();

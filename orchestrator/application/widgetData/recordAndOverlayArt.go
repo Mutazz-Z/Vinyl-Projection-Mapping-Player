@@ -66,8 +66,8 @@ func (instance *RecordAndOverlayArt) onDataSourceChanged(dataSourceChanged <-cha
 
 		switch args.Variable {
 		case core.Global_LastKnownUidScanned.Key:
-			currentUidScanned, _ := args.Data.(string)
-			instance.updateCurrentPlayingAlbumRecordAndOverlayArt(currentUidScanned)
+			currentUidScanned, _ := args.Data.(typedefs.UidScanned_t)
+			instance.updateCurrentPlayingAlbumRecordAndOverlayArt(currentUidScanned.Uid)
 
 		case core.Global_CurrentShelfStatus.Key:
 			currentShelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)

@@ -11,6 +11,8 @@
     let isPlaybackVisualActive = false;
     let recordWidgetTransitionToken = 0;
     let tracklistWidgetTransitionToken = 0;
+    let currentProgressWidgetState: WidgetState_t = WidgetState.Hide;
+    let hasProgressWidgetStateKey = true;
 
     const RECORD_SLIDE_MS = 700;
 
@@ -103,13 +105,11 @@
         syncLyricsAndVisualizerFromPlaybackState(snapshot);
     }
 
-    function applyProgressToWidgets(snapshot: PlaybackSnapshot): void {
-        if (window.ProgressWidget && window.ProgressWidget.show) {
-            window.ProgressWidget.show({
-                visible: false,
-                snapshot: snapshot,
-            });
+    function applyProgressWidgetDataToWidgets(progressData: ProgressData_t): void {
+        if (currentProgressWidgetState === WidgetState.Show) {
+            setProgressWidgetVisible(true);
         }
+        window.ProgressWidget?.updateData?.(progressData);
     }
 
     function applyTrackStateToWidgets(snapshot: PlaybackSnapshot): void {
@@ -226,6 +226,34 @@
         }
     }
 
+    function setProgressWidgetVisible(visible: boolean): void {
+        const progressContainer = document.querySelector('#progress-widget .progress-container');
+        if (!progressContainer) return;
+
+        if (visible) {
+            progressContainer.classList.add('visible');
+            return;
+        }
+
+        progressContainer.classList.remove('visible');
+    }
+
+    function applyProgressWidgetStateToWidgets(state: WidgetState_t): void {
+        const numericState = Number(state);
+        currentProgressWidgetState = numericState;
+
+        if (numericState === WidgetState.Show) {
+            setProgressWidgetVisible(true);
+            window.ProgressWidget?.show?.();
+            return;
+        }
+
+        if (numericState === WidgetState.Hide) {
+            setProgressWidgetVisible(false);
+            window.ProgressWidget?.hide?.({ reset: true });
+        }
+    }
+
     function applyLoadingWidgetStateToWidgets(state: WidgetState_t): void {
         const numericState = Number(state);
 
@@ -278,13 +306,16 @@
                         applyTrackListWidgetDataToWidgets(TrackListWidgetData_t.fromJson(data), currentPlaybackState);
                         break;
 
+                    case Global_ProgressWidgetData.key:
+                        applyProgressWidgetDataToWidgets(ProgressData_t.fromJson(data));
+                        break;
+
                     case Global_ActiveTrackTotalDurationInSeconds:
                         currentPlaybackState.duration = Number(data);
                         break;
 
                     case Global_ActiveTrackProgressInSeconds:
                         currentPlaybackState.position = Number(data);
-                        applyProgressToWidgets(currentPlaybackState);
                         break;
 
                     case Global_ActiveTrack.key: {
@@ -335,6 +366,13 @@
 
                     case Global_TrackListWidgetState:
                         applyTrackListWidgetStateToWidgets(Number(data) as WidgetState_t);
+                        if (!hasProgressWidgetStateKey) {
+                            applyProgressWidgetStateToWidgets(Number(data) as WidgetState_t);
+                        }
+                        break;
+
+                    case Global_ProgressWidgetState:
+                        applyProgressWidgetStateToWidgets(Number(data) as WidgetState_t);
                         break;
 
                     case Global_LoadingWidgetState:
@@ -348,6 +386,9 @@
 
             const trackListWidgetData = await DataSource_Read<TrackListWidgetData_t>(dataSource, Global_TrackListWidgetData.key);
             applyTrackListWidgetDataToWidgets(trackListWidgetData, currentPlaybackState);
+
+            const progressWidgetData = await DataSource_Read<ProgressData_t>(dataSource, Global_ProgressWidgetData.key);
+            applyProgressWidgetDataToWidgets(progressWidgetData);
 
             const activeTrack = await DataSource_Read<ActiveTrack_t>(dataSource, Global_ActiveTrack.key);
             currentPlaybackState.track_index = Number(activeTrack.trackIndex || 0);
@@ -374,15 +415,17 @@
             const trackListWidgetState = await DataSource_Read<WidgetState_t>(dataSource, Global_TrackListWidgetState);
             applyTrackListWidgetStateToWidgets(trackListWidgetState);
 
+            try {
+                const progressWidgetState = await DataSource_Read<WidgetState_t>(dataSource, Global_ProgressWidgetState);
+                applyProgressWidgetStateToWidgets(progressWidgetState);
+            } catch (error) {
+                hasProgressWidgetStateKey = false;
+                console.warn('[Progress] Global_ProgressWidgetState unavailable; mirroring TrackListWidgetState for visibility fallback.', error);
+                applyProgressWidgetStateToWidgets(trackListWidgetState);
+            }
+
             const loadingWidgetState = await DataSource_Read<WidgetState_t>(dataSource, Global_LoadingWidgetState);
             applyLoadingWidgetStateToWidgets(loadingWidgetState);
-
-            const totalDuration = await DataSource_Read(dataSource, Global_ActiveTrackTotalDurationInSeconds);
-            currentPlaybackState.duration = Number(totalDuration);
-
-            const elapsedTime = await DataSource_Read(dataSource, Global_ActiveTrackProgressInSeconds);
-            currentPlaybackState.position = Number(elapsedTime);
-            applyProgressToWidgets(currentPlaybackState);
 
             const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
             currentPlaybackState.state = Number(playbackState);

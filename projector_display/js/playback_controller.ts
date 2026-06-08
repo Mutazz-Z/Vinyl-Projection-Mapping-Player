@@ -12,8 +12,6 @@
     function runPlaybackEntranceSequence(token: number): void {
         if (token !== playbackToken) return;
 
-        window.ProgressWidget?.show?.();
-
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
                 isPlaybackVisualActive: sceneActive,
@@ -34,17 +32,12 @@
             prepareForPlayback: true,
         });
 
-        window.ProgressWidget?.hide?.({ reset: true });
-
         window.VisualizerWidget?.hide?.();
-        window.ProgressWidget?.hide?.({ visible: false, reset: true });
         window.LyricsWidget?.hide?.();
     }
 
     function runPlaybackRestoreSequence(token: number): void {
         if (token !== playbackToken) return;
-
-        window.ProgressWidget?.show?.();
 
         if (window.LyricsWidget) {
             window.LyricsWidget.show?.({
@@ -55,12 +48,9 @@
     }
 
     function prepareWidgetsForStop(isError: boolean): void {
-        window.ProgressWidget?.hide?.({ reset: true });
-
         window.QrCodeWidget?.hide?.();
 
         window.VisualizerWidget?.hide?.();
-        window.ProgressWidget?.hide?.({ visible: false, reset: true });
         window.LyricsWidget?.hide?.();
 
         if (!isError && window.ContextMessageWidget) {
