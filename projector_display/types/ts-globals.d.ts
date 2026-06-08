@@ -129,8 +129,6 @@ declare const WidgetState: {
 
 declare const Global_MediaPlaybackState: string;
 declare const Global_CurrentMaptasticProjectorPositions: string;
-declare const Global_ActiveTrackTotalDurationInSeconds: string;
-declare const Global_ActiveTrackProgressInSeconds: string;
 declare const Global_CurrentShelfStatus: string;
 declare const Global_ProjectorHeartbeatSignal: { key: string };
 declare const Global_ProjectorHeartbeat: string;

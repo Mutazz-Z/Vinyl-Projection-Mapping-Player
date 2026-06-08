@@ -393,25 +393,3 @@ func init() {
 		DefaultData: typedefs.ActiveTrack_t(typedefs.ActiveTrack_t{}),
 	}
 }
-
-// ── ActiveTrackProgressInSeconds ──────────────────────────────────
-
-var Global_ActiveTrackProgressInSeconds = TypedKey[float64]{Key: "Global_ActiveTrackProgressInSeconds"}
-
-func init() {
-	StateRegistry[Global_ActiveTrackProgressInSeconds.Key] = StateMetadata{
-		StorageType: Volatile,
-		DefaultData: float64(0.0),
-	}
-}
-
-// ── ActiveTrackTotalDurationInSeconds ──────────────────────────────────
-
-var Global_ActiveTrackTotalDurationInSeconds = TypedKey[float64]{Key: "Global_ActiveTrackTotalDurationInSeconds"}
-
-func init() {
-	StateRegistry[Global_ActiveTrackTotalDurationInSeconds.Key] = StateMetadata{
-		StorageType: Volatile,
-		DefaultData: float64(0.0),
-	}
-}

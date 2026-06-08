@@ -310,14 +310,6 @@
                         applyProgressWidgetDataToWidgets(ProgressData_t.fromJson(data));
                         break;
 
-                    case Global_ActiveTrackTotalDurationInSeconds:
-                        currentPlaybackState.duration = Number(data);
-                        break;
-
-                    case Global_ActiveTrackProgressInSeconds:
-                        currentPlaybackState.position = Number(data);
-                        break;
-
                     case Global_ActiveTrack.key: {
                         const activeTrack = ActiveTrack_t.fromJson(data);
                         currentPlaybackState.track_index = Number(activeTrack.trackIndex || 0);

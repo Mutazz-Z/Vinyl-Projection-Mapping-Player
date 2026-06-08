@@ -169,13 +169,3 @@ variables:
     storage: Volatile
     type: typedefs.ActiveTrack_t
     default: "typedefs.ActiveTrack_t{}"
-
-  - name: ActiveTrackProgressInSeconds
-    storage: Volatile
-    type: float64
-    default: 0.0
-
-  - name: ActiveTrackTotalDurationInSeconds
-    storage: Volatile
-    type: float64
-    default: 0.0

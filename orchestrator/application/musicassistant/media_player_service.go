@@ -60,8 +60,6 @@ func (instance *SystemMediaPlayer_t) activeTracksDontMatch(previousTrack, curren
 
 func (instance *SystemMediaPlayer_t) applyStatusSnapshotToDataSource(statusSnapshot MediaPlayerStatus_t) {
 	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, statusSnapshot.State)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackProgressInSeconds, statusSnapshot.ElapsedTime)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, statusSnapshot.TotalDuration)
 
 	var previousTrack typedefs.ActiveTrack_t
 	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &previousTrack)
@@ -107,7 +105,6 @@ func (instance *SystemMediaPlayer_t) applyQueueUpdatedEvent(eventPayload interfa
 
 	state := parsePlayerState(parsedState.State)
 	utils.Write(instance._private.systemDataSource, core.Global_MediaPlaybackState, state)
-	utils.Write(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, parsedState.CurrentItem.Duration)
 
 	currentTrack := typedefs.ActiveTrack_t{
 		TrackName:   parsedState.CurrentItem.Name,
