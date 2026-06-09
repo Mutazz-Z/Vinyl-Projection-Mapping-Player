@@ -109,6 +109,12 @@ declare class ProjectorData_t {
   static fromJson(json: unknown): ProjectorData_t;
 }
 
+declare class QrCodeData_t {
+  registrationUrl: string;
+  readyForDisplay: boolean;
+  static fromJson(json: unknown): QrCodeData_t;
+}
+
 declare const MediaPlaybackState: {
   readonly Playing: number;
   readonly Paused: number;
@@ -158,6 +164,8 @@ declare const Global_LyricsWidgetState: string;
 declare const Global_VisualizerWidgetState: string;
 declare const Global_LoadingWidgetState: string;
 declare const Global_ActiveTrack: { key: string; fromJson: (json: unknown) => ActiveTrack_t };
+declare const Global_QrCodeWidgetData: { key: string; fromJson: (json: unknown) => QrCodeData_t };
+declare const Global_QrCodeWidgetState: string;
 
 declare const TrackResolver: {
   buildLyricsLookupFromTrackList: (trackList: AlbumTrackList_t[]) => void;
@@ -203,7 +211,7 @@ interface LoadingWidgetApi {
 }
 
 interface QrCodeWidgetApi {
-  show?: (projectorData: ProjectorData_t) => void;
+  show?: (projectorData?: ProjectorData_t) => void;
   hide?: () => void;
 }
 
@@ -258,6 +266,8 @@ interface WidgetPlaybackController {
 interface ProgressWidgetPlaybackController extends WidgetPlaybackController {
   onTrackListState?: (state: number) => void;
 }
+
+interface QrCodeWidgetPlaybackController extends WidgetPlaybackController {}
 
 interface PlaybackClockSnapshot {
   progressSeconds: number;
@@ -321,4 +331,5 @@ interface Window {
   LyricsWidgetPlayback: WidgetPlaybackController;
   VisualizerWidgetPlayback: WidgetPlaybackController;
   LoadingWidgetPlayback: WidgetPlaybackController;
+  QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;
 }

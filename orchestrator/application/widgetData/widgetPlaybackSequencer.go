@@ -87,6 +87,7 @@ func (instance *WidgetPlaybackSequencer_t) stopProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_ProgressWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_QrCodeWidgetState, typedefs.WidgetState_Hide)
 
 	time.Sleep(1 * time.Second)
 
@@ -110,6 +111,37 @@ func (instance *WidgetPlaybackSequencer_t) syncLyricsAndVisualizerWidgetState(ly
 	}
 }
 
+func (instance *WidgetPlaybackSequencer_t) showRegistrationQrCodeWidget() {
+	var qrCodeData typedefs.QrCodeData_t
+	utils.Read(instance._private.systemDataSource, core.Global_QrCodeWidgetData, &qrCodeData)
+
+	if qrCodeData.ReadyForDisplay {
+		utils.Write(instance._private.systemDataSource, core.Global_QrCodeWidgetState, typedefs.WidgetState_Show)
+	}
+}
+
+func (instance *WidgetPlaybackSequencer_t) pauseVisualPlayback() {
+	var visualizerWidgetState typedefs.WidgetState_t
+	utils.Read(instance._private.systemDataSource, core.Global_VisualizerWidgetState, &visualizerWidgetState)
+
+	if visualizerWidgetState == typedefs.WidgetState_Show {
+		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Pause)
+	}
+	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Pause)
+	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Pause)
+}
+
+func (instance *WidgetPlaybackSequencer_t) resumeVisualPlayback() {
+	var visualizerWidgetState typedefs.WidgetState_t
+	utils.Read(instance._private.systemDataSource, core.Global_VisualizerWidgetState, &visualizerWidgetState)
+
+	if visualizerWidgetState == typedefs.WidgetState_Pause {
+		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Resume)
+	}
+	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Resume)
+	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Resume)
+}
+
 func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
@@ -117,13 +149,16 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 		case core.Global_CurrentShelfStatus.Key:
 			currentShelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)
 			if currentShelfStatus == typedefs.ShelfStatus_Empty {
-				utils.StopTimer(&instance._private.timer)
 				instance.stopProjectorPlayback()
-
-			} else {
-				utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Loading)
-				utils.StartPeriodicTimer(&instance._private.timer, 250, instance.checkIfReadyForProjectorPlayback)
 			}
+
+		case core.Global_LastKnownUidScanned.Key:
+			utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Loading)
+			utils.StartPeriodicTimer(&instance._private.timer, 250, instance.checkIfReadyForProjectorPlayback)
+
+		case core.Global_LastUnknownUidScanned.Key:
+			fmt.Println("Unknown UID scanned. Showing registration QR code widget.")
+			instance.showRegistrationQrCodeWidget()
 
 		case core.Global_ActiveTrack.Key:
 			var lyricsData typedefs.LyricData_t
@@ -131,9 +166,18 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
 
 		case core.Global_MediaPlaybackState.Key:
+			mediaPlaybackState, _ := args.Data.(typedefs.MediaPlaybackState_t)
+			if mediaPlaybackState == typedefs.PlayerState_Paused {
+				instance.pauseVisualPlayback()
+			}
+			if mediaPlaybackState == typedefs.PlayerState_Playing {
+				instance.resumeVisualPlayback()
+			}
+
 			var lyricsData typedefs.LyricData_t
 			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
 			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
+
 		}
 	})
 }

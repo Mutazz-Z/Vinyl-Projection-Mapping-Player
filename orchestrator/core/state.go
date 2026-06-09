@@ -258,7 +258,7 @@ var Global_LoadingWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_Lo
 func init() {
 	StateRegistry[Global_LoadingWidgetState.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Idle),
 	}
 }
 
@@ -400,6 +400,28 @@ var Global_VisualizerWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global
 
 func init() {
 	StateRegistry[Global_VisualizerWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── QrCodeWidgetData ──────────────────────────────────
+
+var Global_QrCodeWidgetData = TypedKey[typedefs.QrCodeData_t]{Key: "Global_QrCodeWidgetData"}
+
+func init() {
+	StateRegistry[Global_QrCodeWidgetData.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.QrCodeData_t(typedefs.QrCodeData_t{}),
+	}
+}
+
+// ── QrCodeWidgetState ──────────────────────────────────
+
+var Global_QrCodeWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_QrCodeWidgetState"}
+
+func init() {
+	StateRegistry[Global_QrCodeWidgetState.Key] = StateMetadata{
 		StorageType: Volatile,
 		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
 	}

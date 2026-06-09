@@ -5,6 +5,23 @@
 
 import 'typed_key.dart';
 
+enum WidgetState_t {
+  WidgetState_Hide,
+  WidgetState_Show,
+  WidgetState_Pause,
+  WidgetState_Resume,
+  WidgetState_Loading,
+  WidgetState_Idle,
+  ;
+
+  static WidgetState_t fromJson(dynamic json) {
+    final idx = (json ?? 0) as int;
+    return WidgetState_t.values[idx.clamp(0, WidgetState_t.values.length - 1)];
+  }
+
+  int toJson() => index;
+}
+
 enum MediaPlaybackState_t {
   PlayerState_Playing,
   PlayerState_Paused,
@@ -19,23 +36,6 @@ enum MediaPlaybackState_t {
   static MediaPlaybackState_t fromJson(dynamic json) {
     final idx = (json ?? 0) as int;
     return MediaPlaybackState_t.values[idx.clamp(0, MediaPlaybackState_t.values.length - 1)];
-  }
-
-  int toJson() => index;
-}
-
-enum WidgetState_t {
-  WidgetState_Hide,
-  WidgetState_Show,
-  WidgetState_Pause,
-  WidgetState_Resume,
-  WidgetState_Loading,
-  WidgetState_Idle,
-  ;
-
-  static WidgetState_t fromJson(dynamic json) {
-    final idx = (json ?? 0) as int;
-    return WidgetState_t.values[idx.clamp(0, WidgetState_t.values.length - 1)];
   }
 
   int toJson() => index;
@@ -56,6 +56,18 @@ enum VisualDataState_t {
   int toJson() => index;
 }
 
+enum ReaderStatus_t {
+  ReaderStatus_Offline,
+  ReaderStatus_Online,
+  ;
+
+  static ReaderStatus_t fromJson(dynamic json) {
+    return (json == true) ? ReaderStatus_t.ReaderStatus_Online : ReaderStatus_t.ReaderStatus_Offline;
+  }
+
+  bool toJson() => this == ReaderStatus_t.ReaderStatus_Online;
+}
+
 enum ShelfStatus_t {
   ShelfStatus_Empty,
   ShelfStatus_Occupied,
@@ -68,16 +80,39 @@ enum ShelfStatus_t {
   bool toJson() => this == ShelfStatus_t.ShelfStatus_Occupied;
 }
 
-enum ReaderStatus_t {
-  ReaderStatus_Offline,
-  ReaderStatus_Online,
-  ;
+class AlbumsInLibrary_t {
+  final String itemId;
+  final String provider;
+  final String mediaTitle;
+  final String artist;
+  final String coverImage;
 
-  static ReaderStatus_t fromJson(dynamic json) {
-    return (json == true) ? ReaderStatus_t.ReaderStatus_Online : ReaderStatus_t.ReaderStatus_Offline;
+  AlbumsInLibrary_t({
+    required this.itemId,
+    required this.provider,
+    required this.mediaTitle,
+    required this.artist,
+    required this.coverImage,
+  });
+
+  factory AlbumsInLibrary_t.fromJson(Map<String, dynamic> json) {
+    return AlbumsInLibrary_t(
+      itemId: json['item_id']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      mediaTitle: json['media_title']?.toString() ?? '',
+      artist: json['artist']?.toString() ?? '',
+      coverImage: json['cover_image']?.toString() ?? '',
+    );
   }
-
-  bool toJson() => this == ReaderStatus_t.ReaderStatus_Online;
+  Map<String, dynamic> toJson() {
+    return {
+      'item_id': itemId,
+      'provider': provider,
+      'media_title': mediaTitle,
+      'artist': artist,
+      'cover_image': coverImage,
+    };
+  }
 }
 
 class QueueList_t {
@@ -219,6 +254,106 @@ class ActiveTrack_t {
   }
 }
 
+class AvailableMediaPlayers_t {
+  final String playerID;
+  final String displayName;
+
+  AvailableMediaPlayers_t({
+    required this.playerID,
+    required this.displayName,
+  });
+
+  factory AvailableMediaPlayers_t.fromJson(Map<String, dynamic> json) {
+    return AvailableMediaPlayers_t(
+      playerID: json['player_id']?.toString() ?? '',
+      displayName: json['display_name']?.toString() ?? '',
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'player_id': playerID,
+      'display_name': displayName,
+    };
+  }
+}
+
+class TitleAndArtist_t {
+  final String title;
+  final String artist;
+  final bool readyForDisplay;
+
+  TitleAndArtist_t({
+    required this.title,
+    required this.artist,
+    required this.readyForDisplay,
+  });
+
+  factory TitleAndArtist_t.fromJson(Map<String, dynamic> json) {
+    return TitleAndArtist_t(
+      title: json['title']?.toString() ?? '',
+      artist: json['artist']?.toString() ?? '',
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'artist': artist,
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
+class UidScanned_t {
+  final String uid;
+  final int signal;
+
+  UidScanned_t({
+    required this.uid,
+    required this.signal,
+  });
+
+  factory UidScanned_t.fromJson(Map<String, dynamic> json) {
+    return UidScanned_t(
+      uid: json['uid']?.toString() ?? '',
+      signal: int.tryParse(json['signal']?.toString() ?? '') ?? 0,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'uid': uid,
+      'signal': signal,
+    };
+  }
+}
+
+class ProgressData_t {
+  final double currentDurationInTrack;
+  final double totalDurationInTrack;
+  final bool readyForDisplay;
+
+  ProgressData_t({
+    required this.currentDurationInTrack,
+    required this.totalDurationInTrack,
+    required this.readyForDisplay,
+  });
+
+  factory ProgressData_t.fromJson(Map<String, dynamic> json) {
+    return ProgressData_t(
+      currentDurationInTrack: double.tryParse(json['currentDurationInTrack']?.toString() ?? '') ?? 0.0,
+      totalDurationInTrack: double.tryParse(json['totalDurationInTrack']?.toString() ?? '') ?? 0.0,
+      readyForDisplay: json['readyForDisplay'] ?? false,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'currentDurationInTrack': currentDurationInTrack,
+      'totalDurationInTrack': totalDurationInTrack,
+      'readyForDisplay': readyForDisplay,
+    };
+  }
+}
+
 class LyricLine_t {
   final double timeStart;
   final String text;
@@ -306,33 +441,6 @@ class OverlayData_t {
   Map<String, dynamic> toJson() {
     return {
       'overlayImage': overlayImage,
-      'readyForDisplay': readyForDisplay,
-    };
-  }
-}
-
-class ProgressData_t {
-  final int currentDurationInTrack;
-  final int totalDurationInTrack;
-  final bool readyForDisplay;
-
-  ProgressData_t({
-    required this.currentDurationInTrack,
-    required this.totalDurationInTrack,
-    required this.readyForDisplay,
-  });
-
-  factory ProgressData_t.fromJson(Map<String, dynamic> json) {
-    return ProgressData_t(
-      currentDurationInTrack: int.tryParse(json['currentDurationInTrack']?.toString() ?? '') ?? 0,
-      totalDurationInTrack: int.tryParse(json['totalDurationInTrack']?.toString() ?? '') ?? 0,
-      readyForDisplay: json['readyForDisplay'] ?? false,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'currentDurationInTrack': currentDurationInTrack,
-      'totalDurationInTrack': totalDurationInTrack,
       'readyForDisplay': readyForDisplay,
     };
   }
@@ -463,109 +571,24 @@ class ProjectorData_t {
   }
 }
 
-class UidScanned_t {
-  final String uid;
-  final int signal;
-
-  UidScanned_t({
-    required this.uid,
-    required this.signal,
-  });
-
-  factory UidScanned_t.fromJson(Map<String, dynamic> json) {
-    return UidScanned_t(
-      uid: json['uid']?.toString() ?? '',
-      signal: int.tryParse(json['signal']?.toString() ?? '') ?? 0,
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'uid': uid,
-      'signal': signal,
-    };
-  }
-}
-
-class AlbumsInLibrary_t {
-  final String itemId;
-  final String provider;
-  final String mediaTitle;
-  final String artist;
-  final String coverImage;
-
-  AlbumsInLibrary_t({
-    required this.itemId,
-    required this.provider,
-    required this.mediaTitle,
-    required this.artist,
-    required this.coverImage,
-  });
-
-  factory AlbumsInLibrary_t.fromJson(Map<String, dynamic> json) {
-    return AlbumsInLibrary_t(
-      itemId: json['item_id']?.toString() ?? '',
-      provider: json['provider']?.toString() ?? '',
-      mediaTitle: json['media_title']?.toString() ?? '',
-      artist: json['artist']?.toString() ?? '',
-      coverImage: json['cover_image']?.toString() ?? '',
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'item_id': itemId,
-      'provider': provider,
-      'media_title': mediaTitle,
-      'artist': artist,
-      'cover_image': coverImage,
-    };
-  }
-}
-
-class AvailableMediaPlayers_t {
-  final String playerID;
-  final String displayName;
-
-  AvailableMediaPlayers_t({
-    required this.playerID,
-    required this.displayName,
-  });
-
-  factory AvailableMediaPlayers_t.fromJson(Map<String, dynamic> json) {
-    return AvailableMediaPlayers_t(
-      playerID: json['player_id']?.toString() ?? '',
-      displayName: json['display_name']?.toString() ?? '',
-    );
-  }
-  Map<String, dynamic> toJson() {
-    return {
-      'player_id': playerID,
-      'display_name': displayName,
-    };
-  }
-}
-
-class TitleAndArtist_t {
-  final String title;
-  final String artist;
+class QrCodeData_t {
+  final String registrationUrl;
   final bool readyForDisplay;
 
-  TitleAndArtist_t({
-    required this.title,
-    required this.artist,
+  QrCodeData_t({
+    required this.registrationUrl,
     required this.readyForDisplay,
   });
 
-  factory TitleAndArtist_t.fromJson(Map<String, dynamic> json) {
-    return TitleAndArtist_t(
-      title: json['title']?.toString() ?? '',
-      artist: json['artist']?.toString() ?? '',
+  factory QrCodeData_t.fromJson(Map<String, dynamic> json) {
+    return QrCodeData_t(
+      registrationUrl: json['registration_url']?.toString() ?? '',
       readyForDisplay: json['readyForDisplay'] ?? false,
     );
   }
   Map<String, dynamic> toJson() {
     return {
-      'title': title,
-      'artist': artist,
+      'registration_url': registrationUrl,
       'readyForDisplay': readyForDisplay,
     };
   }
@@ -793,6 +816,18 @@ final globalLyricsWidgetState = TypedKey<WidgetState_t>(
 
 final globalVisualizerWidgetState = TypedKey<WidgetState_t>(
   'Global_VisualizerWidgetState',
+  fromJson: (json) => WidgetState_t.fromJson(json),
+  toJson: (data) => data.toJson(),
+);
+
+final globalQrCodeWidgetData = TypedKey<QrCodeData_t>(
+  'Global_QrCodeWidgetData',
+  fromJson: (json) => QrCodeData_t.fromJson(json),
+  toJson: (data) => data.toJson(),
+);
+
+final globalQrCodeWidgetState = TypedKey<WidgetState_t>(
+  'Global_QrCodeWidgetState',
   fromJson: (json) => WidgetState_t.fromJson(json),
   toJson: (data) => data.toJson(),
 );

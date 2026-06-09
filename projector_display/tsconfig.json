@@ -16,7 +16,7 @@
     "js/datasource.ts",
     "js/playback_clock.ts",
     "js/mapping.ts",
-    "js/playback_controller.ts",
+    "widgets/qrcode/qrcode_playback.ts",
     "widgets/overlay/overlay_app.ts",
     "widgets/progress/progress_app.ts",
     "widgets/context_message/context_message_app.ts",

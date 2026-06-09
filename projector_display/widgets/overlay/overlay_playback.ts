@@ -9,6 +9,12 @@
             window.OverlayWidget?.show?.();
         } else if (numericState === WidgetState.Hide) {
             window.OverlayWidget?.hide?.();
+        } else if (numericState === WidgetState.Pause) {
+            // Ensure overlay is active before showing pause icon
+            window.OverlayWidget?.show?.({ statusIconType: 'pause' });
+        } else if (numericState === WidgetState.Resume) {
+            // Ensure overlay is active before showing play icon
+            window.OverlayWidget?.show?.({ statusIconType: 'play' });
         }
     }
 

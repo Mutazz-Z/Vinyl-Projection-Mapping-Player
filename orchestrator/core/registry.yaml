@@ -107,7 +107,7 @@ variables:
   - name: LoadingWidgetState
     storage: Volatile
     type: typedefs.WidgetState_t
-    default: "typedefs.WidgetState_Hide"
+    default: "typedefs.WidgetState_Idle"
 
   - name: InfoWidgetData
     storage: Volatile
@@ -170,6 +170,16 @@ variables:
     default: "typedefs.WidgetState_Hide"
 
   - name: VisualizerWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: QrCodeWidgetData
+    storage: Volatile
+    type: typedefs.QrCodeData_t
+    default: "typedefs.QrCodeData_t{}"
+
+  - name: QrCodeWidgetState
     storage: Volatile
     type: typedefs.WidgetState_t
     default: "typedefs.WidgetState_Hide"

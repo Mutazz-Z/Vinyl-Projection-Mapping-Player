@@ -29,6 +29,14 @@
                     delayMs: RECORD_SLIDE_MS,
                 },
             });
+            return;
+        }
+        if (numericState === WidgetState.Pause) {
+            window.RecordWidget?.pause?.();
+            return;
+        }
+        if (numericState === WidgetState.Resume) {
+            window.RecordWidget?.play?.();
         }
     }
     function applyPlaybackState(state) {

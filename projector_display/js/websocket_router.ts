@@ -41,7 +41,7 @@
                     }
                     case Global_CurrentShelfStatus:
                         if (data === ShelfStatus.Empty) {
-                            window.ProjectorPlayback.stopPlayback();
+                            window.QrCodeWidget?.hide?.();
                         }
                         break;
                     case Global_CurrentProjectorData.key:
@@ -64,6 +64,7 @@
                 window.LyricsWidgetPlayback.init(dataSource),
                 window.VisualizerWidgetPlayback.init(dataSource),
                 window.LoadingWidgetPlayback.init(dataSource),
+                window.QrCodeWidgetPlayback.init(dataSource),
             ]);
 
             // Restore infrastructure state.
@@ -91,16 +92,25 @@
 
         switch (projectorData.visualDataState) {
             case VisualDataState.DisplayAlbumVisuals:
-                window.ProjectorPlayback.startPlayback(projectorData, { restore: !!visualOptions.restore });
+                // Initialize track resolution and lyrics lookup for album playback
+                TrackResolver.clearTrackPositionOnly();
+                TrackResolver.buildLyricsLookupFromTrackList(projectorData?.tagData?.trackList || []);
                 break;
             case VisualDataState.DisplayIdle:
-                window.ProjectorPlayback.stopPlayback();
+                // Widget states are managed by Go side via Global_*WidgetState
                 break;
             case VisualDataState.DisplayTagRegistration:
-                window.ProjectorPlayback.showUnknownTag(projectorData);
+                // Show QR code widget with registration data
+                window.QrCodeWidget?.show?.(projectorData);
                 break;
             case VisualDataState.DisplayErrorMessage:
-                window.ProjectorPlayback.showPlaybackError(projectorData.errorMessage, projectorData);
+                // Show error context message (Go side manages widget states)
+                window.RecordWidget?.ejectRecord?.();
+                if (window.ContextMessageWidget) {
+                    window.ContextMessageWidget.show(projectorData.errorMessage);
+                } else {
+                    console.error('Playback Error:', projectorData.errorMessage);
+                }
                 break;
         }
     }
