@@ -10,12 +10,6 @@
     function runPlaybackEntranceSequence(token) {
         if (token !== playbackToken)
             return;
-        if (window.LyricsWidget) {
-            window.LyricsWidget.show?.({
-                isPlaybackVisualActive: sceneActive,
-                isPlaying: true,
-            });
-        }
     }
     function prepareWidgetsForPlayback(projectorData) {
         window.ContextMessageWidget?.hide();
@@ -26,23 +20,13 @@
             visible: false,
             prepareForPlayback: true,
         });
-        window.VisualizerWidget?.hide?.();
-        window.LyricsWidget?.hide?.();
     }
     function runPlaybackRestoreSequence(token) {
         if (token !== playbackToken)
             return;
-        if (window.LyricsWidget) {
-            window.LyricsWidget.show?.({
-                isPlaybackVisualActive: sceneActive,
-                isPlaying: true,
-            });
-        }
     }
     function prepareWidgetsForStop(isError) {
         window.QrCodeWidget?.hide?.();
-        window.VisualizerWidget?.hide?.();
-        window.LyricsWidget?.hide?.();
         if (!isError && window.ContextMessageWidget) {
             window.ContextMessageWidget.hide();
         }

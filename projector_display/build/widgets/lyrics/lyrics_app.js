@@ -15,6 +15,7 @@
     let hasLyricsForCurrentTrack = false;
     let lyricsRevealUnlocked = false;
     let hideTransitionInProgress = false;
+    let hideTransitionTimeoutHandle = null;
     let pendingHideCallbacks = [];
     const MIN_STEP_PX = 112;
     const STEP_PADDING_PX = 26;
@@ -243,8 +244,6 @@
                     });
                 }
             }
-            currentTimeSeconds = 0;
-            currentActiveIndex = null;
             renderState();
         });
     }
@@ -355,6 +354,34 @@
             displayWidget();
         }
     }
+    function updateData(options) {
+        if (!options)
+            return;
+        if (Object.prototype.hasOwnProperty.call(options, 'lyricsData')) {
+            setLyricsDataForCurrentTrack(options.lyricsData || null);
+        }
+        if (typeof options.progressSeconds === 'number') {
+            syncProgress(options.progressSeconds);
+        }
+        if (options.previousTrackLine || options.upcomingTrackLine) {
+            setTrackContext({
+                previousTrackLine: options.previousTrackLine,
+                upcomingTrackLine: options.upcomingTrackLine,
+            });
+        }
+        if (options.enterInterTrackBridge) {
+            enterInterTrackBridge({
+                previousTrackLine: options.previousTrackLine,
+                upcomingTrackLine: options.upcomingTrackLine,
+            });
+        }
+        const element = getLyricsWidgetElement();
+        const isVisible = !!(element && element.classList.contains('visible'));
+        if (isVisible && latestLyricsData && renderedLyricsData !== latestLyricsData) {
+            updateLyrics(latestLyricsData);
+            renderedLyricsData = latestLyricsData;
+        }
+    }
     function hide(onHiddenCallback) {
         const element = getLyricsWidgetElement();
         if (onHiddenCallback) {
@@ -372,21 +399,40 @@
         if (hideTransitionInProgress)
             return;
         hideTransitionInProgress = true;
-        element.ontransitionend = function (event) {
-            if (!event || event.propertyName !== 'transform')
-                return;
-            if (element.classList.contains('visible'))
-                return;
-            element.style.display = 'none';
-            element.ontransitionend = null;
+        const hideElement = element;
+        function finalizeHide() {
+            if (hideTransitionTimeoutHandle !== null) {
+                clearTimeout(hideTransitionTimeoutHandle);
+                hideTransitionTimeoutHandle = null;
+            }
+            hideElement.style.display = 'none';
+            hideElement.ontransitionend = null;
             hideTransitionInProgress = false;
             flushPendingHideCallbacks();
+        }
+        hideElement.ontransitionend = function (event) {
+            if (!event || event.target !== hideElement)
+                return;
+            if (!event || event.propertyName !== 'transform')
+                return;
+            if (hideElement.classList.contains('visible'))
+                return;
+            finalizeHide();
         };
-        element.classList.remove('visible');
+        hideTransitionTimeoutHandle = setTimeout(function () {
+            if (hideTransitionInProgress && !hideElement.classList.contains('visible')) {
+                finalizeHide();
+            }
+        }, 520);
+        hideElement.classList.remove('visible');
     }
     function cancelPendingHide() {
         const element = getLyricsWidgetElement();
         hideTransitionInProgress = false;
+        if (hideTransitionTimeoutHandle !== null) {
+            clearTimeout(hideTransitionTimeoutHandle);
+            hideTransitionTimeoutHandle = null;
+        }
         pendingHideCallbacks = [];
         if (element)
             element.ontransitionend = null;
@@ -396,8 +442,18 @@
         hasLyricsForCurrentTrack = hasValidLines;
         latestLyricsData = hasValidLines ? lyricsData : null;
         if (!hasValidLines) {
-            clear();
-            renderedLyricsData = null;
+            const element = getLyricsWidgetElement();
+            const isVisible = !!(element && element.classList.contains('visible') && element.style.display !== 'none');
+            if (isVisible) {
+                hide(function () {
+                    clear();
+                    renderedLyricsData = null;
+                });
+            }
+            else {
+                clear();
+                renderedLyricsData = null;
+            }
         }
     }
     function unlockLyricsReveal() {
@@ -428,6 +484,7 @@
     }
     window.LyricsWidget = {
         show: show,
+        updateData: updateData,
         hide: hide,
         hasLyrics: hasLyrics,
     };

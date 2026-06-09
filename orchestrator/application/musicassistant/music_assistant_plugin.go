@@ -94,6 +94,10 @@ type MediaPlayerStatusProvider interface {
 	GetCurrentMediaPlayerStatus() (MediaPlayerStatus_t, error)
 }
 
+type TrackLyricsProvider interface {
+	GetTrackLyrics(itemId string, provider string) (typedefs.TrackLyrics_t, error)
+}
+
 type MusicAssistantPlugin struct {
 	systemDataSource  database.DataSource
 	connectionManager *WebSocketManager_t

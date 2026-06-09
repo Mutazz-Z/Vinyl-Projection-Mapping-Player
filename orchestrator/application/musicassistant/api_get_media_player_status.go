@@ -6,8 +6,10 @@ package musicassistant
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
+	"time"
 	"vinyl-orchestrator/typedefs"
 
 	"github.com/mitchellh/mapstructure"
@@ -31,6 +33,77 @@ type RawMediaPlayerStatus_t struct {
 			} `mapstructure:"album"`
 		} `mapstructure:"media_item"`
 	} `mapstructure:"current_item"`
+}
+
+func parseUnixTimestampSeconds(value interface{}) (float64, bool) {
+	switch typedValue := value.(type) {
+	case int:
+		return float64(typedValue), true
+	case int32:
+		return float64(typedValue), true
+	case int64:
+		return float64(typedValue), true
+	case float32:
+		return float64(typedValue), true
+	case float64:
+		return typedValue, true
+	case string:
+		if typedValue == "" {
+			return 0, false
+		}
+
+		if numericValue, parseError := strconv.ParseFloat(typedValue, 64); parseError == nil {
+			return numericValue, true
+		}
+
+		if parsedTime, parseError := time.Parse(time.RFC3339Nano, typedValue); parseError == nil {
+			return float64(parsedTime.UnixNano()) / 1_000_000_000, true
+		}
+
+		if parsedTime, parseError := time.Parse(time.RFC3339, typedValue); parseError == nil {
+			return float64(parsedTime.UnixNano()) / 1_000_000_000, true
+		}
+	}
+
+	return 0, false
+}
+
+func resolveElapsedTimeAtRead(rawResult interface{}, parsedElapsedSeconds float64, parsedPlaybackState typedefs.MediaPlaybackState_t) float64 {
+	if parsedPlaybackState != typedefs.PlayerState_Playing {
+		return parsedElapsedSeconds
+	}
+
+	resultMap, ok := rawResult.(map[string]interface{})
+	if !ok {
+		return parsedElapsedSeconds
+	}
+
+	rawLastUpdated, exists := resultMap["elapsed_time_last_updated"]
+	if !exists {
+		rawLastUpdated, exists = resultMap["elapsedTimeLastUpdated"]
+		if !exists {
+			return parsedElapsedSeconds
+		}
+	}
+
+	lastUpdatedUnixSeconds, parsed := parseUnixTimestampSeconds(rawLastUpdated)
+	if !parsed {
+		return parsedElapsedSeconds
+	}
+
+	if lastUpdatedUnixSeconds > 1_000_000_000_000 {
+		lastUpdatedUnixSeconds = lastUpdatedUnixSeconds / 1000
+	}
+
+	nowUnixSeconds := float64(time.Now().UnixNano()) / 1_000_000_000
+	ageSeconds := nowUnixSeconds - lastUpdatedUnixSeconds
+	if ageSeconds <= 0 {
+		return parsedElapsedSeconds
+	}
+
+	// Prevent large jumps from bad clocks or stale payload timestamps.
+	ageSeconds = math.Min(ageSeconds, 3)
+	return parsedElapsedSeconds + ageSeconds
 }
 
 func parseQueueTrackIndex(rawResult interface{}, fallback int) int {
@@ -93,11 +166,13 @@ func (instance *SystemMediaPlayer_t) getMediaPlayerStatus(targetPlayerIdentifier
 	if decodeError := mapstructure.Decode(rawResult, &parsedState); decodeError != nil {
 		return MediaPlayerStatus_t{}, fmt.Errorf("failed to decode media player status: %w", decodeError)
 	}
+	resolvedPlaybackState := parsePlayerState(parsedState.State)
+	resolvedElapsedTime := resolveElapsedTimeAtRead(rawResult, parsedState.ElapsedTime, resolvedPlaybackState)
 	resolvedTrackIndex := parseQueueTrackIndex(rawResult, parsedState.CurrentIndex)
 
 	return MediaPlayerStatus_t{
-		State:         parsePlayerState(parsedState.State),
-		ElapsedTime:   parsedState.ElapsedTime,
+		State:         resolvedPlaybackState,
+		ElapsedTime:   resolvedElapsedTime,
 		TotalDuration: parsedState.CurrentItem.Duration,
 		ActiveTrack: typedefs.ActiveTrack_t{
 			TrackName:   parsedState.CurrentItem.Name,

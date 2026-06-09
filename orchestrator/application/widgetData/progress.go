@@ -20,17 +20,22 @@ func (instance *Progress_t) clearProgressWidgetData() {
 
 func (instance *Progress_t) writeProgressWidgetData(currentDuration float64, totalDuration float64) {
 	nextProgressWidgetData := typedefs.ProgressData_t{
-		CurrentDurationInTrack: int(currentDuration),
-		TotalDurationInTrack:   int(totalDuration),
+		CurrentDurationInTrack: currentDuration,
+		TotalDurationInTrack:   totalDuration,
 		ReadyForDisplay:        true,
 	}
 	utils.Write(instance._private.systemDataSource, core.Global_ProgressWidgetData, nextProgressWidgetData)
 }
 
-func (instance *Progress_t) updateProgressWidgetData() {
-	mediaPlayerStatus, _ := instance._private.statusProvider.GetCurrentMediaPlayerStatus()
-	if mediaPlayerStatus.State == typedefs.PlayerState_Playing {
-		instance.writeProgressWidgetData(mediaPlayerStatus.ElapsedTime, mediaPlayerStatus.TotalDuration)
+func (instance *Progress_t) updateProgressWidgetData(currentProgressInTrack float64) {
+	var currentMediaPlayerStatus typedefs.MediaPlaybackState_t
+	utils.Read(instance._private.systemDataSource, core.Global_MediaPlaybackState, &currentMediaPlayerStatus)
+
+	var totalTrackDuration float64
+	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrackTotalDurationInSeconds, &totalTrackDuration)
+
+	if currentMediaPlayerStatus == typedefs.PlayerState_Playing {
+		instance.writeProgressWidgetData(currentProgressInTrack, totalTrackDuration)
 	}
 }
 
@@ -40,11 +45,12 @@ func (instance *Progress_t) onDataSourceChanged(dataSourceChanged <-chan databas
 		case core.Global_CurrentShelfStatus.Key:
 			currentShelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)
 			if currentShelfStatus == typedefs.ShelfStatus_Empty {
-				utils.StopTimer(&instance._private.timer)
 				instance.clearProgressWidgetData()
-			} else {
-				utils.StartPeriodicTimer(&instance._private.timer, 250, instance.updateProgressWidgetData)
 			}
+
+		case core.Global_ActiveTrackProgressInSeconds.Key:
+			currentProgressInTrack, _ := args.Data.(float64)
+			instance.updateProgressWidgetData(currentProgressInTrack)
 		}
 	})
 }

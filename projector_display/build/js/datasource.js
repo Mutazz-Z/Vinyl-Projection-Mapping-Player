@@ -7,7 +7,7 @@ class DataSource {
         this._webSocket = webSocket;
         this._pendingReads = {};
         this._topicSubscribers = {};
-        this._onChangedCallback = function () { };
+        this._onChangedCallbacks = [];
         webSocket.addEventListener('message', (event) => DataSource__dispatch(this, event));
     }
 }
@@ -34,7 +34,9 @@ function DataSource__dispatch(dataSource, messageEvent) {
     const topic = message.Topic;
     const payload = message.Payload;
     if (topic === 'datasource') {
-        dataSource._onChangedCallback(payload?.variable, payload?.data);
+        const v = payload?.variable;
+        const d = payload?.data;
+        dataSource._onChangedCallbacks.forEach(function (cb) { cb(v, d); });
         return;
     }
     if (!topic)
@@ -88,5 +90,5 @@ function DataSource_Subscribe(dataSource, topic, callback) {
     dataSource._topicSubscribers[topic].push(callback);
 }
 function DataSource_OnChanged(dataSource, callback) {
-    dataSource._onChangedCallback = callback;
+    dataSource._onChangedCallbacks.push(callback);
 }

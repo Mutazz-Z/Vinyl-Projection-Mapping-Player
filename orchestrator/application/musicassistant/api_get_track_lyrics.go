@@ -22,29 +22,25 @@ type RawTrack_t struct {
 }
 
 func fetchAndParseTrackLyrics(messageRouter *RpcMessageRouter_t, itemId string, provider string) (typedefs.TrackLyrics_t, error) {
-	if itemId == "" || provider == "" {
-		return typedefs.TrackLyrics_t{}, nil
-	}
-
 	response, err := messageRouter.ExecuteRemoteProcedureCall("music/item", map[string]interface{}{
 		"media_type":                     "track",
 		"item_id":                        itemId,
 		"provider_instance_id_or_domain": provider,
 	})
 	if err != nil {
-		return typedefs.TrackLyrics_t{}, err
+		return typedefs.TrackLyrics_t{TrackSupportsLyrics: false}, err
 	}
 
 	rawResult, ok := response["result"]
 	if !ok {
-		return typedefs.TrackLyrics_t{}, fmt.Errorf("response did not contain a 'result' field")
+		return typedefs.TrackLyrics_t{TrackSupportsLyrics: false}, fmt.Errorf("response did not contain a 'result' field")
 	}
 
 	var rawTrack RawTrack_t
 
 	err = mapstructure.Decode(rawResult, &rawTrack)
 	if err != nil {
-		return typedefs.TrackLyrics_t{}, fmt.Errorf("failed to decode track details: %w", err)
+		return typedefs.TrackLyrics_t{TrackSupportsLyrics: false}, fmt.Errorf("failed to decode track details: %w", err)
 	}
 
 	rawLRC := rawTrack.LRCLyrics
@@ -53,15 +49,16 @@ func fetchAndParseTrackLyrics(messageRouter *RpcMessageRouter_t, itemId string, 
 	}
 
 	if rawLRC == "" {
-		return typedefs.TrackLyrics_t{}, nil
+		return typedefs.TrackLyrics_t{TrackSupportsLyrics: false}, nil
 	}
 
 	parsedLyrics := parseLRCLyrics(rawLRC)
+	parsedLyrics.TrackSupportsLyrics = len(parsedLyrics.Lines) > 0
 
 	return parsedLyrics, nil
 }
 
-func (plugin *MusicAssistantPlugin) getTrackLyricsForTrack(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
+func (plugin *MusicAssistantPlugin) GetTrackLyrics(itemId string, provider string) (typedefs.TrackLyrics_t, error) {
 	return fetchAndParseTrackLyrics(plugin.messageRouter, itemId, provider)
 }
 

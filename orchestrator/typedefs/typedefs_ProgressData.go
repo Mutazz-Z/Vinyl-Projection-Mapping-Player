@@ -1,7 +1,7 @@
 package typedefs
 
 type ProgressData_t struct {
-	CurrentDurationInTrack int  `json:"currentDurationInTrack"`
-	TotalDurationInTrack   int  `json:"totalDurationInTrack"`
-	ReadyForDisplay        bool `json:"readyForDisplay"`
+	CurrentDurationInTrack float64 `json:"currentDurationInTrack"`
+	TotalDurationInTrack   float64 `json:"totalDurationInTrack"`
+	ReadyForDisplay        bool    `json:"readyForDisplay"`
 }

@@ -42,6 +42,12 @@ declare class TrackLyrics_t {
   static fromJson(json: unknown): TrackLyrics_t;
 }
 
+declare class LyricData_t {
+  trackLyrics: TrackLyrics_t;
+  readyForDisplay: boolean;
+  static fromJson(json: unknown): LyricData_t;
+}
+
 declare class TrackListItem_t {
   trackIndex: number;
   track: string;
@@ -123,11 +129,15 @@ declare const ShelfStatus: {
 declare const WidgetState: {
   readonly Hide: number;
   readonly Show: number;
+  readonly Pause: number;
+  readonly Resume: number;
   readonly Loading: number;
   readonly Idle: number;
 };
 
 declare const Global_MediaPlaybackState: string;
+declare const Global_ActiveTrackProgressInSeconds: string;
+declare const Global_ActiveTrackTotalDurationInSeconds: string;
 declare const Global_CurrentMaptasticProjectorPositions: string;
 declare const Global_CurrentShelfStatus: string;
 declare const Global_ProjectorHeartbeatSignal: { key: string };
@@ -143,6 +153,9 @@ declare const Global_TrackListWidgetData: { key: string; fromJson: (json: unknow
 declare const Global_TrackListWidgetState: string;
 declare const Global_ProgressWidgetData: { key: string; fromJson: (json: unknown) => ProgressData_t };
 declare const Global_ProgressWidgetState: string;
+declare const Global_LyricsWidgetData: { key: string; fromJson: (json: unknown) => LyricData_t };
+declare const Global_LyricsWidgetState: string;
+declare const Global_VisualizerWidgetState: string;
 declare const Global_LoadingWidgetState: string;
 declare const Global_ActiveTrack: { key: string; fromJson: (json: unknown) => ActiveTrack_t };
 
@@ -238,15 +251,44 @@ interface ProjectorMappingApi {
   toggleMode: () => void;
 }
 
+interface WidgetPlaybackController {
+  init: (dataSource: DataSource) => Promise<void>;
+}
+
+interface ProgressWidgetPlaybackController extends WidgetPlaybackController {
+  onTrackListState?: (state: number) => void;
+}
+
+interface PlaybackClockSnapshot {
+  progressSeconds: number;
+  durationSeconds: number;
+  playbackState: number;
+  isPlaying: boolean;
+}
+
+interface PlaybackClockApi {
+  init: (dataSource: DataSource) => Promise<void>;
+  subscribe: (listener: (snapshot: PlaybackClockSnapshot) => void) => () => void;
+  snapshot: () => PlaybackClockSnapshot;
+}
+
 interface Window {
   resizeTimer?: ReturnType<typeof setTimeout>;
   AppDataSource: DataSource | null;
   PI_IP: string;
   ProjectorPlayback: ProjectorPlaybackApi;
   ProjectorMapping: ProjectorMappingApi;
+  PlaybackClock: PlaybackClockApi;
   LyricsWidget?: {
     hide?: (onHiddenCallback?: () => void) => void;
-    show?: (options: {
+    updateData?: (options: {
+      lyricsData?: TrackLyrics_t | null;
+      progressSeconds?: number;
+      previousTrackLine?: string;
+      upcomingTrackLine?: string;
+      enterInterTrackBridge?: boolean;
+    }) => void;
+    show?: (options?: {
       lyricsData?: TrackLyrics_t | null;
       progressSeconds?: number;
       isPlaybackVisualActive?: boolean;
@@ -271,4 +313,12 @@ interface Window {
     hide: () => void;
     updateData: (albumInfo: TitleAndArtist_t) => void;
   };
+  InfoWidgetPlayback: WidgetPlaybackController;
+  OverlayWidgetPlayback: WidgetPlaybackController;
+  RecordWidgetPlayback: WidgetPlaybackController;
+  TracklistWidgetPlayback: WidgetPlaybackController;
+  ProgressWidgetPlayback: ProgressWidgetPlaybackController;
+  LyricsWidgetPlayback: WidgetPlaybackController;
+  VisualizerWidgetPlayback: WidgetPlaybackController;
+  LoadingWidgetPlayback: WidgetPlaybackController;
 }

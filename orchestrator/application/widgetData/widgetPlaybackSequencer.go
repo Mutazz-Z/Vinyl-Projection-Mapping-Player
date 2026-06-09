@@ -18,11 +18,7 @@ func (instance *WidgetPlaybackSequencer_t) targetMediaPlayerIsPlaying() bool {
 	case typedefs.PlayerState_Playing, typedefs.PlayerState_Paused, typedefs.PlayerState_Buffering:
 		return true
 	}
-
-	var progressData typedefs.ProgressData_t
-	utils.Read(instance._private.systemDataSource, core.Global_ProgressWidgetData, &progressData)
-
-	return progressData.TotalDurationInTrack > 0 || progressData.CurrentDurationInTrack > 0
+	return false
 }
 
 func (instance *WidgetPlaybackSequencer_t) startProjectorPlayback() {
@@ -61,18 +57,23 @@ func (instance *WidgetPlaybackSequencer_t) checkIfReadyForProjectorPlayback() {
 	var progressData typedefs.ProgressData_t
 	utils.Read(instance._private.systemDataSource, core.Global_ProgressWidgetData, &progressData)
 
+	var lyricsData typedefs.LyricData_t
+	utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
+
 	var widgetsStatus = []bool{
 		titleAndArtist.ReadyForDisplay,
 		recordDesignData.ReadyForDisplay,
 		overlayData.ReadyForDisplay,
 		trackListData.ReadyForDisplay,
-		progressData.ReadyForDisplay}
+		progressData.ReadyForDisplay,
+		lyricsData.ReadyForDisplay}
 
 	fmt.Println("Checking if widgets are ready", widgetsStatus)
 
 	if instance.widgetsAreReadyForProjectorPlayback(widgetsStatus) && instance.targetMediaPlayerIsPlaying() {
 		fmt.Println("All widgets are ready for projector playback. Starting playback...")
 		utils.StopTimer(&instance._private.timer)
+
 		instance.startProjectorPlayback()
 	}
 }
@@ -84,10 +85,29 @@ func (instance *WidgetPlaybackSequencer_t) stopProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_TrackListWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_ProgressWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
 
 	time.Sleep(1 * time.Second)
 
 	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Idle)
+}
+
+func (instance *WidgetPlaybackSequencer_t) syncLyricsAndVisualizerWidgetState(lyricsData typedefs.LyricData_t) {
+
+	var lyricsWidgetState typedefs.WidgetState_t
+	utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetState, &lyricsWidgetState)
+
+	if lyricsData.TrackLyrics.TrackSupportsLyrics && instance.targetMediaPlayerIsPlaying() && lyricsWidgetState != typedefs.WidgetState_Show {
+		utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Show)
+		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
+		return
+	}
+
+	if !lyricsData.TrackLyrics.TrackSupportsLyrics && instance.targetMediaPlayerIsPlaying() && lyricsWidgetState != typedefs.WidgetState_Hide {
+		utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
+		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Show)
+	}
 }
 
 func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
@@ -104,6 +124,16 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 				utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Loading)
 				utils.StartPeriodicTimer(&instance._private.timer, 250, instance.checkIfReadyForProjectorPlayback)
 			}
+
+		case core.Global_ActiveTrack.Key:
+			var lyricsData typedefs.LyricData_t
+			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
+			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
+
+		case core.Global_MediaPlaybackState.Key:
+			var lyricsData typedefs.LyricData_t
+			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
+			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
 		}
 	})
 }

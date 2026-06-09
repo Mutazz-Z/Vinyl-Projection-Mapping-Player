@@ -64,7 +64,7 @@ func (plugin *MusicAssistantPlugin) getAlbumTrackList(itemId string, provider st
 			resolvedProvider = provider
 		}
 
-		lyrics, lyricsError := plugin.getTrackLyricsForTrack(resolvedItemID, resolvedProvider)
+		lyrics, lyricsError := plugin.GetTrackLyrics(resolvedItemID, resolvedProvider)
 		if lyricsError != nil {
 			lyrics = typedefs.TrackLyrics_t{}
 		}

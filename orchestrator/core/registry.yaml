@@ -159,7 +159,34 @@ variables:
     type: typedefs.WidgetState_t
     default: "typedefs.WidgetState_Hide"
 
+  - name: LyricsWidgetData
+    storage: Volatile
+    type: typedefs.LyricData_t
+    default: "typedefs.LyricData_t{}"
+
+  - name: LyricsWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: VisualizerWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  
+
   # ── Active Record Shelf ──────────────────────────────────────────────────
+  - name: ActiveTrackProgressInSeconds
+    storage: Volatile
+    type: float64
+    default: 0
+
+  - name: ActiveTrackTotalDurationInSeconds
+    storage: Volatile
+    type: float64
+    default: 0
+
   - name: MediaPlaybackState
     storage: Volatile
     type: typedefs.MediaPlaybackState_t

@@ -6,5 +6,11 @@ type LyricLine_t struct {
 }
 
 type TrackLyrics_t struct {
-	Lines []LyricLine_t `json:"lines"`
+	TrackSupportsLyrics bool          `json:"track_supports_lyrics"`
+	Lines               []LyricLine_t `json:"lines"`
+}
+
+type LyricData_t struct {
+	TrackLyrics     TrackLyrics_t `json:"track_lyrics"`
+	ReadyForDisplay bool          `json:"readyForDisplay"`
 }

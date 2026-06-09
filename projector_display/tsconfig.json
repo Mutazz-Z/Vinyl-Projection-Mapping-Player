@@ -14,6 +14,7 @@
     "js/websocket_router.ts",
     "js/track_resolver.ts",
     "js/datasource.ts",
+    "js/playback_clock.ts",
     "js/mapping.ts",
     "js/playback_controller.ts",
     "widgets/overlay/overlay_app.ts",
@@ -24,6 +25,14 @@
     "widgets/visualizer/visualizer_app.ts",
     "widgets/record/record_app.ts",
     "widgets/tracklist/tracklist_app.ts",
-    "widgets/lyrics/lyrics_app.ts"
+    "widgets/lyrics/lyrics_app.ts",
+    "widgets/info/info_playback.ts",
+    "widgets/overlay/overlay_playback.ts",
+    "widgets/record/record_playback.ts",
+    "widgets/tracklist/tracklist_playback.ts",
+    "widgets/progress/progress_playback.ts",
+    "widgets/lyrics/lyrics_playback.ts",
+    "widgets/visualizer/visualizer_playback.ts",
+    "widgets/loading/loading_playback.ts"
   ]
 }

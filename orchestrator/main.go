@@ -69,7 +69,7 @@ func main() {
 	displayPlugin.Init(systemDataSource, AlbumLibrary)
 	mqttPlugin.Init(systemDataSource, AlbumLibrary)
 	webApiPlugin.Init(systemDataSource, AlbumLibrary)
-	widgetDataPlugin.Init(systemDataSource, AlbumLibrary, musicAssistantPlugin, musicAssistantPlugin)
+	widgetDataPlugin.Init(systemDataSource, AlbumLibrary, musicAssistantPlugin, musicAssistantPlugin, musicAssistantPlugin)
 
 	webApiPlugin.StartPlugin(context.Background())
 

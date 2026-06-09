@@ -372,6 +372,61 @@ func init() {
 	}
 }
 
+// ── LyricsWidgetData ──────────────────────────────────
+
+var Global_LyricsWidgetData = TypedKey[typedefs.LyricData_t]{Key: "Global_LyricsWidgetData"}
+
+func init() {
+	StateRegistry[Global_LyricsWidgetData.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.LyricData_t(typedefs.LyricData_t{}),
+	}
+}
+
+// ── LyricsWidgetState ──────────────────────────────────
+
+var Global_LyricsWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_LyricsWidgetState"}
+
+func init() {
+	StateRegistry[Global_LyricsWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── VisualizerWidgetState ──────────────────────────────────
+
+var Global_VisualizerWidgetState = TypedKey[typedefs.WidgetState_t]{Key: "Global_VisualizerWidgetState"}
+
+func init() {
+	StateRegistry[Global_VisualizerWidgetState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
+// ── ActiveTrackProgressInSeconds ──────────────────────────────────
+
+var Global_ActiveTrackProgressInSeconds = TypedKey[float64]{Key: "Global_ActiveTrackProgressInSeconds"}
+
+func init() {
+	StateRegistry[Global_ActiveTrackProgressInSeconds.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: float64(0),
+	}
+}
+
+// ── ActiveTrackTotalDurationInSeconds ──────────────────────────────────
+
+var Global_ActiveTrackTotalDurationInSeconds = TypedKey[float64]{Key: "Global_ActiveTrackTotalDurationInSeconds"}
+
+func init() {
+	StateRegistry[Global_ActiveTrackTotalDurationInSeconds.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: float64(0),
+	}
+}
+
 // ── MediaPlaybackState ──────────────────────────────────
 
 var Global_MediaPlaybackState = TypedKey[typedefs.MediaPlaybackState_t]{Key: "Global_MediaPlaybackState"}
