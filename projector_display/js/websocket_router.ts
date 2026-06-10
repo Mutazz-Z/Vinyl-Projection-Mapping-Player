@@ -30,8 +30,8 @@
             announcePresence(dataSource);
 
             // Infrastructure-level datasource handler: tracks shared state and
-            // drives playback controller / mapping. Widget-specific handling
-            // is delegated to each widget's playback module.
+            // drives mapping. Widget-specific handling is delegated to each
+            // widget's playback module.
             DataSource_OnChanged(dataSource, function (variable, data) {
                 switch (variable) {
                     case Global_ActiveTrack.key: {
@@ -39,14 +39,6 @@
                         TrackResolver.setActiveTrackIndex(Number(activeTrack.trackIndex || 0));
                         break;
                     }
-                    case Global_CurrentShelfStatus:
-                        if (data === ShelfStatus.Empty) {
-                            window.QrCodeWidget?.hide?.();
-                        }
-                        break;
-                    case Global_CurrentProjectorData.key:
-                        handleVisualUpdate(ProjectorData_t.fromJson(data));
-                        break;
                     case Global_ProjectorHeartbeatSignal.key:
                         handleMappingCommand((data || {}) as MappingCommand, dataSource);
                         break;
@@ -67,10 +59,6 @@
                 window.QrCodeWidgetPlayback.init(dataSource),
             ]);
 
-            // Restore infrastructure state.
-            const projectorData = await DataSource_Read(dataSource, Global_CurrentProjectorData.key);
-            handleVisualUpdate(ProjectorData_t.fromJson(projectorData), { restore: true });
-
             const activeTrack = await DataSource_Read<ActiveTrack_t>(dataSource, Global_ActiveTrack.key);
             TrackResolver.setActiveTrackIndex(Number(activeTrack.trackIndex || 0));
         };
@@ -85,34 +73,6 @@
             console.error('WS error:', error);
             webSocket.close();
         };
-    }
-
-    function handleVisualUpdate(projectorData: ProjectorData_t, options?: { restore?: boolean }): void {
-        const visualOptions = options || {};
-
-        switch (projectorData.visualDataState) {
-            case VisualDataState.DisplayAlbumVisuals:
-                // Initialize track resolution and lyrics lookup for album playback
-                TrackResolver.clearTrackPositionOnly();
-                TrackResolver.buildLyricsLookupFromTrackList(projectorData?.tagData?.trackList || []);
-                break;
-            case VisualDataState.DisplayIdle:
-                // Widget states are managed by Go side via Global_*WidgetState
-                break;
-            case VisualDataState.DisplayTagRegistration:
-                // Show QR code widget with registration data
-                window.QrCodeWidget?.show?.(projectorData);
-                break;
-            case VisualDataState.DisplayErrorMessage:
-                // Show error context message (Go side manages widget states)
-                window.RecordWidget?.ejectRecord?.();
-                if (window.ContextMessageWidget) {
-                    window.ContextMessageWidget.show(projectorData.errorMessage);
-                } else {
-                    console.error('Playback Error:', projectorData.errorMessage);
-                }
-                break;
-        }
     }
 
     function handleMappingCommand(command: MappingCommand, dataSource: DataSource): void {

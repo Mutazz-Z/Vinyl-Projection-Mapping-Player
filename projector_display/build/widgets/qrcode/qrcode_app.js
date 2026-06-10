@@ -6,34 +6,20 @@
     function getUnknownTagIndicator() {
         return document.getElementById('unknown-tag-indicator');
     }
-    function buildRegistrationUrl(projectorData) {
-        if (projectorData && projectorData.registerTagUrl) {
-            return String(projectorData.registerTagUrl).replace(':8000', '');
+    function buildRegistrationUrl(qrCodeData) {
+        if (qrCodeData && qrCodeData.registrationUrl) {
+            return String(qrCodeData.registrationUrl).replace(':8000', '');
         }
-        let fallbackUid = '';
-        if (projectorData && projectorData.tagData && projectorData.tagData.tagUid) {
-            fallbackUid = projectorData.tagData.tagUid;
-        }
-        let piIp = window.PI_IP || window.location.hostname;
-        piIp = piIp.replace(':8000', '');
-        return 'http://' + piIp + '/?uid=' + encodeURIComponent(fallbackUid);
+        return '';
     }
-    function resolveProjectorData(input) {
-        if (!input)
-            return undefined;
-        if (typeof input === 'object' && input !== null && 'projectorData' in input) {
-            return input.projectorData;
-        }
-        return input;
-    }
-    function show(input) {
-        const projectorData = resolveProjectorData(input);
+    function show(qrCodeData) {
+        const currentQrCodeData = qrCodeData;
         const container = getContainer();
         const qrImageElement = document.getElementById('unknown-tag-qr');
         const uidLabelElement = document.getElementById('unknown-tag-uid');
         if (!container || !qrImageElement || !uidLabelElement)
             return;
-        const registrationUrl = buildRegistrationUrl(projectorData);
+        const registrationUrl = buildRegistrationUrl(currentQrCodeData);
         if (typeof QRCode !== 'undefined') {
             const hiddenQRCodeContainer = document.createElement('div');
             hiddenQRCodeContainer.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
@@ -56,8 +42,7 @@
             }
             document.body.removeChild(hiddenQRCodeContainer);
         }
-        const tagUid = projectorData?.tagData?.tagUid || '';
-        uidLabelElement.textContent = tagUid ? ('UID: ' + tagUid) : '';
+        uidLabelElement.textContent = currentQrCodeData?.readyForDisplay ? 'Registration QR' : '';
         void container.offsetWidth;
         container.classList.add('visible');
     }

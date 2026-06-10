@@ -64,11 +64,6 @@ variables:
     default: "typedefs.ReaderStatus_Offline"
 
   # ── Projector ────────────────────────────────────────────────────────────
-  - name: CurrentProjectorData
-    storage: Volatile
-    type: typedefs.ProjectorData_t
-    default: "typedefs.ProjectorData_t{VisualDataState: typedefs.VisualDataState_DisplayIdle}"
-
   - name: ProjectorHeartbeatSignal
     storage: Volatile
     type: interface{}

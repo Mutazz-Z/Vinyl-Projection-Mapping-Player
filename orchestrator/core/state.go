@@ -163,17 +163,6 @@ func init() {
 	}
 }
 
-// ── CurrentProjectorData ──────────────────────────────────
-
-var Global_CurrentProjectorData = TypedKey[typedefs.ProjectorData_t]{Key: "Global_CurrentProjectorData"}
-
-func init() {
-	StateRegistry[Global_CurrentProjectorData.Key] = StateMetadata{
-		StorageType: Volatile,
-		DefaultData: typedefs.ProjectorData_t(typedefs.ProjectorData_t{VisualDataState: typedefs.VisualDataState_DisplayIdle}),
-	}
-}
-
 // ── ProjectorHeartbeatSignal ──────────────────────────────────
 
 var Global_ProjectorHeartbeatSignal = TypedKey[interface{}]{Key: "Global_ProjectorHeartbeatSignal"}

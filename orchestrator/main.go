@@ -12,7 +12,6 @@ import (
 
 	"vinyl-orchestrator/application/assets"
 	"vinyl-orchestrator/application/database"
-	"vinyl-orchestrator/application/display"
 	"vinyl-orchestrator/application/errorMessages"
 	"vinyl-orchestrator/application/mqtt"
 	"vinyl-orchestrator/application/musicassistant"
@@ -55,7 +54,6 @@ func main() {
 	playbackPlugin := &playback.PlaybackApplicationService{}
 	playbackOverridenService := &errorMessages.PlaybackOverridenService{}
 
-	displayPlugin := &display.DisplayApplicationService{}
 	widgetDataPlugin := &widgetdata.WidgetDataPlugin{}
 	assetPlugin.Init()
 	webApiPlugin := webapi.NewWebServerPlugin(musicAssistantPlugin, assetPlugin)
@@ -66,7 +64,6 @@ func main() {
 	musicAssistantPlugin.Init(applicationContext, systemDataSource)
 	playbackPlugin.Init(systemDataSource, AlbumLibrary, musicAssistantPlugin)
 	playbackOverridenService.Init(systemDataSource, AlbumLibrary)
-	displayPlugin.Init(systemDataSource, AlbumLibrary)
 	mqttPlugin.Init(systemDataSource, AlbumLibrary)
 	webApiPlugin.Init(systemDataSource, AlbumLibrary)
 	widgetDataPlugin.Init(systemDataSource, AlbumLibrary, musicAssistantPlugin, musicAssistantPlugin, musicAssistantPlugin)

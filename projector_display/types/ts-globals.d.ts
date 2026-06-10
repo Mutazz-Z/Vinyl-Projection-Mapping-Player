@@ -148,7 +148,6 @@ declare const Global_CurrentMaptasticProjectorPositions: string;
 declare const Global_CurrentShelfStatus: string;
 declare const Global_ProjectorHeartbeatSignal: { key: string };
 declare const Global_ProjectorHeartbeat: string;
-declare const Global_CurrentProjectorData: { key: string; fromJson: (json: unknown) => ProjectorData_t };
 declare const Global_InfoWidgetData: { key: string; fromJson: (json: unknown) => TitleAndArtist_t };
 declare const Global_InfoWidgetState: string;
 declare const Global_OverlayWidgetData: { key: string; fromJson: (json: unknown) => OverlayData_t };
@@ -211,7 +210,7 @@ interface LoadingWidgetApi {
 }
 
 interface QrCodeWidgetApi {
-  show?: (projectorData?: ProjectorData_t) => void;
+  show?: (qrCodeData?: QrCodeData_t) => void;
   hide?: () => void;
 }
 
@@ -247,13 +246,6 @@ interface OverlayWidgetApi {
   updateData?: (overlayData: OverlayData_t) => void;
 }
 
-interface ProjectorPlaybackApi {
-  startPlayback: (projectorData: ProjectorData_t, options?: { restore?: boolean }) => void;
-  stopPlayback: (isError?: boolean) => void;
-  showUnknownTag: (projectorData: ProjectorData_t) => void;
-  showPlaybackError: (message: string, projectorData?: ProjectorData_t) => void;
-}
-
 interface ProjectorMappingApi {
   updateLayout: (layoutData: unknown) => void;
   toggleMode: () => void;
@@ -286,7 +278,6 @@ interface Window {
   resizeTimer?: ReturnType<typeof setTimeout>;
   AppDataSource: DataSource | null;
   PI_IP: string;
-  ProjectorPlayback: ProjectorPlaybackApi;
   ProjectorMapping: ProjectorMappingApi;
   PlaybackClock: PlaybackClockApi;
   LyricsWidget?: {
