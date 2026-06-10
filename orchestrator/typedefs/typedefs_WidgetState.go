@@ -10,4 +10,5 @@ const (
 
 	WidgetState_Loading
 	WidgetState_Idle
+	WidgetState_EjectRecord
 )

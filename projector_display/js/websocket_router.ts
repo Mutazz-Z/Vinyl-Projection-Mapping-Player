@@ -57,6 +57,7 @@
                 window.VisualizerWidgetPlayback.init(dataSource),
                 window.LoadingWidgetPlayback.init(dataSource),
                 window.QrCodeWidgetPlayback.init(dataSource),
+                window.ContextMessageWidgetPlayback.init(dataSource),
             ]);
 
             const activeTrack = await DataSource_Read<ActiveTrack_t>(dataSource, Global_ActiveTrack.key);

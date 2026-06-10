@@ -1,8 +1,10 @@
 (function () {
     const RECORD_SLIDE_MS = 700;
     let transitionToken = 0;
+    let lastRecordData: unknown = null;
 
     function applyData(data: unknown): void {
+        lastRecordData = data;
         window.RecordWidget?.updateData?.(RecordDesignData_t.fromJson(data));
     }
 
@@ -42,6 +44,13 @@
 
         if (numericState === WidgetState.Resume) {
             window.RecordWidget?.play?.();
+            return;
+        }
+
+        if (numericState === WidgetState.EjectRecord) {
+            applyData(lastRecordData);
+            window.RecordWidget?.ejectRecord?.();
+            return;
         }
     }
 

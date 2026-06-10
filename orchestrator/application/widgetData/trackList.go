@@ -45,9 +45,10 @@ func (instance *TrackListWidgetDataUpdater) onDataSourceChanged(dataSourceChange
 			if currentShelfStatus == typedefs.ShelfStatus_Empty {
 				utils.StopTimer(&instance._private.pollTimer)
 				instance.clearTrackListWidgetData()
-			} else {
-				utils.StartPeriodicTimer(&instance._private.pollTimer, 500, instance.pollCurrentQueueList)
 			}
+
+		case core.Global_LastKnownUidScanned.Key:
+			utils.StartPeriodicTimer(&instance._private.pollTimer, 500, instance.pollCurrentQueueList)
 		}
 	})
 }

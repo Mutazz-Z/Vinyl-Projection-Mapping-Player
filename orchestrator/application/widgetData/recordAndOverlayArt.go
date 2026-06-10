@@ -65,15 +65,15 @@ func (instance *RecordAndOverlayArt) onDataSourceChanged(dataSourceChanged <-cha
 	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
 
 		switch args.Variable {
-		case core.Global_LastKnownUidScanned.Key:
-			currentUidScanned, _ := args.Data.(typedefs.UidScanned_t)
-			instance.updateCurrentPlayingAlbumRecordAndOverlayArt(currentUidScanned.Uid)
-
 		case core.Global_CurrentShelfStatus.Key:
 			currentShelfStatus, _ := args.Data.(typedefs.ShelfStatus_t)
 			if currentShelfStatus == typedefs.ShelfStatus_Empty {
 				instance.clearCurrentPlayingAlbumRecordAndOverlayArt()
 			}
+
+		case core.Global_LastKnownUidScanned.Key:
+			currentUidScanned, _ := args.Data.(typedefs.UidScanned_t)
+			instance.updateCurrentPlayingAlbumRecordAndOverlayArt(currentUidScanned.Uid)
 
 		}
 	})

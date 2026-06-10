@@ -416,6 +416,17 @@ func init() {
 	}
 }
 
+// ── PlaybackErrorMessageState ──────────────────────────────────
+
+var Global_PlaybackErrorMessageState = TypedKey[typedefs.WidgetState_t]{Key: "Global_PlaybackErrorMessageState"}
+
+func init() {
+	StateRegistry[Global_PlaybackErrorMessageState.Key] = StateMetadata{
+		StorageType: Volatile,
+		DefaultData: typedefs.WidgetState_t(typedefs.WidgetState_Hide),
+	}
+}
+
 // ── ActiveTrackProgressInSeconds ──────────────────────────────────
 
 var Global_ActiveTrackProgressInSeconds = TypedKey[float64]{Key: "Global_ActiveTrackProgressInSeconds"}

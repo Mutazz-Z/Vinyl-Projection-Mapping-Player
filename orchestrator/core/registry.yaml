@@ -179,6 +179,11 @@ variables:
     type: typedefs.WidgetState_t
     default: "typedefs.WidgetState_Hide"
 
+  - name: PlaybackErrorMessageState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
   
 
   # ── Active Record Shelf ──────────────────────────────────────────────────

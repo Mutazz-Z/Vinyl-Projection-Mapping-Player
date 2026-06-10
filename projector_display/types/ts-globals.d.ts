@@ -139,6 +139,7 @@ declare const WidgetState: {
   readonly Resume: number;
   readonly Loading: number;
   readonly Idle: number;
+  readonly EjectRecord: number;
 };
 
 declare const Global_MediaPlaybackState: string;
@@ -146,6 +147,7 @@ declare const Global_ActiveTrackProgressInSeconds: string;
 declare const Global_ActiveTrackTotalDurationInSeconds: string;
 declare const Global_CurrentMaptasticProjectorPositions: string;
 declare const Global_CurrentShelfStatus: string;
+declare const Global_DefinedProjectorErrorMessage: string;
 declare const Global_ProjectorHeartbeatSignal: { key: string };
 declare const Global_ProjectorHeartbeat: string;
 declare const Global_InfoWidgetData: { key: string; fromJson: (json: unknown) => TitleAndArtist_t };
@@ -162,6 +164,7 @@ declare const Global_LyricsWidgetData: { key: string; fromJson: (json: unknown) 
 declare const Global_LyricsWidgetState: string;
 declare const Global_VisualizerWidgetState: string;
 declare const Global_LoadingWidgetState: string;
+declare const Global_PlaybackErrorMessageState: string;
 declare const Global_ActiveTrack: { key: string; fromJson: (json: unknown) => ActiveTrack_t };
 declare const Global_QrCodeWidgetData: { key: string; fromJson: (json: unknown) => QrCodeData_t };
 declare const Global_QrCodeWidgetState: string;
@@ -323,4 +326,5 @@ interface Window {
   VisualizerWidgetPlayback: WidgetPlaybackController;
   LoadingWidgetPlayback: WidgetPlaybackController;
   QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;
+  ContextMessageWidgetPlayback: WidgetPlaybackController;
 }

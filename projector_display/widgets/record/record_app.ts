@@ -75,6 +75,7 @@
         if (config.revealForPlayback) {
             const revealConfig = config.revealForPlayback;
             cancelPendingTransitions();
+            resetRecord();
             const timers = revealRecordAndTracklistWithStaggeredSpin(
                 revealConfig.token,
                 revealConfig.getPlaybackToken,
@@ -209,6 +210,8 @@
     function ejectRecord(): void {
         const recordContainer = getRecordContainer();
         if (!recordContainer) return;
+
+        applyDesignData(currentDesignData);
 
         const widgetSlot = recordContainer.parentElement as HTMLElement | null;
         if (widgetSlot) {

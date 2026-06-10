@@ -88,10 +88,34 @@ func (instance *WidgetPlaybackSequencer_t) stopProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
 	utils.Write(instance._private.systemDataSource, core.Global_QrCodeWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_PlaybackErrorMessageState, typedefs.WidgetState_Hide)
 
 	time.Sleep(1 * time.Second)
 
 	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Idle)
+	utils.Write(instance._private.systemDataSource, core.Global_DefinedProjectorErrorMessage, "")
+
+}
+
+func (instance *WidgetPlaybackSequencer_t) showPlaybackErrorMessage() {
+	utils.StopTimer(&instance._private.timer)
+	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_TrackListWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_ProgressWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_QrCodeWidgetState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_PlaybackErrorMessageState, typedefs.WidgetState_Hide)
+	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Hide)
+
+	time.Sleep(1 * time.Second)
+
+	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_EjectRecord)
+
+	time.Sleep(250 * time.Millisecond)
+
+	utils.Write(instance._private.systemDataSource, core.Global_PlaybackErrorMessageState, typedefs.WidgetState_Show)
 }
 
 func (instance *WidgetPlaybackSequencer_t) syncLyricsAndVisualizerWidgetState(lyricsData typedefs.LyricData_t) {
@@ -99,15 +123,32 @@ func (instance *WidgetPlaybackSequencer_t) syncLyricsAndVisualizerWidgetState(ly
 	var lyricsWidgetState typedefs.WidgetState_t
 	utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetState, &lyricsWidgetState)
 
-	if lyricsData.TrackLyrics.TrackSupportsLyrics && instance.targetMediaPlayerIsPlaying() && lyricsWidgetState != typedefs.WidgetState_Show {
-		utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Show)
-		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
+	var visualizerWidgetState typedefs.WidgetState_t
+	utils.Read(instance._private.systemDataSource, core.Global_VisualizerWidgetState, &visualizerWidgetState)
+
+	if !instance.targetMediaPlayerIsPlaying() {
 		return
 	}
 
-	if !lyricsData.TrackLyrics.TrackSupportsLyrics && instance.targetMediaPlayerIsPlaying() && lyricsWidgetState != typedefs.WidgetState_Hide {
-		utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
-		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Show)
+	if lyricsData.TrackLyrics.TrackSupportsLyrics {
+		fmt.Println("Track supports lyrics. Showing lyrics widget and hiding visualizer widget.")
+		if lyricsWidgetState != typedefs.WidgetState_Show {
+			utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Show)
+		}
+		if visualizerWidgetState != typedefs.WidgetState_Hide {
+			utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Hide)
+		}
+		return
+	}
+
+	if !lyricsData.TrackLyrics.TrackSupportsLyrics {
+		fmt.Println("Track does not support lyrics. Hiding lyrics widget and showing visualizer widget.")
+		if lyricsWidgetState != typedefs.WidgetState_Hide {
+			utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetState, typedefs.WidgetState_Hide)
+		}
+		if visualizerWidgetState != typedefs.WidgetState_Show {
+			utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Show)
+		}
 	}
 }
 
@@ -165,6 +206,12 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
 			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
 
+		case core.Global_LyricsWidgetData.Key:
+			lyricsData, _ := args.Data.(typedefs.LyricData_t)
+			if lyricsData.ReadyForDisplay {
+				instance.syncLyricsAndVisualizerWidgetState(lyricsData)
+			}
+
 		case core.Global_MediaPlaybackState.Key:
 			mediaPlaybackState, _ := args.Data.(typedefs.MediaPlaybackState_t)
 			if mediaPlaybackState == typedefs.PlayerState_Paused {
@@ -178,6 +225,11 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
 			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
 
+		case core.Global_DefinedProjectorErrorMessage.Key:
+			errorMessage, _ := args.Data.(string)
+			if errorMessage != "" {
+				instance.showPlaybackErrorMessage()
+			}
 		}
 	})
 }

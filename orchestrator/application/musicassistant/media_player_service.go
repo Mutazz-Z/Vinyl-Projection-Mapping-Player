@@ -74,6 +74,20 @@ func (instance *SystemMediaPlayer_t) GetAvailablePlayers() ([]typedefs.Available
 	return instance.getAvailablePlayers()
 }
 
+func (instance *SystemMediaPlayer_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
+	go utils.ListenToDataSourceEvents(dataSourceChanged, func(args core.OnDataSourceChangedArgs_t) {
+
+		switch args.Variable {
+		case core.Global_DefinedProjectorErrorMessage.Key:
+			errorMessage, _ := args.Data.(string)
+			if errorMessage != "" {
+				utils.StopTimer(&instance._private.statusPollTimer)
+			}
+
+		}
+	})
+}
+
 type SystemMediaPlayer_t struct {
 	_private struct {
 		systemDataSource database.DataSource
@@ -85,4 +99,7 @@ type SystemMediaPlayer_t struct {
 func (instance *SystemMediaPlayer_t) Init(dataSource database.DataSource, routerInstance *RpcMessageRouter_t) {
 	instance._private.systemDataSource = dataSource
 	instance._private.messageRouter = routerInstance
+
+	dsChannel := instance._private.systemDataSource.Subscribe("datasource")
+	go instance.onDataSourceChanged(dsChannel)
 }

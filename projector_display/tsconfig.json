@@ -33,6 +33,7 @@
     "widgets/progress/progress_playback.ts",
     "widgets/lyrics/lyrics_playback.ts",
     "widgets/visualizer/visualizer_playback.ts",
-    "widgets/loading/loading_playback.ts"
+    "widgets/loading/loading_playback.ts",
+    "widgets/context_message/context_message_playback.ts"
   ]
 }

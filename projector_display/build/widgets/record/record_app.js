@@ -29,6 +29,7 @@
         if (config.revealForPlayback) {
             const revealConfig = config.revealForPlayback;
             cancelPendingTransitions();
+            resetRecord();
             const timers = revealRecordAndTracklistWithStaggeredSpin(revealConfig.token, revealConfig.getPlaybackToken, revealConfig.onReadyForCarousel);
             if (timers) {
                 pendingRevealTimer = timers.staggerTimer || null;
@@ -136,6 +137,7 @@
         const recordContainer = getRecordContainer();
         if (!recordContainer)
             return;
+        applyDesignData(currentDesignData);
         const widgetSlot = recordContainer.parentElement;
         if (widgetSlot) {
             widgetSlot.style.overflow = 'visible';
