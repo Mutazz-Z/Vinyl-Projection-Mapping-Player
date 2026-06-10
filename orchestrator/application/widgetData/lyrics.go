@@ -32,28 +32,14 @@ func (instance *Lyrics_t) clearLyricsWidgetData() {
 	utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetData, clearedLyricsWidgetData)
 }
 
-func (instance *Lyrics_t) writeLyricsWidgetData(trackLyrics typedefs.TrackLyrics_t) {
+func (instance *Lyrics_t) updateLyricsWidgetDataForTrack(activeTrack typedefs.ActiveTrack_t) {
+	trackLyrics, _ := instance._private.lyricsProvider.GetTrackLyrics(activeTrack.TrackItemId, activeTrack.Provider)
+
 	nextLyricsWidgetData := typedefs.LyricData_t{
 		TrackLyrics:     trackLyrics,
 		ReadyForDisplay: true,
 	}
 	utils.Write(instance._private.systemDataSource, core.Global_LyricsWidgetData, nextLyricsWidgetData)
-}
-
-func (instance *Lyrics_t) updateLyricsWidgetDataForTrack(activeTrack typedefs.ActiveTrack_t) {
-	expectedTrackItemID := activeTrack.TrackItemId
-	expectedProvider := activeTrack.Provider
-
-	trackLyrics, _ := instance._private.lyricsProvider.GetTrackLyrics(activeTrack.TrackItemId, activeTrack.Provider)
-
-	var latestActiveTrack typedefs.ActiveTrack_t
-	utils.Read(instance._private.systemDataSource, core.Global_ActiveTrack, &latestActiveTrack)
-
-	if latestActiveTrack.TrackItemId != expectedTrackItemID || latestActiveTrack.Provider != expectedProvider {
-		return
-	}
-
-	instance.writeLyricsWidgetData(trackLyrics)
 }
 
 func (instance *Lyrics_t) onDataSourceChanged(dataSourceChanged <-chan database.Event) {
@@ -68,7 +54,6 @@ func (instance *Lyrics_t) onDataSourceChanged(dataSourceChanged <-chan database.
 		case core.Global_ActiveTrack.Key:
 			activeTrack, _ := args.Data.(typedefs.ActiveTrack_t)
 			instance.updateLyricsWidgetDataForTrack(activeTrack)
-
 		}
 	})
 }

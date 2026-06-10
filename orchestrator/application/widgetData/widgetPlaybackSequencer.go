@@ -24,6 +24,10 @@ func (instance *WidgetPlaybackSequencer_t) targetMediaPlayerIsPlaying() bool {
 func (instance *WidgetPlaybackSequencer_t) startProjectorPlayback() {
 	utils.Write(instance._private.systemDataSource, core.Global_LoadingWidgetState, typedefs.WidgetState_Hide)
 
+	var lyricsData typedefs.LyricData_t
+	utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
+	instance.syncLyricsAndVisualizerWidgetState(lyricsData)
+
 	utils.Write(instance._private.systemDataSource, core.Global_InfoWidgetState, typedefs.WidgetState_Show)
 	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Show)
 	utils.Write(instance._private.systemDataSource, core.Global_RecordWidgetState, typedefs.WidgetState_Show)
@@ -201,11 +205,6 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 			fmt.Println("Unknown UID scanned. Showing registration QR code widget.")
 			instance.showRegistrationQrCodeWidget()
 
-		case core.Global_ActiveTrack.Key:
-			var lyricsData typedefs.LyricData_t
-			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
-			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
-
 		case core.Global_LyricsWidgetData.Key:
 			lyricsData, _ := args.Data.(typedefs.LyricData_t)
 			if lyricsData.ReadyForDisplay {
@@ -220,10 +219,6 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 			if mediaPlaybackState == typedefs.PlayerState_Playing {
 				instance.resumeVisualPlayback()
 			}
-
-			var lyricsData typedefs.LyricData_t
-			utils.Read(instance._private.systemDataSource, core.Global_LyricsWidgetData, &lyricsData)
-			instance.syncLyricsAndVisualizerWidgetState(lyricsData)
 
 		case core.Global_DefinedProjectorErrorMessage.Key:
 			errorMessage, _ := args.Data.(string)

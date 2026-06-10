@@ -88,6 +88,8 @@ func (instance *SystemMediaPlayer_t) onDataSourceChanged(dataSourceChanged <-cha
 	})
 }
 
+
+
 type SystemMediaPlayer_t struct {
 	_private struct {
 		systemDataSource database.DataSource

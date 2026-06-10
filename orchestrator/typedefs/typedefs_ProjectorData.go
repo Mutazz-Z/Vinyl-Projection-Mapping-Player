@@ -21,10 +21,3 @@ type VinylRecordTagData_t struct {
 	OuterRingImage    string             `json:"outer_ring_image" gorm:"column:outer_ring_image"`
 	ProjectionOverlay string             `json:"projection_overlay" gorm:"column:projection_overlay"`
 }
-
-type ProjectorData_t struct {
-	TagData         VinylRecordTagData_t `json:"tag_data"`
-	VisualDataState VisualDataState_t    `json:"visual_data_state"`
-	RegisterTagUrl  string               `json:"register_tag_url"`
-	ErrorMessage    string               `json:"error_message"`
-}
