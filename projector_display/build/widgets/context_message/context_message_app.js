@@ -3,7 +3,7 @@
   // widgets/context_message/context_message_app.ts
   var ContextMessageWidget = class {
     getContainer() {
-      return document.getElementById("context-message-container");
+      return document.getElementById("context-message-widget");
     }
     getTextElement() {
       return document.getElementById("context-message-text");

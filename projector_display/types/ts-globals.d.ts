@@ -147,12 +147,6 @@ declare global {
     TracklistWidget?: TracklistWidgetApi;
     LoadingWidget?: LoadingWidgetApi;
     QrCodeWidget?: QrCodeWidgetApi;
-    InfoWidget: {
-      show: () => void;
-      hide: () => void;
-      updateData: (albumInfo: TitleAndArtist_t) => void;
-    };
-    InfoWidgetPlayback: WidgetPlaybackController;
     OverlayWidgetPlayback: WidgetPlaybackController;
     RecordWidgetPlayback: WidgetPlaybackController;
     TracklistWidgetPlayback: WidgetPlaybackController;

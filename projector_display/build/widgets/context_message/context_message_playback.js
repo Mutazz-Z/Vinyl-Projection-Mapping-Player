@@ -314,7 +314,7 @@
   // widgets/context_message/context_message_app.ts
   var ContextMessageWidget = class {
     getContainer() {
-      return document.getElementById("context-message-container");
+      return document.getElementById("context-message-widget");
     }
     getTextElement() {
       return document.getElementById("context-message-text");
@@ -335,12 +335,7 @@
   var contextMessageWidget = new ContextMessageWidget();
 
   // widgets/context_message/context_message_playback.ts
-  var ContextMessageWidgetPlayback = class {
-    constructor() {
-      this._private = {
-        systemDataSource: null
-      };
-    }
+  var ContextMessageWidgetPlayback_t = class {
     applyData(data) {
       contextMessageWidget.updateData(data);
     }
@@ -354,9 +349,8 @@
           break;
       }
     }
-    async init(systemDataSource) {
-      this._private.systemDataSource = systemDataSource;
-      this._private.systemDataSource.onStateChanged((variable, data) => {
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
         const globalVariable = variable;
         switch (globalVariable) {
           case Global_DefinedProjectorErrorMessage:
@@ -367,11 +361,11 @@
             break;
         }
       });
-      const currentData = await this._private.systemDataSource.read(Global_DefinedProjectorErrorMessage);
+      const currentData = await dataSource.read(Global_DefinedProjectorErrorMessage);
       this.applyData(currentData);
-      const currentState = await this._private.systemDataSource.read(Global_PlaybackErrorMessageState);
+      const currentState = await dataSource.read(Global_PlaybackErrorMessageState);
       this.applyState(currentState);
     }
   };
-  var contextMessageWidgetPlaybackInstance = new ContextMessageWidgetPlayback();
+  var ContextMessageWidgetPlayback = new ContextMessageWidgetPlayback_t();
 })();

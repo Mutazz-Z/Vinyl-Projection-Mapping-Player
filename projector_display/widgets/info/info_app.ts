@@ -1,22 +1,46 @@
 import { TitleAndArtist_t } from "../../types/state";
 
-(function () {
-    let pendingTransitionCleanup: (() => void) | null = null;
-    const appWindow = window as unknown as {
-        resizeTimer?: ReturnType<typeof setTimeout>;
-        InfoWidget: {
-            show: () => void;
-            hide: () => void;
-            updateData: (albumInfo: TitleAndArtist_t) => void;
-        };
-    };
+interface InfoWidgetPrivateState {
+    pendingTransitionCleanupFunction: (() => void) | null;
+    resizeTimerIdentifier: ReturnType<typeof setTimeout> | undefined;
+}
 
-    function getContainer(): HTMLElement | null {
-        return document.querySelector('#info-widget .info-container') || document.querySelector('.info-container');
+export class InfoWidget {
+    private _private: InfoWidgetPrivateState;
+
+    constructor() {
+        this._private = {
+            pendingTransitionCleanupFunction: null,
+            resizeTimerIdentifier: undefined,
+        };
+
+        window.addEventListener('resize', () => {
+            clearTimeout(this._private.resizeTimerIdentifier);
+            this._private.resizeTimerIdentifier = setTimeout(() => this.updateLayout(), 100);
+        });
     }
 
-    function resetMarquee(element: HTMLElement | null): void {
-        if (!element) return;
+    private getContainer(): HTMLElement {
+        return document.querySelector('#info-widget .info-container') as HTMLElement;
+    }
+
+    private getTitleElement(): HTMLElement {
+        return document.getElementById('album-title') as HTMLElement;
+    }
+
+    private getArtistElement(): HTMLElement {
+        return document.getElementById('artist-name') as HTMLElement;
+    }
+
+    private getTitleWrapper(): HTMLElement {
+        return document.getElementById('title-wrap') as HTMLElement;
+    }
+
+    private getArtistWrapper(): HTMLElement {
+        return document.getElementById('artist-wrap') as HTMLElement;
+    }
+
+    private resetMarquee(element: HTMLElement): void {
         element.classList.remove('marquee');
         if (element.dataset.originalText !== undefined) {
             element.textContent = element.dataset.originalText;
@@ -24,21 +48,20 @@ import { TitleAndArtist_t } from "../../types/state";
         }
     }
 
-    function applyMarquee(element: HTMLElement | null): void {
-        if (!element) return;
-        const text = element.textContent || '';
-        element.dataset.originalText = text;
+    private applyMarquee(element: HTMLElement): void {
+        const textContent = element.textContent;
+        element.dataset.originalText = textContent;
 
         element.innerHTML = '';
 
         const firstTextSpan = document.createElement('span');
-        firstTextSpan.textContent = text;
+        firstTextSpan.textContent = textContent;
 
         const spacerSpan = document.createElement('span');
         spacerSpan.className = 'spacer';
 
         const secondTextSpan = document.createElement('span');
-        secondTextSpan.textContent = text;
+        secondTextSpan.textContent = textContent;
 
         element.appendChild(firstTextSpan);
         element.appendChild(spacerSpan);
@@ -47,147 +70,131 @@ import { TitleAndArtist_t } from "../../types/state";
         element.classList.add('marquee');
     }
 
-    function updateLayout(): void {
-        const container = getContainer();
-        if (!container) return;
-
-        const titleEl = document.getElementById('album-title');
-        const artistEl = document.getElementById('artist-name');
-        const artistWrap = document.getElementById('artist-wrap');
-        const titleWrap = document.getElementById('title-wrap');
-
-        if (!titleEl || !artistEl || !titleWrap || !artistWrap) return;
+    private updateLayout(): void {
+        const container = this.getContainer();
+        const titleElement = this.getTitleElement();
+        const titleWrapper = this.getTitleWrapper();
+        const artistWrapper = this.getArtistWrapper();
 
         container.style.setProperty('--scale', '1');
-        titleWrap.style.width = 'auto';
-        titleWrap.style.flex = 'none';
-        artistWrap.style.width = 'auto';
-        artistWrap.style.flex = 'none';
-        resetMarquee(titleEl);
+        titleWrapper.style.width = 'auto';
+        titleWrapper.style.flex = 'none';
+        artistWrapper.style.width = 'auto';
+        artistWrapper.style.flex = 'none';
+        this.resetMarquee(titleElement);
 
         void container.offsetHeight;
 
-        const rawTitleWidth = titleEl.scrollWidth;
-        const rawArtistWidth = artistWrap.scrollWidth;
+        const rawTitleWidth = titleElement.scrollWidth;
+        const rawArtistWidth = artistWrapper.scrollWidth;
         const availableWidth = container.clientWidth - 8;
 
-        if (rawTitleWidth === 0 && rawArtistWidth === 0) return;
+        if (rawTitleWidth === 0 && rawArtistWidth === 0) {
+            return;
+        }
 
         const actualGap = (rawTitleWidth > 0 && rawArtistWidth > 0) ? 20 : 0;
 
         const totalContentWidth = rawTitleWidth + rawArtistWidth + actualGap;
-        const scale = Math.max(0.8, Math.min(1.2, availableWidth / totalContentWidth));
+        const scaleAmount = Math.max(0.8, Math.min(1.2, availableWidth / totalContentWidth));
 
-        const scaledArtistWidth = Math.ceil(rawArtistWidth * scale);
-        const scaledTitleTextWidth = Math.ceil(rawTitleWidth * scale);
+        const scaledArtistWidth = Math.ceil(rawArtistWidth * scaleAmount);
+        const scaledTitleTextWidth = Math.ceil(rawTitleWidth * scaleAmount);
 
         const maxTitleBoxWidth = Math.floor(availableWidth - scaledArtistWidth - actualGap);
 
-        container.style.setProperty('--scale', String(scale));
+        container.style.setProperty('--scale', String(scaleAmount));
 
-        artistWrap.style.width = scaledArtistWidth + 'px';
-        artistWrap.style.flex = '0 0 ' + scaledArtistWidth + 'px';
+        artistWrapper.style.width = scaledArtistWidth + 'px';
+        artistWrapper.style.flex = '0 0 ' + scaledArtistWidth + 'px';
 
-        titleWrap.style.width = maxTitleBoxWidth + 'px';
-        titleWrap.style.flex = '0 0 ' + maxTitleBoxWidth + 'px';
+        titleWrapper.style.width = maxTitleBoxWidth + 'px';
+        titleWrapper.style.flex = '0 0 ' + maxTitleBoxWidth + 'px';
 
         if (scaledTitleTextWidth > maxTitleBoxWidth + 2) {
-            applyMarquee(titleEl);
+            this.applyMarquee(titleElement);
         }
     }
 
-    function setText(album: string, artist: string): void {
-        const albumTitle = document.getElementById('album-title');
-        const artistName = document.getElementById('artist-name');
+    private setText(album: string, artist: string): void {
+        const albumTitle = this.getTitleElement();
+        const artistName = this.getArtistElement();
 
-        if (albumTitle) {
-            resetMarquee(albumTitle);
-            albumTitle.textContent = album || '';
-        }
-        if (artistName) {
-            artistName.textContent = artist || '';
-        }
+        this.resetMarquee(albumTitle);
 
-        updateLayout();
+        albumTitle.textContent = album;
+        artistName.textContent = artist;
+
+        this.updateLayout();
     }
 
-    function show(): void {
-        const container = getContainer();
-        if (!container) return;
+    public show(): void {
+        const container = this.getContainer();
 
-        if (pendingTransitionCleanup) {
-            pendingTransitionCleanup();
-            pendingTransitionCleanup = null;
+        if (this._private.pendingTransitionCleanupFunction) {
+            this._private.pendingTransitionCleanupFunction();
+            this._private.pendingTransitionCleanupFunction = null;
         }
 
         container.classList.remove('hiding');
         if (!container.classList.contains('visible')) {
-            requestAnimationFrame(function () {
+            requestAnimationFrame(() => {
                 container.classList.add('visible');
             });
         }
     }
 
-    function hide(): void {
-        const container = getContainer();
+    public hide(): void {
+        const container = this.getContainer();
 
-        if (container && container.classList.contains('hiding')) {
+        if (container.classList.contains('hiding')) {
             return;
         }
 
-        if (pendingTransitionCleanup) {
-            pendingTransitionCleanup();
-            pendingTransitionCleanup = null;
+        if (this._private.pendingTransitionCleanupFunction) {
+            this._private.pendingTransitionCleanupFunction();
+            this._private.pendingTransitionCleanupFunction = null;
         }
 
-        if (!container) {
-            return;
-        }
-
-        const onTransitionEnd = function (event: Event) {
+        const transitionEndCallback = (event: Event) => {
             const transitionEvent = event as TransitionEvent;
-            if (transitionEvent.target !== container) return;
-            if (transitionEvent.propertyName !== 'transform') return;
+            if (transitionEvent.target !== container) {
+                return;
+            }
+            if (transitionEvent.propertyName !== 'transform') {
+                return;
+            }
 
             container.classList.remove('hiding');
-            container.removeEventListener('transitionend', onTransitionEnd);
-            if (pendingTransitionCleanup === cleanup) {
-                pendingTransitionCleanup = null;
+            container.removeEventListener('transitionend', transitionEndCallback);
+            if (this._private.pendingTransitionCleanupFunction === cleanupFunction) {
+                this._private.pendingTransitionCleanupFunction = null;
             }
         };
 
-        const cleanup = function (): void {
-            container.removeEventListener('transitionend', onTransitionEnd);
+        const cleanupFunction = () => {
+            container.removeEventListener('transitionend', transitionEndCallback);
             container.classList.remove('hiding');
         };
 
-        pendingTransitionCleanup = cleanup;
-        container.addEventListener('transitionend', onTransitionEnd);
+        this._private.pendingTransitionCleanupFunction = cleanupFunction;
+        container.addEventListener('transitionend', transitionEndCallback);
         container.classList.remove('hiding');
         container.classList.add('visible');
-        void (container as HTMLElement).offsetHeight;
-        requestAnimationFrame(function () {
+        void container.offsetHeight;
+        requestAnimationFrame(() => {
             container.classList.add('hiding');
             container.classList.remove('visible');
         });
     }
 
-    function updateData(albumInfo: TitleAndArtist_t): void {
-        if (!albumInfo || (!albumInfo.title && !albumInfo.artist)) {
+    public updateData(albumInfo: TitleAndArtist_t): void {
+        if (!albumInfo.title && !albumInfo.artist) {
             return;
         }
 
-        setText(albumInfo.title, albumInfo.artist);
+        this.setText(albumInfo.title, albumInfo.artist);
     }
+}
 
-    window.addEventListener('resize', function () {
-        clearTimeout(appWindow.resizeTimer);
-        appWindow.resizeTimer = setTimeout(updateLayout, 100);
-    });
-
-    appWindow.InfoWidget = {
-        show: show,
-        hide: hide,
-        updateData: updateData,
-    };
-})();
+export const infoWidget = new InfoWidget();

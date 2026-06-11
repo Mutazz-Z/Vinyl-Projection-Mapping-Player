@@ -1,4 +1,6 @@
 import { Global_ActiveTrack, ActiveTrack_t, Global_ProjectorHeartbeatSignal, Global_ProjectorHeartbeat } from "../types/state";
+import { ContextMessageWidgetPlayback } from "../widgets/context_message/context_message_playback";
+import { InfoWidgetPlayback } from "../widgets/info/info_playback";
 import { DataSource } from "./datasource";
 
 (function () {
@@ -46,7 +48,7 @@ import { DataSource } from "./datasource";
             });
 
             await Promise.all([
-                window.InfoWidgetPlayback.init(dataSource),
+                InfoWidgetPlayback.init(dataSource),
                 window.OverlayWidgetPlayback.init(dataSource),
                 window.RecordWidgetPlayback.init(dataSource),
                 window.TracklistWidgetPlayback.init(dataSource),
@@ -55,7 +57,7 @@ import { DataSource } from "./datasource";
                 window.VisualizerWidgetPlayback.init(dataSource),
                 window.LoadingWidgetPlayback.init(dataSource),
                 window.QrCodeWidgetPlayback.init(dataSource),
-                window.ContextMessageWidgetPlayback.init(dataSource),
+                ContextMessageWidgetPlayback.init(dataSource),
             ]);
 
             const activeTrack = await dataSource.read<ActiveTrack_t>(Global_ActiveTrack.key);

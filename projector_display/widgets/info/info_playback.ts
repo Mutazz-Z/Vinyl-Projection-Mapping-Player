@@ -1,38 +1,45 @@
 import { DataSource } from "../../js/datasource";
 import { Global_InfoWidgetData, Global_InfoWidgetState, TitleAndArtist_t, WidgetState } from "../../types/state";
+import { infoWidget } from "./info_app";
 
-(function () {
-    function applyData(data: unknown): void {
-        window.InfoWidget.updateData(TitleAndArtist_t.fromJson(data));
+export class InfoWidgetPlayback_t {
+    public applyData(data: TitleAndArtist_t): void {
+        infoWidget.updateData(data);
     }
 
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
-        if (numericState === WidgetState.Show) {
-            window.InfoWidget.show();
-        } else if (numericState === WidgetState.Hide) {
-            window.InfoWidget.hide();
+    public applyState(state: number): void {
+        switch (state) {
+            case WidgetState.Show:
+                infoWidget.show();
+                break;
+
+            case WidgetState.Hide:
+                infoWidget.hide();
+                break;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable, data) => {
+
             switch (variable) {
                 case Global_InfoWidgetData.key:
-                    applyData(data);
+                    this.applyData(data as TitleAndArtist_t);
                     break;
+
                 case Global_InfoWidgetState:
-                    applyState(data);
+                    this.applyState(data as number);
                     break;
             }
         });
 
-        const currentData = await dataSource.read(Global_InfoWidgetData.key);
-        applyData(currentData);
+        const currentData = await dataSource.read<TitleAndArtist_t>(Global_InfoWidgetData.key);
+        this.applyData(currentData);
 
-        const currentState = await dataSource.read(Global_InfoWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_InfoWidgetState);
+        this.applyState(currentState);
     }
 
-    window.InfoWidgetPlayback = { init };
-})();
+}
+
+export const InfoWidgetPlayback = new InfoWidgetPlayback_t();

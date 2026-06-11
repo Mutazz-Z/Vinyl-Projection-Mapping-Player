@@ -1,6 +1,6 @@
 export class ContextMessageWidget {
     public getContainer(): HTMLElement {
-        return document.getElementById('context-message-container') as HTMLElement;
+        return document.getElementById('context-message-widget') as HTMLElement;
     }
 
     public getTextElement(): HTMLElement {
