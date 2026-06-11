@@ -21,5 +21,5 @@
       textElement.textContent = message;
     }
   };
-  window.ContextMessageWidget = new ContextMessageWidget();
+  var contextMessageWidget = new ContextMessageWidget();
 })();

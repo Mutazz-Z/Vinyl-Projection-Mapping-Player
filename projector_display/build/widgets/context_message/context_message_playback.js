@@ -311,31 +311,52 @@
   var Global_PlaybackErrorMessageState = "Global_PlaybackErrorMessageState";
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
 
+  // widgets/context_message/context_message_app.ts
+  var ContextMessageWidget = class {
+    getContainer() {
+      return document.getElementById("context-message-container");
+    }
+    getTextElement() {
+      return document.getElementById("context-message-text");
+    }
+    show() {
+      const container = this.getContainer();
+      container.classList.add("visible");
+    }
+    hide() {
+      const container = this.getContainer();
+      container.classList.remove("visible");
+    }
+    updateData(message) {
+      const textElement = this.getTextElement();
+      textElement.textContent = message;
+    }
+  };
+  var contextMessageWidget = new ContextMessageWidget();
+
   // widgets/context_message/context_message_playback.ts
   var ContextMessageWidgetPlayback = class {
     constructor() {
       this._private = {
-        dataSource: null,
-        currentMessage: ""
+        systemDataSource: null
       };
     }
     applyData(data) {
-      window.ContextMessageWidget?.updateData(data);
-      return;
+      contextMessageWidget.updateData(data);
     }
     applyState(state) {
       switch (state) {
         case 1 /* Show */:
-          window.ContextMessageWidget?.show();
+          contextMessageWidget.show();
           break;
         case 0 /* Hide */:
-          window.ContextMessageWidget?.hide();
+          contextMessageWidget.hide();
           break;
       }
     }
-    async init(dataSource) {
-      this._private.dataSource = dataSource;
-      this._private.dataSource.onStateChanged((variable, data) => {
+    async init(systemDataSource) {
+      this._private.systemDataSource = systemDataSource;
+      this._private.systemDataSource.onStateChanged((variable, data) => {
         const globalVariable = variable;
         switch (globalVariable) {
           case Global_DefinedProjectorErrorMessage:
@@ -346,11 +367,11 @@
             break;
         }
       });
-      const currentData = await this._private.dataSource.read(Global_DefinedProjectorErrorMessage);
+      const currentData = await this._private.systemDataSource.read(Global_DefinedProjectorErrorMessage);
       this.applyData(currentData);
-      const currentState = await this._private.dataSource.read(Global_PlaybackErrorMessageState);
+      const currentState = await this._private.systemDataSource.read(Global_PlaybackErrorMessageState);
       this.applyState(currentState);
     }
   };
-  window.ContextMessageWidgetPlayback = new ContextMessageWidgetPlayback();
+  var contextMessageWidgetPlaybackInstance = new ContextMessageWidgetPlayback();
 })();

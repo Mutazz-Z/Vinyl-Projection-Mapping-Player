@@ -9,7 +9,6 @@ export class ContextMessageWidget {
 
     public show(): void {
         const container = this.getContainer();
-
         container.classList.add('visible');
     }
 
@@ -24,4 +23,4 @@ export class ContextMessageWidget {
     }
 }
 
-window.ContextMessageWidget = new ContextMessageWidget();
+export const contextMessageWidget = new ContextMessageWidget();

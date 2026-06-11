@@ -43,12 +43,6 @@ interface QrCodeWidgetApi {
   hide?: () => void;
 }
 
-interface ContextMessageWidgetApi {
-  show: () => void;
-  hide: () => void;
-  updateData: (message: string) => void;
-}
-
 interface TracklistWidgetApi {
   show?: (options?: unknown) => void;
   hide?: (options?: unknown) => void;
@@ -153,7 +147,6 @@ declare global {
     TracklistWidget?: TracklistWidgetApi;
     LoadingWidget?: LoadingWidgetApi;
     QrCodeWidget?: QrCodeWidgetApi;
-    ContextMessageWidget?: ContextMessageWidgetApi;
     InfoWidget: {
       show: () => void;
       hide: () => void;
@@ -168,7 +161,6 @@ declare global {
     VisualizerWidgetPlayback: WidgetPlaybackController;
     LoadingWidgetPlayback: WidgetPlaybackController;
     QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;
-    ContextMessageWidgetPlayback: WidgetPlaybackController;
     TrackResolver: TrackResolverApi;
   }
 }
