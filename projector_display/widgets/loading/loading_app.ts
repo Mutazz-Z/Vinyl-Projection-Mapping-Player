@@ -1,273 +1,214 @@
-(function () {
-    const LOADING_SCALE = 0.33;
-    const HIDE_HOLD_MS = 1000;
+interface LoadingWidgetPrivateState {
+    loadingTransitionToken: number;
+    scheduledWaitTimer: ReturnType<typeof setTimeout> | null;
+}
 
-    let loadingTransitionToken = 0;
-    let scheduledFadeOutTimer: ReturnType<typeof setTimeout> | null = null;
-    let scheduledIdleRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+const LOADING_SCALE = 0.33;
+const HIDE_HOLD_MILLISECONDS = 1000;
 
-    type IdleOptions = {
-        fromOverlay?: boolean;
-        delayMs?: number;
-    };
+export class LoadingWidget_t {
+    private _private: LoadingWidgetPrivateState;
 
-    type HideOptions = {
-        immediate?: boolean;
-        fadeOutDelayMs?: number;
-        onBeforeFadeOut?: () => void;
-    };
+    constructor() {
+        this._private = {
+            loadingTransitionToken: 0,
+            scheduledWaitTimer: null,
+        };
 
-    function getOutline(): HTMLElement | null {
-        return document.getElementById('loading-outline');
+        this.idle();
     }
 
-    function waitForTransition(el: HTMLElement, propertyName?: string, timeoutMs = 700): Promise<void> {
-        return new Promise(function (resolve) {
-            let done = false;
+    private getOutline(): HTMLElement {
+        return document.getElementById('loading-outline') as HTMLElement;
+    }
 
-            function finish(): void {
-                if (done) return;
-                done = true;
-                el.removeEventListener('transitionend', onTransitionEnd);
+    private waitForTransition(element: HTMLElement, propertyName?: string, timeoutInMilliseconds = 700): Promise<void> {
+        return new Promise((resolve) => {
+            let isComplete = false;
+
+            const finishTransition = () => {
+                if (isComplete) return;
+                isComplete = true;
+                element.removeEventListener('transitionend', onTransitionEnd);
                 resolve();
-            }
+            };
 
-            function onTransitionEnd(e: TransitionEvent): void {
-                if (propertyName && e.propertyName !== propertyName) return;
-                finish();
-            }
+            const onTransitionEnd = (event: TransitionEvent) => {
+                if (propertyName && event.propertyName !== propertyName) return;
+                finishTransition();
+            };
 
-            el.addEventListener('transitionend', onTransitionEnd);
-            setTimeout(finish, timeoutMs);
+            element.addEventListener('transitionend', onTransitionEnd);
+            setTimeout(finishTransition, timeoutInMilliseconds);
         });
     }
 
-    function freezeCurrentVisualState(outline: HTMLElement | null): void {
-        if (!outline) return;
-
-        const computed = window.getComputedStyle(outline);
-        const currentTransform = computed.transform;
-        const currentOpacity = computed.opacity;
+    private freezeCurrentVisualState(outline: HTMLElement): void {
+        const computedStyles = window.getComputedStyle(outline);
+        const currentTransform = computedStyles.transform;
+        const currentOpacity = computedStyles.opacity;
+        const currentBackgroundColor = computedStyles.backgroundColor;
+        const currentBorderColor = computedStyles.borderColor;
 
         outline.style.transition = 'none';
+
         if (currentTransform && currentTransform !== 'none') {
             outline.style.transform = currentTransform;
         }
         outline.style.opacity = currentOpacity;
+        outline.style.backgroundColor = currentBackgroundColor;
+        outline.style.borderColor = currentBorderColor;
+
         void outline.offsetWidth;
         outline.style.transition = '';
     }
 
-    function show(): void {
-        loadingTransitionToken++;
-        const outline = getOutline();
-        if (!outline) return;
-        outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
-        outline.style.opacity = '1';
-        outline.style.transform = 'translate(-50%, -50%) scale(1.25)';
+    private clearInlineOverrides(outline: HTMLElement): void {
+        outline.style.backgroundColor = '';
+        outline.style.borderColor = '';
     }
 
-    function beginScanLoading(): Promise<void> {
-        const outline = getOutline();
-        if (!outline) return Promise.resolve();
+    private show(): void {
+        const outline = this.getOutline();
 
-        const transitionToken = ++loadingTransitionToken;
-
+        this.freezeCurrentVisualState(outline);
         outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
-        freezeCurrentVisualState(outline);
-        outline.style.opacity = '1';
 
         void outline.offsetWidth;
 
-        requestAnimationFrame(function () {
+        requestAnimationFrame(() => {
+            outline.style.opacity = '1';
+            outline.style.transform = 'translate(-50%, -50%) scale(1.25)';
+            this.clearInlineOverrides(outline);
+        });
+    }
+
+    private beginScanLoading(sequenceToken: number): Promise<void> {
+        const outline = this.getOutline();
+
+        this.freezeCurrentVisualState(outline);
+        outline.classList.remove('hidden', 'pulsing', 'error', 'error-fill');
+
+        void outline.offsetWidth;
+
+        requestAnimationFrame(() => {
+            outline.style.opacity = '1';
             outline.style.transform = `translate(-50%, -50%) scale(${LOADING_SCALE})`;
+            this.clearInlineOverrides(outline);
         });
 
-        return waitForTransition(outline, 'transform', 560).then(function () {
-            if (transitionToken !== loadingTransitionToken) return;
+        return this.waitForTransition(outline, 'transform', 560).then(() => {
+            if (sequenceToken !== this._private.loadingTransitionToken) return;
             outline.classList.add('pulsing');
         });
     }
 
-    function fadeOut(): Promise<void> {
-        const outline = getOutline();
-        if (!outline) return Promise.resolve();
-        loadingTransitionToken++;
+    private fadeOut(sequenceToken: number): Promise<void> {
+        const outline = this.getOutline();
+
+        this.freezeCurrentVisualState(outline);
         outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
-        outline.style.opacity = '0';
-
-        return waitForTransition(outline, 'opacity', 420)
-            .then(function () {
-                outline.classList.add('hidden');
-            });
-    }
-
-    function waitMs(ms: number): Promise<void> {
-        return new Promise(function (resolve) {
-            scheduledFadeOutTimer = setTimeout(function () {
-                scheduledFadeOutTimer = null;
-                resolve();
-            }, ms);
-        });
-    }
-
-    function expandToOverlay(): Promise<void> {
-        const outline = getOutline();
-        if (!outline) return Promise.resolve();
-
-        const transitionToken = ++loadingTransitionToken;
-
-        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
-        freezeCurrentVisualState(outline);
-        outline.style.opacity = '1';
 
         void outline.offsetWidth;
 
-        requestAnimationFrame(function () {
+        requestAnimationFrame(() => {
+            outline.style.opacity = '0';
+            this.clearInlineOverrides(outline);
+        });
+
+        return this.waitForTransition(outline, 'opacity', 420).then(() => {
+            if (sequenceToken !== this._private.loadingTransitionToken) return;
+            outline.classList.add('hidden');
+        });
+    }
+
+    private waitDuration(durationInMilliseconds: number): Promise<void> {
+        return new Promise((resolve) => {
+            this._private.scheduledWaitTimer = setTimeout(() => {
+                this._private.scheduledWaitTimer = null;
+                resolve();
+            }, durationInMilliseconds);
+        });
+    }
+
+    private expandToOverlay(sequenceToken: number): Promise<void> {
+        const outline = this.getOutline();
+
+        this.freezeCurrentVisualState(outline);
+        outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
+
+        void outline.offsetWidth;
+
+        requestAnimationFrame(() => {
+            outline.style.opacity = '1';
             outline.style.transform = 'translate(-50%, -50%) scale(1)';
+            this.clearInlineOverrides(outline);
         });
 
-        return waitForTransition(outline, 'transform', 560).then(function () {
-            if (transitionToken !== loadingTransitionToken) return;
+        return this.waitForTransition(outline, 'transform', 560).then(() => {
+            if (sequenceToken !== this._private.loadingTransitionToken) return;
         });
     }
 
-    function revealIdleFromOverlay(): Promise<void> {
-        loadingTransitionToken++;
-        const outline = getOutline();
-        if (!outline) return Promise.resolve();
+    private cancelScheduledTransitions(): void {
+        if (this._private.scheduledWaitTimer) {
+            clearTimeout(this._private.scheduledWaitTimer);
+            this._private.scheduledWaitTimer = null;
+        }
+    }
+
+    private showError(sequenceToken: number): Promise<void> {
+        const outline = this.getOutline();
+
+        this.freezeCurrentVisualState(outline);
         outline.classList.remove('pulsing', 'hidden', 'error', 'error-fill');
-        outline.style.transform = 'translate(-50%, -50%) scale(1)';
-        outline.style.opacity = '0';
-
-        return new Promise(function (resolve) {
-            requestAnimationFrame(function () {
-                outline.style.transform = 'translate(-50%, -50%) scale(1.25)';
-                outline.style.opacity = '1';
-                waitForTransition(outline, 'transform', 520).then(resolve);
-            });
-        });
-    }
-
-    function cancelScheduledTransitions(): void {
-        if (scheduledFadeOutTimer) {
-            clearTimeout(scheduledFadeOutTimer);
-            scheduledFadeOutTimer = null;
-        }
-
-        if (scheduledIdleRestoreTimer) {
-            clearTimeout(scheduledIdleRestoreTimer);
-            scheduledIdleRestoreTimer = null;
-        }
-    }
-
-    function forceHide(): void {
-        loadingTransitionToken++;
-        const outline = getOutline();
-        if (!outline) return;
-        outline.classList.remove('pulsing', 'error', 'error-fill');
-        outline.classList.add('hidden');
-        outline.style.opacity = '0';
-    }
-
-    function showError(): Promise<void> {
-        loadingTransitionToken++;
-        const outline = getOutline();
-        if (!outline) return Promise.resolve();
-        outline.classList.remove('pulsing', 'hidden');
-        outline.style.opacity = '1';
 
         void outline.offsetWidth;
-        outline.style.transform = `translate(-50%, -50%) scale(${LOADING_SCALE})`;
 
-        return new Promise(function (resolve) {
-            requestAnimationFrame(function () {
-                outline.classList.add('error-fill');
-                resolve();
-            });
+        requestAnimationFrame(() => {
+            outline.style.opacity = '1';
+            outline.classList.add('error-fill');
+            this.clearInlineOverrides(outline);
+        });
+
+        return this.waitForTransition(outline, 'transform', 420).then(() => {
+            if (sequenceToken !== this._private.loadingTransitionToken) return;
         });
     }
 
-    function idle(options?: IdleOptions): void {
-        const config = options || {};
-        const fromOverlay = !!config.fromOverlay;
-        const delayMs = typeof config.delayMs === 'number' ? config.delayMs : 0;
-
-        cancelScheduledTransitions();
-
-        if (delayMs > 0) {
-            scheduledIdleRestoreTimer = setTimeout(function () {
-                scheduledIdleRestoreTimer = null;
-                if (fromOverlay) {
-                    void revealIdleFromOverlay();
-                } else {
-                    show();
-                }
-            }, delayMs);
-            return;
-        }
-
-        if (fromOverlay) {
-            void revealIdleFromOverlay();
-            return;
-        }
-
-        show();
+    public idle(): void {
+        this.cancelScheduledTransitions();
+        this._private.loadingTransitionToken++;
+        this.show();
     }
 
-    function loading(): Promise<void> {
-        cancelScheduledTransitions();
-        return beginScanLoading();
+    public loading(): Promise<void> {
+        this.cancelScheduledTransitions();
+        this._private.loadingTransitionToken++;
+        return this.beginScanLoading(this._private.loadingTransitionToken);
     }
 
-    function hide(options?: HideOptions): Promise<void> {
-        const config = options || {};
-        const delayMs = typeof config.fadeOutDelayMs === 'number' ? config.fadeOutDelayMs : 0;
-        const onBeforeFadeOut = config.onBeforeFadeOut;
+    public hide(): Promise<void> {
+        this.cancelScheduledTransitions();
+        this._private.loadingTransitionToken++;
+        const sequenceToken = this._private.loadingTransitionToken;
 
-        cancelScheduledTransitions();
-
-        if (config.immediate) {
-            forceHide();
-            return Promise.resolve();
-        }
-
-        if (delayMs > 0) {
-            scheduledFadeOutTimer = setTimeout(function () {
-                scheduledFadeOutTimer = null;
-                void expandToOverlay()
-                    .then(function () {
-                        return waitMs(HIDE_HOLD_MS);
-                    })
-                    .then(function () {
-                        if (onBeforeFadeOut) onBeforeFadeOut();
-                        return fadeOut();
-                    });
-            }, delayMs);
-            return Promise.resolve();
-        }
-
-        return expandToOverlay()
-            .then(function () {
-                return waitMs(HIDE_HOLD_MS);
+        return this.expandToOverlay(sequenceToken)
+            .then(() => {
+                if (sequenceToken !== this._private.loadingTransitionToken) return;
+                return this.waitDuration(HIDE_HOLD_MILLISECONDS);
             })
-            .then(function () {
-                if (onBeforeFadeOut) onBeforeFadeOut();
-                return fadeOut();
+            .then(() => {
+                if (sequenceToken !== this._private.loadingTransitionToken) return;
+                return this.fadeOut(sequenceToken);
             });
     }
 
-    function error(): Promise<void> {
-        cancelScheduledTransitions();
-        return showError();
+    public error(): Promise<void> {
+        this.cancelScheduledTransitions();
+        this._private.loadingTransitionToken++;
+        return this.showError(this._private.loadingTransitionToken);
     }
+}
 
-    window.LoadingWidget = {
-        idle: idle,
-        loading: loading,
-        hide: hide,
-        error: error,
-    };
-
-    idle();
-})();
+export const LoadingWidget = new LoadingWidget_t();

@@ -39,7 +39,7 @@ func (instance *MqttPlugin_t) handleDeviceStatus(client eclipseMqtt.Client, inco
 		fmt.Printf("[Mqtt Plugin]: ESP Reader Status changed to: Offline\n")
 	}
 
-	utils.Write(instance._private.systemDataSource, core.Global_ReaderConnectionStatus, status)
+	utils.Write(instance._private.dataSource, core.Global_ReaderConnectionStatus, status)
 }
 
 func (instance *MqttPlugin_t) startWatchdogTimer() {
@@ -51,7 +51,7 @@ func (instance *MqttPlugin_t) startWatchdogTimer() {
 	}
 
 	instance._private.watchdogTimer = time.AfterFunc(instance._private.WatchdogTimeout, func() {
-		utils.Write(instance._private.systemDataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Empty)
+		utils.Write(instance._private.dataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Empty)
 		instance._private.watchdogExpired = true
 	})
 }
@@ -63,20 +63,21 @@ func (instance *MqttPlugin_t) checkUidAgainstLibrary(uid string) {
 	uidScannedData.Uid = uid
 	uidScannedData.Signal = instance._private.scanCountSignal
 
-	if !exists {
-		fmt.Printf("[Mqtt Plugin]: Unknown Tag %s, writing to registry for registration\n", uid)
-		utils.Write(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, uidScannedData)
-	} else {
+	if exists {
 		fmt.Printf("[Mqtt Plugin]: Scanned Tag %s\n", uid)
-		utils.Write(instance._private.systemDataSource, core.Global_LastKnownUidScanned, uidScannedData)
+		utils.Write(instance._private.dataSource, core.Global_LastKnownUidScanned, uidScannedData)
+	} else {
+		fmt.Printf("[Mqtt Plugin]: Unknown Tag %s, writing to registry for registration\n", uid)
+		utils.Write(instance._private.dataSource, core.Global_LastUnknownUidScanned, uidScannedData)
 	}
-	utils.Write(instance._private.systemDataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Occupied)
+
+	utils.Write(instance._private.dataSource, core.Global_CurrentShelfStatus, typedefs.ShelfStatus_Occupied)
 }
 
 func (instance *MqttPlugin_t) scannedUidIsTheSameAsPreviousAndWatchdogNotExpired(uid string) bool {
 	var previousKnownUidScanned, previousUnknownUidScanned typedefs.UidScanned_t
-	utils.Read(instance._private.systemDataSource, core.Global_LastKnownUidScanned, &previousKnownUidScanned)
-	utils.Read(instance._private.systemDataSource, core.Global_LastUnknownUidScanned, &previousUnknownUidScanned)
+	utils.Read(instance._private.dataSource, core.Global_LastKnownUidScanned, &previousKnownUidScanned)
+	utils.Read(instance._private.dataSource, core.Global_LastUnknownUidScanned, &previousUnknownUidScanned)
 
 	return (previousKnownUidScanned.Uid == uid || previousUnknownUidScanned.Uid == uid) && !instance._private.watchdogExpired
 }
@@ -107,8 +108,8 @@ func (instance *MqttPlugin_t) getBrokerServer() string {
 	var mqttHostAddress string
 	var mqttTcpPort int
 
-	utils.Read(instance._private.systemDataSource, core.Global_MqttBrokerHostAddress, &mqttHostAddress)
-	utils.Read(instance._private.systemDataSource, core.Global_MqttTcpPort, &mqttTcpPort)
+	utils.Read(instance._private.dataSource, core.Global_MqttBrokerHostAddress, &mqttHostAddress)
+	utils.Read(instance._private.dataSource, core.Global_MqttTcpPort, &mqttTcpPort)
 
 	return fmt.Sprintf("tcp://%s:%d", mqttHostAddress, mqttTcpPort)
 }
@@ -120,7 +121,7 @@ type VinylShelfMessage_t struct {
 
 type MqttPlugin_t struct {
 	_private struct {
-		systemDataSource database.DataSource
+		dataSource database.DataSource
 		mqttClient       eclipseMqtt.Client
 		AlbumLibrary     database.AlbumLibrary
 
@@ -133,7 +134,7 @@ type MqttPlugin_t struct {
 }
 
 func (instance *MqttPlugin_t) Init(dataSource database.DataSource, albumLibrary database.AlbumLibrary) error {
-	instance._private.systemDataSource = dataSource
+	instance._private.dataSource = dataSource
 	instance._private.AlbumLibrary = albumLibrary
 	instance._private.WatchdogTimeout = 1 * time.Second
 

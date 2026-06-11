@@ -1,35 +1,38 @@
 import { DataSource } from "../../js/datasource";
 import { WidgetState, Global_LoadingWidgetState } from "../../types/state";
+import { LoadingWidget } from "./loading_app";
 
-(function () {
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
+export class LoadingWidgetPlayback_t {
+    private applyState(state: number): void {
+        switch (state) {
+            case WidgetState.Loading:
+                LoadingWidget.loading();
+                break;
 
-        if (numericState === WidgetState.Loading) {
-            void window.LoadingWidget?.loading?.();
-            return;
-        }
+            case WidgetState.Hide:
+                LoadingWidget.hide();
+                break;
 
-        if (numericState === WidgetState.Hide) {
-            void window.LoadingWidget?.hide?.();
-            return;
-        }
-
-        if (numericState === WidgetState.Idle) {
-            window.LoadingWidget?.idle?.();
+            case WidgetState.Idle:
+                LoadingWidget.idle();
+                break;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
-            if (variable === Global_LoadingWidgetState) {
-                applyState(data);
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable: unknown, data: unknown) => {
+            const globalVariable = variable as string;
+
+            switch (globalVariable) {
+                case Global_LoadingWidgetState:
+                    this.applyState(data as number);
+                    break;
             }
         });
 
-        const currentState = await dataSource.read(Global_LoadingWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_LoadingWidgetState);
+        this.applyState(currentState);
     }
+}
 
-    window.LoadingWidgetPlayback = { init };
-})();
+export const LoadingWidgetPlayback = new LoadingWidgetPlayback_t();

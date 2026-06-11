@@ -3,11 +3,11 @@ import { WidgetState, Global_DefinedProjectorErrorMessage, Global_PlaybackErrorM
 import { contextMessageWidget } from "./context_message_app";
 
 export class ContextMessageWidgetPlayback_t {
-    public applyData(data: string): void {
+    private applyData(data: string): void {
         contextMessageWidget.updateData(data);
     }
 
-    public applyState(state: number): void {
+    private applyState(state: number): void {
         switch (state) {
             case WidgetState.Show:
                 contextMessageWidget.show();

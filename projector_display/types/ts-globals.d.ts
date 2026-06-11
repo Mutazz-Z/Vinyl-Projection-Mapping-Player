@@ -31,13 +31,6 @@ interface PlaybackControlWidget {
   show?: (options?: unknown) => void;
 }
 
-interface LoadingWidgetApi {
-  loading?: () => Promise<void>;
-  hide?: (options?: { immediate?: boolean; fadeOutDelayMs?: number; onBeforeFadeOut?: () => void }) => void;
-  idle?: (options?: { fromOverlay?: boolean; delayMs?: number }) => void;
-  error?: () => void;
-}
-
 interface QrCodeWidgetApi {
   show?: (qrCodeData?: QrCodeData_t) => void;
   hide?: () => void;
@@ -145,7 +138,6 @@ declare global {
     OverlayWidget?: OverlayWidgetApi;
     ProgressWidget?: ProgressWidgetApi;
     TracklistWidget?: TracklistWidgetApi;
-    LoadingWidget?: LoadingWidgetApi;
     QrCodeWidget?: QrCodeWidgetApi;
     OverlayWidgetPlayback: WidgetPlaybackController;
     RecordWidgetPlayback: WidgetPlaybackController;
@@ -153,7 +145,6 @@ declare global {
     ProgressWidgetPlayback: ProgressWidgetPlaybackController;
     LyricsWidgetPlayback: WidgetPlaybackController;
     VisualizerWidgetPlayback: WidgetPlaybackController;
-    LoadingWidgetPlayback: WidgetPlaybackController;
     QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;
     TrackResolver: TrackResolverApi;
   }
