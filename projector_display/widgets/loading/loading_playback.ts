@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { WidgetState, Global_LoadingWidgetState } from "../../types/state";
+
 (function () {
     function applyState(state: unknown): void {
         const numericState = Number(state);
@@ -18,13 +21,13 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             if (variable === Global_LoadingWidgetState) {
                 applyState(data);
             }
         });
 
-        const currentState = await DataSource_Read(dataSource, Global_LoadingWidgetState);
+        const currentState = await dataSource.read(Global_LoadingWidgetState);
         applyState(currentState);
     }
 

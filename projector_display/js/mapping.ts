@@ -1,3 +1,5 @@
+import { Global_CurrentMaptasticProjectorPositions } from "../types/state";
+
 const LAYOUT_LOCALSTORAGE_KEY = 'vinylProjectionLayout';
 const LAYOUT_LOCALSTORAGE_BACKUP_KEY = 'vinylProjectionLayoutBackup';
 
@@ -29,7 +31,7 @@ function saveLayout(): void {
 
     saveToDbTimer = setTimeout(function () {
         if (window.AppDataSource) {
-            DataSource_Write(window.AppDataSource, Global_CurrentMaptasticProjectorPositions, layoutJson);
+            window.AppDataSource.write(Global_CurrentMaptasticProjectorPositions, layoutJson);
         }
     }, 800);
 }
@@ -41,7 +43,7 @@ async function restoreLayout(): Promise<void> {
 
     try {
         if (window.AppDataSource) {
-            const storedValue = await DataSource_Read(window.AppDataSource, Global_CurrentMaptasticProjectorPositions);
+            const storedValue = await window.AppDataSource.read(Global_CurrentMaptasticProjectorPositions);
             if (storedValue) {
                 layout = typeof storedValue === 'string' ? JSON.parse(storedValue) : storedValue;
             }

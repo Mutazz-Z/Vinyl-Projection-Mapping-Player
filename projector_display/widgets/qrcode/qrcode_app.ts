@@ -1,3 +1,5 @@
+import { QrCodeData_t } from "../../types/state";
+
 (function () {
     type QrHideOptions = {
         visible?: boolean;

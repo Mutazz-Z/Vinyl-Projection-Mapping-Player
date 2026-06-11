@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { LyricData_t, WidgetState, Global_LyricsWidgetData, Global_LyricsWidgetState } from "../../types/state";
+
 (function () {
     let unsubscribePlaybackClock: (() => void) | null = null;
 
@@ -22,7 +25,7 @@
             window.LyricsWidget?.updateData?.({ progressSeconds: clockSnapshot.progressSeconds });
         });
 
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_LyricsWidgetData.key:
                     applyData(data);
@@ -33,10 +36,10 @@
             }
         });
 
-        const currentData = await DataSource_Read(dataSource, Global_LyricsWidgetData.key);
+        const currentData = await dataSource.read(Global_LyricsWidgetData.key);
         applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_LyricsWidgetState);
+        const currentState = await dataSource.read(Global_LyricsWidgetState);
         applyState(currentState);
     }
 

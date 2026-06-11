@@ -1,3 +1,5 @@
+import { TrackLyrics_t, AlbumTrackList_t } from "../types/state";
+
 (function () {
     let currentTrackNames: string[] = [];
     let currentActiveTrackIndex = 0;

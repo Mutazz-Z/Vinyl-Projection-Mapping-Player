@@ -1,3 +1,5 @@
+import { MediaPlaybackState, OverlayData_t } from "../../types/state";
+
 (function () {
     let statusTimer: ReturnType<typeof setTimeout> | null = null;
     let isCurrentlyPaused = false;

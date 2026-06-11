@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { RecordDesignData_t, WidgetState, Global_RecordWidgetData, Global_RecordWidgetState, Global_MediaPlaybackState } from "../../types/state";
+
 (function () {
     const RECORD_SLIDE_MS = 700;
     let transitionToken = 0;
@@ -60,7 +63,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_RecordWidgetData.key:
                     applyData(data);
@@ -74,10 +77,10 @@
             }
         });
 
-        const currentData = await DataSource_Read(dataSource, Global_RecordWidgetData.key);
+        const currentData = await dataSource.read(Global_RecordWidgetData.key);
         applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_RecordWidgetState);
+        const currentState = await dataSource.read(Global_RecordWidgetState);
         applyState(currentState);
     }
 

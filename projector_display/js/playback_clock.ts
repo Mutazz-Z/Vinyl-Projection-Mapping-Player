@@ -1,3 +1,6 @@
+import { MediaPlaybackState, Global_MediaPlaybackState, Global_ActiveTrackProgressInSeconds, Global_ActiveTrackTotalDurationInSeconds } from "../types/state";
+import { DataSource } from "./datasource";
+
 (function () {
     type PlaybackClockSnapshot = {
         progressSeconds: number;
@@ -132,7 +135,7 @@
         }
         sourceDataSource = dataSource;
 
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        sourceDataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_MediaPlaybackState:
                     applyPlaybackState(Number(data));
@@ -147,9 +150,9 @@
         });
 
         const [initialState, initialProgress, initialDuration] = await Promise.all([
-            DataSource_Read(dataSource, Global_MediaPlaybackState),
-            DataSource_Read(dataSource, Global_ActiveTrackProgressInSeconds),
-            DataSource_Read(dataSource, Global_ActiveTrackTotalDurationInSeconds),
+            sourceDataSource.read(Global_MediaPlaybackState),
+            sourceDataSource.read(Global_ActiveTrackProgressInSeconds),
+            sourceDataSource.read(Global_ActiveTrackTotalDurationInSeconds),
         ]);
 
         playbackState = Number(initialState || MediaPlaybackState.Idle);

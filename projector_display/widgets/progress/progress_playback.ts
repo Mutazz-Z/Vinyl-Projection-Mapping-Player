@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { WidgetState, ProgressData_t, Global_ProgressWidgetState, Global_TrackListWidgetState } from "../../types/state";
+
 (function () {
     let hasOwnStateKey = true;
     let currentState: number = WidgetState.Hide;
@@ -45,7 +48,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_ProgressWidgetState:
                     applyState(data);
@@ -60,12 +63,12 @@
         });
 
         try {
-            const state = await DataSource_Read(dataSource, Global_ProgressWidgetState);
+            const state = await dataSource.read(Global_ProgressWidgetState);
             applyState(state);
         } catch {
             hasOwnStateKey = false;
             console.warn('[Progress] Global_ProgressWidgetState unavailable; mirroring TrackListWidgetState.');
-            const fallbackState = await DataSource_Read(dataSource, Global_TrackListWidgetState);
+            const fallbackState = await dataSource.read(Global_TrackListWidgetState);
             applyState(fallbackState);
         }
     }

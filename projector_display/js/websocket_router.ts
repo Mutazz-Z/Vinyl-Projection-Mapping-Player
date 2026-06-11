@@ -1,3 +1,6 @@
+import { Global_ActiveTrack, ActiveTrack_t, Global_ProjectorHeartbeatSignal, Global_ProjectorHeartbeat } from "../types/state";
+import { DataSource } from "./datasource";
+
 (function () {
     const urlParams = new URLSearchParams(window.location.search);
     const hostIp = window.location.hostname || '127.0.0.1';
@@ -29,24 +32,19 @@
 
             announcePresence(dataSource);
 
-            // Infrastructure-level datasource handler: tracks shared state and
-            // drives mapping. Widget-specific handling is delegated to each
-            // widget's playback module.
-            DataSource_OnChanged(dataSource, function (variable, data) {
+            dataSource.onStateChanged(function (variable, data) {
                 switch (variable) {
                     case Global_ActiveTrack.key: {
                         const activeTrack = ActiveTrack_t.fromJson(data);
                         TrackResolver.setActiveTrackIndex(Number(activeTrack.trackIndex || 0));
                         break;
                     }
-                    case Global_ProjectorHeartbeatSignal.key:
+                    case Global_ProjectorHeartbeatSignal:
                         handleMappingCommand((data || {}) as MappingCommand, dataSource);
                         break;
                 }
             });
 
-            // Initialise all widget playback modules in parallel — each registers
-            // its own DataSource_OnChanged handler and restores current state.
             await Promise.all([
                 window.InfoWidgetPlayback.init(dataSource),
                 window.OverlayWidgetPlayback.init(dataSource),
@@ -60,7 +58,7 @@
                 window.ContextMessageWidgetPlayback.init(dataSource),
             ]);
 
-            const activeTrack = await DataSource_Read<ActiveTrack_t>(dataSource, Global_ActiveTrack.key);
+            const activeTrack = await dataSource.read<ActiveTrack_t>(Global_ActiveTrack.key);
             TrackResolver.setActiveTrackIndex(Number(activeTrack.trackIndex || 0));
         };
 
@@ -91,7 +89,7 @@
     }
 
     function announcePresence(dataSource: DataSource): void {
-        DataSource_Write(dataSource, Global_ProjectorHeartbeat, {
+        dataSource.write(Global_ProjectorHeartbeat, {
             id: CLIENT_ID,
             width: window.innerWidth,
             height: window.innerHeight,

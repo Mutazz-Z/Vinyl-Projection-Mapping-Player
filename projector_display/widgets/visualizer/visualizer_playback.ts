@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { MediaPlaybackState, WidgetState, Global_VisualizerWidgetState, Global_MediaPlaybackState } from "../../types/state";
+
 (function () {
     let currentPlaybackState: number = MediaPlaybackState.Idle;
 
@@ -25,7 +28,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_VisualizerWidgetState:
                     applyState(data);
@@ -36,10 +39,10 @@
             }
         });
 
-        const playbackState = await DataSource_Read(dataSource, Global_MediaPlaybackState);
+        const playbackState = await dataSource.read(Global_MediaPlaybackState);
         currentPlaybackState = Number(playbackState);
 
-        const currentState = await DataSource_Read(dataSource, Global_VisualizerWidgetState);
+        const currentState = await dataSource.read(Global_VisualizerWidgetState);
         applyState(currentState);
     }
 

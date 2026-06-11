@@ -1,3 +1,5 @@
+import { TrackLyrics_t } from "../../types/state";
+
 (function () {
     let uiLines: Array<{ time: number; text: string; element: HTMLElement }> = [];
     let currentActiveIndex: number | null = null;

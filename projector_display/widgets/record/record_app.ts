@@ -1,3 +1,5 @@
+import { MediaPlaybackState, RecordDesignData_t } from "../../types/state";
+
 (function () {
     const RECORD_SLIDE_MS_FOR_SPIN = 700;
     const TRACKLIST_FADE_MS_FOR_STAGGER = 220;

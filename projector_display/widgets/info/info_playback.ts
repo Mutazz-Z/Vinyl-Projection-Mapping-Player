@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { Global_InfoWidgetData, Global_InfoWidgetState, TitleAndArtist_t, WidgetState } from "../../types/state";
+
 (function () {
     function applyData(data: unknown): void {
         window.InfoWidget.updateData(TitleAndArtist_t.fromJson(data));
@@ -13,7 +16,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_InfoWidgetData.key:
                     applyData(data);
@@ -24,10 +27,10 @@
             }
         });
 
-        const currentData = await DataSource_Read(dataSource, Global_InfoWidgetData.key);
+        const currentData = await dataSource.read(Global_InfoWidgetData.key);
         applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_InfoWidgetState);
+        const currentState = await dataSource.read(Global_InfoWidgetState);
         applyState(currentState);
     }
 

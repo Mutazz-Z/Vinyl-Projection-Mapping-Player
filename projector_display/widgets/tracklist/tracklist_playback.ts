@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { TrackListWidgetData_t, WidgetState, Global_TrackListWidgetData, Global_TrackListWidgetState } from "../../types/state";
+
 (function () {
     let transitionToken = 0;
 
@@ -34,7 +37,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_TrackListWidgetData.key:
                     applyData(data);
@@ -45,10 +48,10 @@
             }
         });
 
-        const currentData = await DataSource_Read(dataSource, Global_TrackListWidgetData.key);
+        const currentData = await dataSource.read(Global_TrackListWidgetData.key);
         applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_TrackListWidgetState);
+        const currentState = await dataSource.read(Global_TrackListWidgetState);
         applyState(currentState);
     }
 

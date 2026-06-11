@@ -1,41 +1,61 @@
-(function () {
-    let currentMessage = '';
+import { DataSource } from "../../js/datasource";
+import { WidgetState, Global_DefinedProjectorErrorMessage, Global_PlaybackErrorMessageState } from "../../types/state";
 
-    function applyData(data: unknown): void {
-        currentMessage = typeof data === 'string' ? data : '';
+interface ContextMessagePrivateState {
+    dataSource: DataSource | null;
+    currentMessage: string;
+}
+
+export class ContextMessageWidgetPlayback {
+    private _private: ContextMessagePrivateState;
+
+    constructor() {
+        this._private = {
+            dataSource: null,
+            currentMessage: ''
+        };
     }
 
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
+    public applyData(data: string): void {
+        window.ContextMessageWidget?.updateData(data);
+        return;
+    }
 
-        if (numericState === WidgetState.Show) {
-            window.ContextMessageWidget?.show?.(currentMessage);
-            return;
-        }
+    public applyState(state: number): void {
 
-        if (numericState === WidgetState.Hide) {
-            window.ContextMessageWidget?.hide?.();
+        switch (state) {
+            case WidgetState.Show:
+                window.ContextMessageWidget?.show();
+                break;
+                
+            case WidgetState.Hide:
+                window.ContextMessageWidget?.hide();
+                break;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
-            switch (variable) {
+    public async init(dataSource: DataSource): Promise<void> {
+        this._private.dataSource = dataSource;
+
+        this._private.dataSource.onStateChanged((variable: unknown, data: unknown) => {
+            const globalVariable = variable as string;
+
+            switch (globalVariable) {
                 case Global_DefinedProjectorErrorMessage:
-                    applyData(data);
+                    this.applyData(data as string);
                     break;
                 case Global_PlaybackErrorMessageState:
-                    applyState(data);
+                    this.applyState(data as number);
                     break;
             }
         });
 
-        const currentData = await DataSource_Read<string>(dataSource, Global_DefinedProjectorErrorMessage);
-        applyData(currentData);
+        const currentData = await this._private.dataSource.read<string>(Global_DefinedProjectorErrorMessage);
+        this.applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_PlaybackErrorMessageState);
-        applyState(currentState);
+        const currentState = await this._private.dataSource.read<number>(Global_PlaybackErrorMessageState);
+        this.applyState(currentState);
     }
+}
 
-    window.ContextMessageWidgetPlayback = { init };
-})();
+window.ContextMessageWidgetPlayback = new ContextMessageWidgetPlayback();

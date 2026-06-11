@@ -1,3 +1,5 @@
+import { ProgressData_t } from "../../types/state";
+
 (function () {
     type ProgressShowOptions = {
         visible?: boolean;

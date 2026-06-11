@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { OverlayData_t, WidgetState, Global_OverlayWidgetData, Global_OverlayWidgetState } from "../../types/state";
+
 (function () {
     function applyData(data: unknown): void {
         window.OverlayWidget?.updateData?.(OverlayData_t.fromJson(data));
@@ -19,7 +22,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_OverlayWidgetData.key:
                     applyData(data);
@@ -30,10 +33,10 @@
             }
         });
 
-        const currentData = await DataSource_Read(dataSource, Global_OverlayWidgetData.key);
+        const currentData = await dataSource.read(Global_OverlayWidgetData.key);
         applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_OverlayWidgetState);
+        const currentState = await dataSource.read(Global_OverlayWidgetState);
         applyState(currentState);
     }
 

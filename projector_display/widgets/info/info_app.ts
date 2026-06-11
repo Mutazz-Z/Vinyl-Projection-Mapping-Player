@@ -1,3 +1,5 @@
+import { TitleAndArtist_t } from "../../types/state";
+
 (function () {
     let pendingTransitionCleanup: (() => void) | null = null;
     const appWindow = window as unknown as {

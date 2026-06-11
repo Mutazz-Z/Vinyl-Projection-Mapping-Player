@@ -1,27 +1,27 @@
-(function () {
-    function getContainer(): HTMLElement {
+export class ContextMessageWidget {
+    public getContainer(): HTMLElement {
         return document.getElementById('context-message-container') as HTMLElement;
     }
 
-    function getTextElement(): HTMLElement {
+    public getTextElement(): HTMLElement {
         return document.getElementById('context-message-text') as HTMLElement;
     }
 
-    function show(message?: string): void {
-        const container = getContainer();
-        const textElement = getTextElement();
+    public show(): void {
+        const container = this.getContainer();
 
-        textElement.textContent = message || '';
         container.classList.add('visible');
     }
 
-    function hide(): void {
-        const container = getContainer();
+    public hide(): void {
+        const container = this.getContainer();
         container.classList.remove('visible');
     }
 
-    window.ContextMessageWidget = {
-        show: show,
-        hide: hide,
-    };
-})();
+    public updateData(message: string): void {
+        const textElement = this.getTextElement();
+        textElement.textContent = message;
+    }
+}
+
+window.ContextMessageWidget = new ContextMessageWidget();

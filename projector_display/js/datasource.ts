@@ -1,135 +1,144 @@
-// ==========================================
-// datasource.ts
-// ==========================================
-
-type KeyDef<T = unknown> = string | {
+export type KeyDefinition<Type = unknown> = string | {
     key: string;
-    fromJson?: (json: unknown) => T;
+    fromJson?: (json: unknown) => Type;
 };
 
-type PendingRead = {
+export interface PendingReadRequest {
     resolve: (value: unknown) => void;
-    reject: (reason?: unknown) => void;
-    timeoutId: ReturnType<typeof setTimeout>;
-};
+    reject: (reason?: Error) => void;
+    timeoutIdentifier: ReturnType<typeof setTimeout>;
+}
 
-type DataSourceMessage = {
+export interface WebSocketMessage {
     action?: string;
     req_id?: string;
     error?: string;
     value?: unknown;
     Topic?: string;
-    Payload?: {
-        variable?: unknown;
-        data?: unknown;
-    };
-};
-
-class DataSource {
-    _webSocket: WebSocket;
-    _pendingReads: Record<string, PendingRead>;
-    _topicSubscribers: Record<string, Array<(payload: unknown) => void>>;
-    _onChangedCallbacks: Array<(variable: unknown, data: unknown) => void>;
-
-    constructor(webSocket: WebSocket) {
-        this._webSocket = webSocket;
-        this._pendingReads = {};
-        this._topicSubscribers = {};
-        this._onChangedCallbacks = [];
-
-        webSocket.addEventListener('message', (event) => DataSource__dispatch(this, event));
-    }
+    Payload?: unknown;
 }
 
-function DataSource__dispatch(dataSource: DataSource, messageEvent: MessageEvent): void {
-    const message = JSON.parse(String(messageEvent.data)) as DataSourceMessage;
+export interface DataSourceChangedPayload {
+    variable?: unknown;
+    data?: unknown;
+}
 
-    if (message.action === 'read_response' || message.action === 'read_error') {
-        if (!message.req_id) return;
-        const pending = dataSource._pendingReads[message.req_id];
-        if (!pending) return;
+export class DataSource {
+    private webSocketConnection: WebSocket;
+    private pendingReadRequests: Record<string, PendingReadRequest>;
+    private eventSubscribers: Record<string, Array<(payload: unknown) => void>>;
+    private stateChangedCallbacks: Array<(variable: unknown, data: unknown) => void>;
 
-        clearTimeout(pending.timeoutId);
-        delete dataSource._pendingReads[message.req_id];
+    constructor(webSocketConnection: WebSocket) {
+        this.webSocketConnection = webSocketConnection;
+        this.pendingReadRequests = {};
+        this.eventSubscribers = {};
+        this.stateChangedCallbacks = [];
 
-        if (message.action === 'read_error') {
-            const requestedKey = (message as { key?: unknown }).key;
-            const keyLabel = typeof requestedKey === 'string' && requestedKey ? requestedKey : 'unknown-key';
-            pending.reject(new Error(`DataSource_Read('${keyLabel}') failed: ${message.error}`));
-        } else {
-            pending.resolve(message.value);
+        this.webSocketConnection.addEventListener('message', (messageEvent) => this.dispatchMessage(messageEvent));
+    }
+
+    private dispatchMessage(messageEvent: MessageEvent): void {
+        const message = JSON.parse(String(messageEvent.data)) as WebSocketMessage;
+
+        if (message.action === 'read_response' || message.action === 'read_error') {
+            if (!message.req_id) {
+                return;
+            }
+            const pendingRequest = this.pendingReadRequests[message.req_id];
+            if (!pendingRequest) {
+                return;
+            }
+
+            clearTimeout(pendingRequest.timeoutIdentifier);
+            delete this.pendingReadRequests[message.req_id];
+
+            if (message.action === 'read_error') {
+                const requestedKey = (message as { key?: unknown }).key;
+                const keyLabel = typeof requestedKey === 'string' && requestedKey ? requestedKey : 'unknown-key';
+                pendingRequest.reject(new Error(`Read operation for '${keyLabel}' failed: ${message.error}`));
+            } else {
+                pendingRequest.resolve(message.value);
+            }
+            return;
         }
-        return;
+
+        const topic = message.Topic;
+        const payload = message.Payload;
+
+        if (topic === 'datasource') {
+            const changedPayload = payload as DataSourceChangedPayload;
+            this.stateChangedCallbacks.forEach((callback) => {
+                callback(changedPayload.variable, changedPayload.data);
+            });
+            return;
+        }
+
+        if (!topic) {
+            return;
+        }
+
+        const subscribers = this.eventSubscribers[topic];
+        if (subscribers) {
+            subscribers.forEach((callback) => {
+                callback(payload);
+            });
+        }
     }
 
-    const topic = message.Topic;
-    const payload = message.Payload;
-
-    if (topic === 'datasource') {
-        const v = payload?.variable;
-        const d = payload?.data;
-        dataSource._onChangedCallbacks.forEach(function (cb) { cb(v, d); });
-        return;
+    private sendNetworkMessage(messageObject: unknown): void {
+        if (this.webSocketConnection.readyState === WebSocket.OPEN) {
+            this.webSocketConnection.send(JSON.stringify(messageObject));
+        }
     }
 
-    if (!topic) return;
-    const subscribers = dataSource._topicSubscribers[topic];
-    if (subscribers) {
-        subscribers.forEach(function (callback) {
-            callback(payload);
+    private generateRequestIdentifier(): string {
+        return Math.random().toString(36).slice(2, 10);
+    }
+
+    public read<Type = unknown>(keyDefinition: KeyDefinition<Type>): Promise<Type> {
+        const keyString = typeof keyDefinition === 'object' ? keyDefinition.key : keyDefinition;
+        const parseFunction = typeof keyDefinition === 'object' ? keyDefinition.fromJson : null;
+
+        return new Promise<Type>((resolve, reject) => {
+            const requestIdentifier = this.generateRequestIdentifier();
+            const timeoutIdentifier = setTimeout(() => {
+                delete this.pendingReadRequests[requestIdentifier];
+                reject(new Error(`Read operation for '${keyString}' timed out`));
+            }, 5000);
+
+            this.pendingReadRequests[requestIdentifier] = {
+                resolve: (value: unknown) => {
+                    resolve((parseFunction && value != null ? parseFunction(value) : value) as Type);
+                },
+                reject: reject,
+                timeoutIdentifier: timeoutIdentifier,
+            };
+
+            this.sendNetworkMessage({ action: 'read', key: keyString, req_id: requestIdentifier });
         });
     }
-}
 
-function DataSource__send(dataSource: DataSource, object: unknown): void {
-    if (dataSource._webSocket.readyState === WebSocket.OPEN) {
-        dataSource._webSocket.send(JSON.stringify(object));
+    public write(keyDefinition: KeyDefinition, value: unknown): void {
+        const keyString = typeof keyDefinition === 'object' ? keyDefinition.key : keyDefinition;
+
+        let serializedValue = value;
+        if (value && typeof value === 'object' && 'toJson' in value && typeof (value as { toJson?: unknown }).toJson === 'function') {
+            serializedValue = (value as { toJson: () => unknown }).toJson();
+        }
+
+        this.sendNetworkMessage({ action: 'write', key: keyString, value: serializedValue });
     }
-}
 
-function DataSource__makeRequestId(): string {
-    return Math.random().toString(36).slice(2, 10);
-}
-
-function DataSource_Read<T = unknown>(dataSource: DataSource, keyDef: KeyDef<T>): Promise<T> {
-    const keyStr = typeof keyDef === 'object' ? keyDef.key : keyDef;
-    const fromJson = typeof keyDef === 'object' ? keyDef.fromJson : null;
-
-    return new Promise<T>(function (resolve, reject) {
-        const requestId = DataSource__makeRequestId();
-        const timeoutId = setTimeout(function () {
-            delete dataSource._pendingReads[requestId];
-            reject(new Error(`DataSource_Read('${keyStr}') timed out`));
-        }, 5000);
-
-        dataSource._pendingReads[requestId] = {
-            resolve: function (value) {
-                resolve((fromJson && value != null ? fromJson(value) : value) as T);
-            },
-            reject,
-            timeoutId,
-        };
-
-        DataSource__send(dataSource, { action: 'read', key: keyStr, req_id: requestId });
-    });
-}
-
-function DataSource_Write(dataSource: DataSource, keyDef: KeyDef, value: unknown): void {
-    const keyStr = typeof keyDef === 'object' ? keyDef.key : keyDef;
-    const serialised = (value && typeof value === 'object' && 'toJson' in value && typeof (value as { toJson?: unknown }).toJson === 'function')
-        ? (value as { toJson: () => unknown }).toJson()
-        : value;
-    DataSource__send(dataSource, { action: 'write', key: keyStr, value: serialised });
-}
-
-function DataSource_Subscribe(dataSource: DataSource, topic: string, callback: (payload: unknown) => void): void {
-    if (!dataSource._topicSubscribers[topic]) {
-        dataSource._topicSubscribers[topic] = [];
-        DataSource__send(dataSource, { action: 'subscribe', topic: topic });
+    public subscribe(topic: string, callback: (payload: unknown) => void): void {
+        if (!this.eventSubscribers[topic]) {
+            this.eventSubscribers[topic] = [];
+            this.sendNetworkMessage({ action: 'subscribe', topic: topic });
+        }
+        this.eventSubscribers[topic].push(callback);
     }
-    dataSource._topicSubscribers[topic].push(callback);
-}
 
-function DataSource_OnChanged(dataSource: DataSource, callback: (variable: unknown, data: unknown) => void): void {
-    dataSource._onChangedCallbacks.push(callback);
+    public onStateChanged(callback: (variable: unknown, data: unknown) => void): void {
+        this.stateChangedCallbacks.push(callback);
+    }
 }

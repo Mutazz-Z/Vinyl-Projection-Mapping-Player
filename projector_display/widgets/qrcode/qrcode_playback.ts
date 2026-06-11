@@ -1,3 +1,6 @@
+import { DataSource } from "../../js/datasource";
+import { QrCodeData_t, WidgetState, Global_QrCodeWidgetData, Global_QrCodeWidgetState } from "../../types/state";
+
 (function () {
     let currentQrCodeData: QrCodeData_t | null = null;
     let currentWidgetState: number = WidgetState.Hide;
@@ -26,7 +29,7 @@
     }
 
     async function init(dataSource: DataSource): Promise<void> {
-        DataSource_OnChanged(dataSource, function (variable, data) {
+        dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_QrCodeWidgetData.key:
                     applyData(data);
@@ -37,10 +40,10 @@
             }
         });
 
-        const currentData = await DataSource_Read(dataSource, Global_QrCodeWidgetData.key);
+        const currentData = await dataSource.read(Global_QrCodeWidgetData.key);
         applyData(currentData);
 
-        const currentState = await DataSource_Read(dataSource, Global_QrCodeWidgetState);
+        const currentState = await dataSource.read(Global_QrCodeWidgetState);
         applyState(currentState);
     }
 
