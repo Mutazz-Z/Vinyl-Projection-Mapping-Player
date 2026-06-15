@@ -2,6 +2,7 @@ import { Global_ActiveTrack, ActiveTrack_t, Global_ProjectorHeartbeatSignal, Glo
 import { ContextMessageWidgetPlayback } from "../widgets/context_message/context_message_playback";
 import { InfoWidgetPlayback } from "../widgets/info/info_playback";
 import { LoadingWidgetPlayback } from "../widgets/loading/loading_playback";
+import { OverlayWidgetPlayback } from "../widgets/overlay/overlay_playback";
 import { DataSource } from "./datasource";
 
 (function () {
@@ -50,7 +51,7 @@ import { DataSource } from "./datasource";
 
             await Promise.all([
                 LoadingWidgetPlayback.init(dataSource),
-                window.OverlayWidgetPlayback.init(dataSource),
+                OverlayWidgetPlayback.init(dataSource),
                 window.RecordWidgetPlayback.init(dataSource),
                 window.TracklistWidgetPlayback.init(dataSource),
                 window.ProgressWidgetPlayback.init(dataSource),

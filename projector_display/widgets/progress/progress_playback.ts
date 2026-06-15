@@ -3,7 +3,6 @@ import { WidgetState, ProgressData_t, Global_ProgressWidgetState, Global_TrackLi
 
 (function () {
     let hasOwnStateKey = true;
-    let currentState: number = WidgetState.Hide;
     let unsubscribePlaybackClock: (() => void) | null = null;
 
     function setProgressVisible(visible: boolean): void {
@@ -26,7 +25,6 @@ import { WidgetState, ProgressData_t, Global_ProgressWidgetState, Global_TrackLi
 
     function applyState(state: unknown): void {
         const numericState = Number(state);
-        currentState = numericState;
 
         if (numericState === WidgetState.Show) {
             setProgressVisible(true);
@@ -40,18 +38,16 @@ import { WidgetState, ProgressData_t, Global_ProgressWidgetState, Global_TrackLi
         }
     }
 
-    // Called by tracklist_playback when it receives Global_TrackListWidgetState
-    function onTrackListState(state: number): void {
-        if (!hasOwnStateKey) {
-            applyState(state);
-        }
-    }
-
     async function init(dataSource: DataSource): Promise<void> {
         dataSource.onStateChanged(function (variable, data) {
             switch (variable) {
                 case Global_ProgressWidgetState:
                     applyState(data);
+                    break;
+                case Global_TrackListWidgetState:
+                    if (!hasOwnStateKey) {
+                        applyState(data);
+                    }
                     break;
             }
         });
@@ -73,5 +69,5 @@ import { WidgetState, ProgressData_t, Global_ProgressWidgetState, Global_TrackLi
         }
     }
 
-    window.ProgressWidgetPlayback = { init, onTrackListState };
+    window.ProgressWidgetPlayback = { init };
 })();

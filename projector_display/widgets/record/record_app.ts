@@ -304,11 +304,6 @@ import { MediaPlaybackState, RecordDesignData_t } from "../../types/state";
             recordContainer.style.display = 'none';
             clearDesignData();
             currentDesignData = {};
-            window.OverlayWidget?.hide?.({
-                visible: false,
-                clearOverlayArt: true,
-                resetStatus: true,
-            });
         }, delayMs);
 
         return cleanupTimer;

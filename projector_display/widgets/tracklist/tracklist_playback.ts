@@ -32,8 +32,6 @@ import { TrackListWidgetData_t, WidgetState, Global_TrackListWidgetData, Global_
                 },
             });
         }
-
-        window.ProgressWidgetPlayback?.onTrackListState?.(numericState);
     }
 
     async function init(dataSource: DataSource): Promise<void> {

@@ -307,6 +307,7 @@
   var Global_InfoWidgetData = { key: "Global_InfoWidgetData", fromJson: TitleAndArtist_t.fromJson };
   var Global_InfoWidgetState = "Global_InfoWidgetState";
   var Global_OverlayWidgetData = { key: "Global_OverlayWidgetData", fromJson: OverlayData_t.fromJson };
+  var Global_OverlayWidgetState = "Global_OverlayWidgetState";
   var Global_RecordWidgetData = { key: "Global_RecordWidgetData", fromJson: RecordDesignData_t.fromJson };
   var Global_TrackListWidgetData = { key: "Global_TrackListWidgetData", fromJson: TrackListWidgetData_t.fromJson };
   var Global_ProgressWidgetData = { key: "Global_ProgressWidgetData", fromJson: ProgressData_t.fromJson };
@@ -749,6 +750,119 @@
   };
   var LoadingWidgetPlayback = new LoadingWidgetPlayback_t();
 
+  // widgets/overlay/overlay_app.ts
+  var OverlayWidget_t = class {
+    constructor() {
+      this._private = {
+        statusTimer: null
+      };
+    }
+    getOverlayContainer() {
+      return document.getElementById("fx-video-container");
+    }
+    setActive(active) {
+      const overlayContainer = this.getOverlayContainer();
+      overlayContainer.classList.toggle("active", Boolean(active));
+    }
+    setOverlayArt(url) {
+      const overlayContainer = this.getOverlayContainer();
+      if (url) {
+        const safeOverlayUrl = String(url).replace(/"/g, '\\"');
+        overlayContainer.style.backgroundImage = 'url("' + safeOverlayUrl + '")';
+        overlayContainer.style.backgroundSize = "cover";
+        overlayContainer.style.backgroundPosition = "center center";
+        overlayContainer.style.backgroundRepeat = "no-repeat";
+      } else {
+        overlayContainer.style.backgroundImage = "none";
+      }
+    }
+    showStatusIcon(type) {
+      const iconElement = document.getElementById("status-icon-overlay");
+      const overlayContainer = this.getOverlayContainer();
+      if (overlayContainer) {
+        overlayContainer.classList.toggle("paused", type === "pause");
+      }
+      if (this._private.statusTimer) {
+        clearTimeout(this._private.statusTimer);
+        this._private.statusTimer = null;
+      }
+      let imgPath = "";
+      if (type === "play") imgPath = "widgets/assets/play_overlay.png";
+      else if (type === "pause") imgPath = "widgets/assets/pause_overlay.png";
+      if (!imgPath) {
+        iconElement.classList.remove("visible");
+        return;
+      }
+      iconElement.style.backgroundImage = 'url("' + imgPath + '")';
+      void iconElement.offsetWidth;
+      iconElement.classList.add("visible");
+      if (type !== "pause") {
+        this._private.statusTimer = setTimeout(function() {
+          iconElement.classList.remove("visible");
+        }, 2e3);
+      }
+    }
+    updateData(overlayData) {
+      this.setOverlayArt(overlayData.overlayImage);
+    }
+    show() {
+      this.setActive(true);
+    }
+    hide() {
+      this.setActive(false);
+    }
+    play() {
+      this.show();
+      this.showStatusIcon("play");
+    }
+    pause() {
+      this.show();
+      this.showStatusIcon("pause");
+    }
+  };
+  var OverlayWidget = new OverlayWidget_t();
+
+  // widgets/overlay/overlay_playback.ts
+  var OverlayWidgetPlayback_t = class {
+    applyData(data) {
+      OverlayWidget.updateData(OverlayData_t.fromJson(data));
+    }
+    applyState(state) {
+      switch (state) {
+        case 1 /* Show */:
+          OverlayWidget.show();
+          break;
+        case 0 /* Hide */:
+          OverlayWidget.hide();
+          break;
+        case 2 /* Pause */:
+          OverlayWidget.pause();
+          break;
+        case 3 /* Resume */:
+          OverlayWidget.play();
+          break;
+      }
+    }
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
+        const globalVariable = variable;
+        switch (globalVariable) {
+          case Global_OverlayWidgetData.key:
+            this.applyData(data);
+            break;
+          case Global_OverlayWidgetState:
+            this.applyState(data);
+            break;
+        }
+      });
+      const currentData = await dataSource.read(Global_OverlayWidgetData);
+      this.applyData(currentData);
+      const currentState = await dataSource.read(Global_OverlayWidgetState);
+      this.applyState(currentState);
+    }
+  };
+  var OverlayWidgetPlayback = new OverlayWidgetPlayback_t();
+
   // js/datasource.ts
   var DataSource = class {
     constructor(webSocketConnection) {
@@ -879,7 +993,7 @@
         });
         await Promise.all([
           LoadingWidgetPlayback.init(dataSource),
-          window.OverlayWidgetPlayback.init(dataSource),
+          OverlayWidgetPlayback.init(dataSource),
           window.RecordWidgetPlayback.init(dataSource),
           window.TracklistWidgetPlayback.init(dataSource),
           window.ProgressWidgetPlayback.init(dataSource),

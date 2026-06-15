@@ -339,7 +339,6 @@
           }
         });
       }
-      window.ProgressWidgetPlayback?.onTrackListState?.(numericState);
     }
     async function init(dataSource) {
       dataSource.onStateChanged(function(variable, data) {

@@ -314,7 +314,6 @@
   // widgets/progress/progress_playback.ts
   (function() {
     let hasOwnStateKey = true;
-    let currentState = 0 /* Hide */;
     let unsubscribePlaybackClock = null;
     function setProgressVisible(visible) {
       const container = document.querySelector("#progress-widget .progress-container");
@@ -330,7 +329,6 @@
     }
     function applyState(state) {
       const numericState = Number(state);
-      currentState = numericState;
       if (numericState === 1 /* Show */) {
         setProgressVisible(true);
         window.ProgressWidget?.show?.();
@@ -341,16 +339,16 @@
         window.ProgressWidget?.hide?.({ reset: true });
       }
     }
-    function onTrackListState(state) {
-      if (!hasOwnStateKey) {
-        applyState(state);
-      }
-    }
     async function init(dataSource) {
       dataSource.onStateChanged(function(variable, data) {
         switch (variable) {
           case Global_ProgressWidgetState:
             applyState(data);
+            break;
+          case Global_TrackListWidgetState:
+            if (!hasOwnStateKey) {
+              applyState(data);
+            }
             break;
         }
       });
@@ -369,6 +367,6 @@
         applyState(fallbackState);
       }
     }
-    window.ProgressWidgetPlayback = { init, onTrackListState };
+    window.ProgressWidgetPlayback = { init };
   })();
 })();

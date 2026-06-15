@@ -310,39 +310,116 @@
   var Global_QrCodeWidgetData = { key: "Global_QrCodeWidgetData", fromJson: QrCodeData_t.fromJson };
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
 
-  // widgets/overlay/overlay_playback.ts
-  (function() {
-    function applyData(data) {
-      window.OverlayWidget?.updateData?.(OverlayData_t.fromJson(data));
+  // widgets/overlay/overlay_app.ts
+  var OverlayWidget_t = class {
+    constructor() {
+      this._private = {
+        statusTimer: null
+      };
     }
-    function applyState(state) {
-      const numericState = Number(state);
-      if (numericState === 1 /* Show */) {
-        window.OverlayWidget?.show?.();
-      } else if (numericState === 0 /* Hide */) {
-        window.OverlayWidget?.hide?.();
-      } else if (numericState === 2 /* Pause */) {
-        window.OverlayWidget?.show?.({ statusIconType: "pause" });
-      } else if (numericState === 3 /* Resume */) {
-        window.OverlayWidget?.show?.({ statusIconType: "play" });
+    getOverlayContainer() {
+      return document.getElementById("fx-video-container");
+    }
+    setActive(active) {
+      const overlayContainer = this.getOverlayContainer();
+      overlayContainer.classList.toggle("active", Boolean(active));
+    }
+    setOverlayArt(url) {
+      const overlayContainer = this.getOverlayContainer();
+      if (url) {
+        const safeOverlayUrl = String(url).replace(/"/g, '\\"');
+        overlayContainer.style.backgroundImage = 'url("' + safeOverlayUrl + '")';
+        overlayContainer.style.backgroundSize = "cover";
+        overlayContainer.style.backgroundPosition = "center center";
+        overlayContainer.style.backgroundRepeat = "no-repeat";
+      } else {
+        overlayContainer.style.backgroundImage = "none";
       }
     }
-    async function init(dataSource) {
-      dataSource.onStateChanged(function(variable, data) {
-        switch (variable) {
+    showStatusIcon(type) {
+      const iconElement = document.getElementById("status-icon-overlay");
+      const overlayContainer = this.getOverlayContainer();
+      if (overlayContainer) {
+        overlayContainer.classList.toggle("paused", type === "pause");
+      }
+      if (this._private.statusTimer) {
+        clearTimeout(this._private.statusTimer);
+        this._private.statusTimer = null;
+      }
+      let imgPath = "";
+      if (type === "play") imgPath = "widgets/assets/play_overlay.png";
+      else if (type === "pause") imgPath = "widgets/assets/pause_overlay.png";
+      if (!imgPath) {
+        iconElement.classList.remove("visible");
+        return;
+      }
+      iconElement.style.backgroundImage = 'url("' + imgPath + '")';
+      void iconElement.offsetWidth;
+      iconElement.classList.add("visible");
+      if (type !== "pause") {
+        this._private.statusTimer = setTimeout(function() {
+          iconElement.classList.remove("visible");
+        }, 2e3);
+      }
+    }
+    updateData(overlayData) {
+      this.setOverlayArt(overlayData.overlayImage);
+    }
+    show() {
+      this.setActive(true);
+    }
+    hide() {
+      this.setActive(false);
+    }
+    play() {
+      this.show();
+      this.showStatusIcon("play");
+    }
+    pause() {
+      this.show();
+      this.showStatusIcon("pause");
+    }
+  };
+  var OverlayWidget = new OverlayWidget_t();
+
+  // widgets/overlay/overlay_playback.ts
+  var OverlayWidgetPlayback_t = class {
+    applyData(data) {
+      OverlayWidget.updateData(OverlayData_t.fromJson(data));
+    }
+    applyState(state) {
+      switch (state) {
+        case 1 /* Show */:
+          OverlayWidget.show();
+          break;
+        case 0 /* Hide */:
+          OverlayWidget.hide();
+          break;
+        case 2 /* Pause */:
+          OverlayWidget.pause();
+          break;
+        case 3 /* Resume */:
+          OverlayWidget.play();
+          break;
+      }
+    }
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
+        const globalVariable = variable;
+        switch (globalVariable) {
           case Global_OverlayWidgetData.key:
-            applyData(data);
+            this.applyData(data);
             break;
           case Global_OverlayWidgetState:
-            applyState(data);
+            this.applyState(data);
             break;
         }
       });
-      const currentData = await dataSource.read(Global_OverlayWidgetData.key);
-      applyData(currentData);
+      const currentData = await dataSource.read(Global_OverlayWidgetData);
+      this.applyData(currentData);
       const currentState = await dataSource.read(Global_OverlayWidgetState);
-      applyState(currentState);
+      this.applyState(currentState);
     }
-    window.OverlayWidgetPlayback = { init };
-  })();
+  };
+  var OverlayWidgetPlayback = new OverlayWidgetPlayback_t();
 })();

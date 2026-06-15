@@ -439,7 +439,6 @@
         return;
       }
       if (hasLyricsForCurrentTrack && latestLyricsData) {
-        window.VisualizerWidget?.hide?.();
         displayWidget();
         if (renderedLyricsData !== latestLyricsData) {
           updateLyrics(latestLyricsData);
@@ -451,7 +450,6 @@
         clear();
         renderedLyricsData = null;
       });
-      window.VisualizerWidget?.play?.();
     }
     window.LyricsWidget = {
       show,

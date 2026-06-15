@@ -5,7 +5,6 @@ import {
   TrackListWidgetData_t,
   RecordDesignData_t,
   ProgressData_t,
-  OverlayData_t,
   TitleAndArtist_t
 } from './state';
 
@@ -57,12 +56,6 @@ interface ProgressWidgetApi {
   updateData?: (progressData: ProgressData_t) => void;
 }
 
-interface OverlayWidgetApi {
-  show?: (options?: unknown) => void;
-  hide?: (options?: unknown) => void;
-  updateData?: (overlayData: OverlayData_t) => void;
-}
-
 interface ProjectorMappingApi {
   updateLayout: (layoutData: unknown) => void;
   toggleMode: () => void;
@@ -70,10 +63,6 @@ interface ProjectorMappingApi {
 
 interface WidgetPlaybackController {
   init: (dataSource: DataSource) => Promise<void>;
-}
-
-interface ProgressWidgetPlaybackController extends WidgetPlaybackController {
-  onTrackListState?: (state: number) => void;
 }
 
 interface QrCodeWidgetPlaybackController extends WidgetPlaybackController { }
@@ -135,14 +124,12 @@ declare global {
     };
     VisualizerWidget?: PlaybackControlWidget;
     RecordWidget?: RecordWidgetApi;
-    OverlayWidget?: OverlayWidgetApi;
     ProgressWidget?: ProgressWidgetApi;
     TracklistWidget?: TracklistWidgetApi;
     QrCodeWidget?: QrCodeWidgetApi;
-    OverlayWidgetPlayback: WidgetPlaybackController;
     RecordWidgetPlayback: WidgetPlaybackController;
     TracklistWidgetPlayback: WidgetPlaybackController;
-    ProgressWidgetPlayback: ProgressWidgetPlaybackController;
+    ProgressWidgetPlayback: WidgetPlaybackController;
     LyricsWidgetPlayback: WidgetPlaybackController;
     VisualizerWidgetPlayback: WidgetPlaybackController;
     QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;

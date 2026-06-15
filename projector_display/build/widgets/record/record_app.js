@@ -520,11 +520,6 @@
         recordContainer.style.display = "none";
         clearDesignData();
         currentDesignData = {};
-        window.OverlayWidget?.hide?.({
-          visible: false,
-          clearOverlayArt: true,
-          resetStatus: true
-        });
       }, delayMs);
       return cleanupTimer;
     }

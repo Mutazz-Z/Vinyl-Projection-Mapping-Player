@@ -544,8 +544,6 @@ import { TrackLyrics_t } from "../../types/state";
         }
 
         if (hasLyricsForCurrentTrack && latestLyricsData) {
-            window.VisualizerWidget?.hide?.();
-
             displayWidget();
 
             if (renderedLyricsData !== latestLyricsData) {
@@ -559,8 +557,6 @@ import { TrackLyrics_t } from "../../types/state";
             clear();
             renderedLyricsData = null;
         });
-
-        window.VisualizerWidget?.play?.();
     }
 
     window.LyricsWidget = {
