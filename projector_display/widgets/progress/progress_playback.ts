@@ -1,73 +1,56 @@
 import { DataSource } from "../../js/datasource";
-import { WidgetState, ProgressData_t, Global_ProgressWidgetState, Global_TrackListWidgetState } from "../../types/state";
+import { WidgetState, ProgressData_t, Global_ProgressWidgetState } from "../../types/state";
+import { ProgressWidget } from "./progress_app";
 
-(function () {
-    let hasOwnStateKey = true;
-    let unsubscribePlaybackClock: (() => void) | null = null;
+type ProgressClockSnapshot = {
+    progressSeconds: number;
+    durationSeconds: number;
+    playbackState: number;
+};
 
-    function setProgressVisible(visible: boolean): void {
-        const container = document.querySelector('#progress-widget .progress-container');
-        if (!container) return;
-        container.classList.toggle('visible', visible);
-    }
+export class ProgressWidgetPlayback_t {
+    private unsubscribePlaybackClock: (() => void) | null = null;
 
-    function applyClockSnapshot(clockSnapshot: {
-        progressSeconds: number;
-        durationSeconds: number;
-        playbackState: number;
-    }): void {
-        window.ProgressWidget?.updateData?.(ProgressData_t.fromJson({
+    private applyClockSnapshot(clockSnapshot: ProgressClockSnapshot): void {
+        ProgressWidget.updateData(ProgressData_t.fromJson({
             currentDurationInTrack: clockSnapshot.progressSeconds,
             totalDurationInTrack: clockSnapshot.durationSeconds,
             readyForDisplay: clockSnapshot.durationSeconds > 0,
         }));
     }
 
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
+    private applyState(state: number): void {
+        switch (state) {
+            case WidgetState.Show:
+                ProgressWidget.show();
+                break;
 
-        if (numericState === WidgetState.Show) {
-            setProgressVisible(true);
-            window.ProgressWidget?.show?.();
-            return;
-        }
-
-        if (numericState === WidgetState.Hide) {
-            setProgressVisible(false);
-            window.ProgressWidget?.hide?.({ reset: true });
+            case WidgetState.Hide:
+                ProgressWidget.hide();
+                break;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
-            switch (variable) {
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable: unknown, data: unknown) => {
+            const globalVariable = variable as string;
+
+            switch (globalVariable) {
                 case Global_ProgressWidgetState:
-                    applyState(data);
-                    break;
-                case Global_TrackListWidgetState:
-                    if (!hasOwnStateKey) {
-                        applyState(data);
-                    }
+                    this.applyState(data as number);
                     break;
             }
         });
 
         await window.PlaybackClock.init(dataSource);
-        if (unsubscribePlaybackClock) unsubscribePlaybackClock();
-        unsubscribePlaybackClock = window.PlaybackClock.subscribe(function (clockSnapshot) {
-            applyClockSnapshot(clockSnapshot);
+        if (this.unsubscribePlaybackClock) this.unsubscribePlaybackClock();
+        this.unsubscribePlaybackClock = window.PlaybackClock.subscribe((clockSnapshot) => {
+            this.applyClockSnapshot(clockSnapshot);
         });
 
-        try {
-            const state = await dataSource.read(Global_ProgressWidgetState);
-            applyState(state);
-        } catch {
-            hasOwnStateKey = false;
-            console.warn('[Progress] Global_ProgressWidgetState unavailable; mirroring TrackListWidgetState.');
-            const fallbackState = await dataSource.read(Global_TrackListWidgetState);
-            applyState(fallbackState);
-        }
+        const state = await dataSource.read<number>(Global_ProgressWidgetState);
+        this.applyState(state);
     }
+}
 
-    window.ProgressWidgetPlayback = { init };
-})();
+export const ProgressWidgetPlayback = new ProgressWidgetPlayback_t();

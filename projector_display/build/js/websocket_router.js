@@ -311,6 +311,7 @@
   var Global_RecordWidgetData = { key: "Global_RecordWidgetData", fromJson: RecordDesignData_t.fromJson };
   var Global_TrackListWidgetData = { key: "Global_TrackListWidgetData", fromJson: TrackListWidgetData_t.fromJson };
   var Global_ProgressWidgetData = { key: "Global_ProgressWidgetData", fromJson: ProgressData_t.fromJson };
+  var Global_ProgressWidgetState = "Global_ProgressWidgetState";
   var Global_LyricsWidgetData = { key: "Global_LyricsWidgetData", fromJson: LyricData_t.fromJson };
   var Global_QrCodeWidgetData = { key: "Global_QrCodeWidgetData", fromJson: QrCodeData_t.fromJson };
   var Global_PlaybackErrorMessageState = "Global_PlaybackErrorMessageState";
@@ -863,6 +864,100 @@
   };
   var OverlayWidgetPlayback = new OverlayWidgetPlayback_t();
 
+  // widgets/progress/progress_app.ts
+  var ProgressWidget_t = class {
+    constructor() {
+      this._private = {
+        lastProgressSeconds: 0,
+        lastDurationSeconds: 0
+      };
+    }
+    getContainer() {
+      return document.querySelector("#progress-widget .progress-container");
+    }
+    show() {
+      const containerElement = this.getContainer();
+      containerElement.classList.add("visible");
+      this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
+    }
+    hide() {
+      const containerElement = this.getContainer();
+      containerElement.classList.remove("visible");
+      this.reset();
+    }
+    formatTimeInMinutesAndSeconds(seconds) {
+      if (isNaN(seconds)) return "0:00";
+      const minutes = Math.floor(seconds / 60);
+      const secondsPart = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return minutes + ":" + secondsPart;
+    }
+    reset() {
+      this._private.lastProgressSeconds = 0;
+      this._private.lastDurationSeconds = 0;
+      this.renderFromValues(0, 0);
+    }
+    renderFromValues(progressSeconds, durationSeconds) {
+      const boundedDuration = Number(durationSeconds || 0);
+      const boundedProgress = Number(progressSeconds || 0);
+      if (!durationSeconds || durationSeconds <= 0) return;
+      const progressPercentage = boundedProgress / boundedDuration * 100;
+      const progressBarElement = document.getElementById("progress-bar");
+      if (progressBarElement) progressBarElement.style.width = progressPercentage + "%";
+      const currentTimeElement = document.getElementById("current-time");
+      const totalTimeElement = document.getElementById("total-time");
+      if (currentTimeElement) currentTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedProgress);
+      if (totalTimeElement) totalTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedDuration);
+    }
+    updateData(progressData) {
+      this._private.lastProgressSeconds = Number(progressData.currentDurationInTrack || 0);
+      this._private.lastDurationSeconds = Number(progressData.totalDurationInTrack || 0);
+      this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
+    }
+  };
+  var ProgressWidget = new ProgressWidget_t();
+
+  // widgets/progress/progress_playback.ts
+  var ProgressWidgetPlayback_t = class {
+    constructor() {
+      this.unsubscribePlaybackClock = null;
+    }
+    applyClockSnapshot(clockSnapshot) {
+      ProgressWidget.updateData(ProgressData_t.fromJson({
+        currentDurationInTrack: clockSnapshot.progressSeconds,
+        totalDurationInTrack: clockSnapshot.durationSeconds,
+        readyForDisplay: clockSnapshot.durationSeconds > 0
+      }));
+    }
+    applyState(state) {
+      switch (state) {
+        case 1 /* Show */:
+          ProgressWidget.show();
+          break;
+        case 0 /* Hide */:
+          ProgressWidget.hide();
+          break;
+      }
+    }
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
+        const globalVariable = variable;
+        switch (globalVariable) {
+          case Global_ProgressWidgetState:
+            this.applyState(data);
+            break;
+        }
+      });
+      await window.PlaybackClock.init(dataSource);
+      if (this.unsubscribePlaybackClock) this.unsubscribePlaybackClock();
+      this.unsubscribePlaybackClock = window.PlaybackClock.subscribe((clockSnapshot) => {
+        this.applyClockSnapshot(clockSnapshot);
+      });
+      const state = await dataSource.read(Global_ProgressWidgetState);
+      this.applyState(state);
+    }
+  };
+  var ProgressWidgetPlayback = new ProgressWidgetPlayback_t();
+
   // js/datasource.ts
   var DataSource = class {
     constructor(webSocketConnection) {
@@ -996,7 +1091,7 @@
           OverlayWidgetPlayback.init(dataSource),
           window.RecordWidgetPlayback.init(dataSource),
           window.TracklistWidgetPlayback.init(dataSource),
-          window.ProgressWidgetPlayback.init(dataSource),
+          ProgressWidgetPlayback.init(dataSource),
           window.LyricsWidgetPlayback.init(dataSource),
           window.VisualizerWidgetPlayback.init(dataSource),
           InfoWidgetPlayback.init(dataSource),

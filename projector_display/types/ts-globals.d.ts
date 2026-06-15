@@ -4,7 +4,6 @@ import {
   QrCodeData_t,
   TrackListWidgetData_t,
   RecordDesignData_t,
-  ProgressData_t,
   TitleAndArtist_t
 } from './state';
 
@@ -48,12 +47,6 @@ interface RecordWidgetApi {
   play?: () => void;
   pause?: () => void;
   ejectRecord?: () => void;
-}
-
-interface ProgressWidgetApi {
-  show?: (options?: unknown) => void;
-  hide?: (options?: unknown) => void;
-  updateData?: (progressData: ProgressData_t) => void;
 }
 
 interface ProjectorMappingApi {
@@ -124,12 +117,10 @@ declare global {
     };
     VisualizerWidget?: PlaybackControlWidget;
     RecordWidget?: RecordWidgetApi;
-    ProgressWidget?: ProgressWidgetApi;
     TracklistWidget?: TracklistWidgetApi;
     QrCodeWidget?: QrCodeWidgetApi;
     RecordWidgetPlayback: WidgetPlaybackController;
     TracklistWidgetPlayback: WidgetPlaybackController;
-    ProgressWidgetPlayback: WidgetPlaybackController;
     LyricsWidgetPlayback: WidgetPlaybackController;
     VisualizerWidgetPlayback: WidgetPlaybackController;
     QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;

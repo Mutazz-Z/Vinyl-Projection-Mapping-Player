@@ -1,62 +1,52 @@
 import { ProgressData_t } from "../../types/state";
 
-(function () {
-    type ProgressShowOptions = {
-        visible?: boolean;
-        reset?: boolean;
-    };
+interface ProgressWidgetPrivateState_t {
+    lastProgressSeconds: number;
+    lastDurationSeconds: number;
+}
 
-    type ProgressHideOptions = {
-        visible?: boolean;
-        reset?: boolean;
-    };
+export class ProgressWidget_t {
+    private _private: ProgressWidgetPrivateState_t;
 
-    function getContainer(): Element | null {
-        return document.querySelector('#progress-widget .progress-container');
+    constructor() {
+        this._private = {
+            lastProgressSeconds: 0,
+            lastDurationSeconds: 0,
+        };
     }
 
-    function show(options?: unknown): void {
-        const config: ProgressShowOptions = (options && typeof options === 'object') ? (options as ProgressShowOptions) : {};
-        const containerElement = getContainer();
-
-        if (config.visible !== false && containerElement) {
-            containerElement.classList.add('visible');
-        }
-
-        if (config.reset === true) {
-            reset();
-        }
-
-        renderFromValues(lastProgressSeconds, lastDurationSeconds);
+    private getContainer(): Element {
+        return document.querySelector('#progress-widget .progress-container') as Element;
     }
 
-    function hide(options?: unknown): void {
-        const config: ProgressHideOptions = (options && typeof options === 'object') ? (options as ProgressHideOptions) : {};
-        const containerElement = getContainer();
+    public show(): void {
+        const containerElement = this.getContainer();
+        containerElement.classList.add('visible');
 
-        if (config.visible !== false && containerElement) {
-            containerElement.classList.remove('visible');
-        }
-
-        if (config.reset === true) {
-            reset();
-        }
+        this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
     }
 
-    function formatTimeInMinutesAndSeconds(seconds: number): string {
+    public hide(): void {
+        const containerElement = this.getContainer();
+        containerElement.classList.remove('visible');
+
+        this.reset();
+    }
+
+    private formatTimeInMinutesAndSeconds(seconds: number): string {
         if (isNaN(seconds)) return '0:00';
         const minutes = Math.floor(seconds / 60);
         const secondsPart = Math.floor(seconds % 60).toString().padStart(2, '0');
         return minutes + ':' + secondsPart;
     }
 
-    function reset(): void {
-        lastProgressSeconds = 0;
-        lastDurationSeconds = 0;
-        renderFromValues(0, 0);
+    private reset(): void {
+        this._private.lastProgressSeconds = 0;
+        this._private.lastDurationSeconds = 0;
+        this.renderFromValues(0, 0);
     }
 
-    function renderFromValues(progressSeconds: number, durationSeconds: number): void {
+    private renderFromValues(progressSeconds: number, durationSeconds: number): void {
         const boundedDuration = Number(durationSeconds || 0);
         const boundedProgress = Number(progressSeconds || 0);
         if (!durationSeconds || durationSeconds <= 0) return;
@@ -67,24 +57,15 @@ import { ProgressData_t } from "../../types/state";
 
         const currentTimeElement = document.getElementById('current-time');
         const totalTimeElement = document.getElementById('total-time');
-        if (currentTimeElement) currentTimeElement.textContent = formatTimeInMinutesAndSeconds(boundedProgress);
-        if (totalTimeElement) totalTimeElement.textContent = formatTimeInMinutesAndSeconds(boundedDuration);
+        if (currentTimeElement) currentTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedProgress);
+        if (totalTimeElement) totalTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedDuration);
     }
 
-    let lastProgressSeconds = 0;
-    let lastDurationSeconds = 0;
-
-    function updateData(progressData: ProgressData_t): void {
-        if (!progressData || typeof progressData !== 'object') return;
-
-        lastProgressSeconds = Number(progressData.currentDurationInTrack || 0);
-        lastDurationSeconds = Number(progressData.totalDurationInTrack || 0);
-        renderFromValues(lastProgressSeconds, lastDurationSeconds);
+    public updateData(progressData: ProgressData_t): void {
+        this._private.lastProgressSeconds = Number(progressData.currentDurationInTrack || 0);
+        this._private.lastDurationSeconds = Number(progressData.totalDurationInTrack || 0);
+        this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
     }
+}
 
-    window.ProgressWidget = {
-        show: show,
-        hide: hide,
-        updateData: updateData,
-    };
-})();
+export const ProgressWidget = new ProgressWidget_t();

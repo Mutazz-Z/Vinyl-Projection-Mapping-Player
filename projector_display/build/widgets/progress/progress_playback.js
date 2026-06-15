@@ -304,69 +304,103 @@
   var Global_OverlayWidgetData = { key: "Global_OverlayWidgetData", fromJson: OverlayData_t.fromJson };
   var Global_RecordWidgetData = { key: "Global_RecordWidgetData", fromJson: RecordDesignData_t.fromJson };
   var Global_TrackListWidgetData = { key: "Global_TrackListWidgetData", fromJson: TrackListWidgetData_t.fromJson };
-  var Global_TrackListWidgetState = "Global_TrackListWidgetState";
   var Global_ProgressWidgetData = { key: "Global_ProgressWidgetData", fromJson: ProgressData_t.fromJson };
   var Global_ProgressWidgetState = "Global_ProgressWidgetState";
   var Global_LyricsWidgetData = { key: "Global_LyricsWidgetData", fromJson: LyricData_t.fromJson };
   var Global_QrCodeWidgetData = { key: "Global_QrCodeWidgetData", fromJson: QrCodeData_t.fromJson };
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
 
-  // widgets/progress/progress_playback.ts
-  (function() {
-    let hasOwnStateKey = true;
-    let unsubscribePlaybackClock = null;
-    function setProgressVisible(visible) {
-      const container = document.querySelector("#progress-widget .progress-container");
-      if (!container) return;
-      container.classList.toggle("visible", visible);
+  // widgets/progress/progress_app.ts
+  var ProgressWidget_t = class {
+    constructor() {
+      this._private = {
+        lastProgressSeconds: 0,
+        lastDurationSeconds: 0
+      };
     }
-    function applyClockSnapshot(clockSnapshot) {
-      window.ProgressWidget?.updateData?.(ProgressData_t.fromJson({
+    getContainer() {
+      return document.querySelector("#progress-widget .progress-container");
+    }
+    show() {
+      const containerElement = this.getContainer();
+      containerElement.classList.add("visible");
+      this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
+    }
+    hide() {
+      const containerElement = this.getContainer();
+      containerElement.classList.remove("visible");
+      this.reset();
+    }
+    formatTimeInMinutesAndSeconds(seconds) {
+      if (isNaN(seconds)) return "0:00";
+      const minutes = Math.floor(seconds / 60);
+      const secondsPart = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return minutes + ":" + secondsPart;
+    }
+    reset() {
+      this._private.lastProgressSeconds = 0;
+      this._private.lastDurationSeconds = 0;
+      this.renderFromValues(0, 0);
+    }
+    renderFromValues(progressSeconds, durationSeconds) {
+      const boundedDuration = Number(durationSeconds || 0);
+      const boundedProgress = Number(progressSeconds || 0);
+      if (!durationSeconds || durationSeconds <= 0) return;
+      const progressPercentage = boundedProgress / boundedDuration * 100;
+      const progressBarElement = document.getElementById("progress-bar");
+      if (progressBarElement) progressBarElement.style.width = progressPercentage + "%";
+      const currentTimeElement = document.getElementById("current-time");
+      const totalTimeElement = document.getElementById("total-time");
+      if (currentTimeElement) currentTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedProgress);
+      if (totalTimeElement) totalTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedDuration);
+    }
+    updateData(progressData) {
+      this._private.lastProgressSeconds = Number(progressData.currentDurationInTrack || 0);
+      this._private.lastDurationSeconds = Number(progressData.totalDurationInTrack || 0);
+      this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
+    }
+  };
+  var ProgressWidget = new ProgressWidget_t();
+
+  // widgets/progress/progress_playback.ts
+  var ProgressWidgetPlayback_t = class {
+    constructor() {
+      this.unsubscribePlaybackClock = null;
+    }
+    applyClockSnapshot(clockSnapshot) {
+      ProgressWidget.updateData(ProgressData_t.fromJson({
         currentDurationInTrack: clockSnapshot.progressSeconds,
         totalDurationInTrack: clockSnapshot.durationSeconds,
         readyForDisplay: clockSnapshot.durationSeconds > 0
       }));
     }
-    function applyState(state) {
-      const numericState = Number(state);
-      if (numericState === 1 /* Show */) {
-        setProgressVisible(true);
-        window.ProgressWidget?.show?.();
-        return;
-      }
-      if (numericState === 0 /* Hide */) {
-        setProgressVisible(false);
-        window.ProgressWidget?.hide?.({ reset: true });
+    applyState(state) {
+      switch (state) {
+        case 1 /* Show */:
+          ProgressWidget.show();
+          break;
+        case 0 /* Hide */:
+          ProgressWidget.hide();
+          break;
       }
     }
-    async function init(dataSource) {
-      dataSource.onStateChanged(function(variable, data) {
-        switch (variable) {
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
+        const globalVariable = variable;
+        switch (globalVariable) {
           case Global_ProgressWidgetState:
-            applyState(data);
-            break;
-          case Global_TrackListWidgetState:
-            if (!hasOwnStateKey) {
-              applyState(data);
-            }
+            this.applyState(data);
             break;
         }
       });
       await window.PlaybackClock.init(dataSource);
-      if (unsubscribePlaybackClock) unsubscribePlaybackClock();
-      unsubscribePlaybackClock = window.PlaybackClock.subscribe(function(clockSnapshot) {
-        applyClockSnapshot(clockSnapshot);
+      if (this.unsubscribePlaybackClock) this.unsubscribePlaybackClock();
+      this.unsubscribePlaybackClock = window.PlaybackClock.subscribe((clockSnapshot) => {
+        this.applyClockSnapshot(clockSnapshot);
       });
-      try {
-        const state = await dataSource.read(Global_ProgressWidgetState);
-        applyState(state);
-      } catch {
-        hasOwnStateKey = false;
-        console.warn("[Progress] Global_ProgressWidgetState unavailable; mirroring TrackListWidgetState.");
-        const fallbackState = await dataSource.read(Global_TrackListWidgetState);
-        applyState(fallbackState);
-      }
+      const state = await dataSource.read(Global_ProgressWidgetState);
+      this.applyState(state);
     }
-    window.ProgressWidgetPlayback = { init };
-  })();
+  };
+  var ProgressWidgetPlayback = new ProgressWidgetPlayback_t();
 })();

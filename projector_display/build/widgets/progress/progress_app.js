@@ -1,43 +1,38 @@
 "use strict";
 (() => {
   // widgets/progress/progress_app.ts
-  (function() {
-    function getContainer() {
+  var ProgressWidget_t = class {
+    constructor() {
+      this._private = {
+        lastProgressSeconds: 0,
+        lastDurationSeconds: 0
+      };
+    }
+    getContainer() {
       return document.querySelector("#progress-widget .progress-container");
     }
-    function show(options) {
-      const config = options && typeof options === "object" ? options : {};
-      const containerElement = getContainer();
-      if (config.visible !== false && containerElement) {
-        containerElement.classList.add("visible");
-      }
-      if (config.reset === true) {
-        reset();
-      }
-      renderFromValues(lastProgressSeconds, lastDurationSeconds);
+    show() {
+      const containerElement = this.getContainer();
+      containerElement.classList.add("visible");
+      this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
     }
-    function hide(options) {
-      const config = options && typeof options === "object" ? options : {};
-      const containerElement = getContainer();
-      if (config.visible !== false && containerElement) {
-        containerElement.classList.remove("visible");
-      }
-      if (config.reset === true) {
-        reset();
-      }
+    hide() {
+      const containerElement = this.getContainer();
+      containerElement.classList.remove("visible");
+      this.reset();
     }
-    function formatTimeInMinutesAndSeconds(seconds) {
+    formatTimeInMinutesAndSeconds(seconds) {
       if (isNaN(seconds)) return "0:00";
       const minutes = Math.floor(seconds / 60);
       const secondsPart = Math.floor(seconds % 60).toString().padStart(2, "0");
       return minutes + ":" + secondsPart;
     }
-    function reset() {
-      lastProgressSeconds = 0;
-      lastDurationSeconds = 0;
-      renderFromValues(0, 0);
+    reset() {
+      this._private.lastProgressSeconds = 0;
+      this._private.lastDurationSeconds = 0;
+      this.renderFromValues(0, 0);
     }
-    function renderFromValues(progressSeconds, durationSeconds) {
+    renderFromValues(progressSeconds, durationSeconds) {
       const boundedDuration = Number(durationSeconds || 0);
       const boundedProgress = Number(progressSeconds || 0);
       if (!durationSeconds || durationSeconds <= 0) return;
@@ -46,21 +41,14 @@
       if (progressBarElement) progressBarElement.style.width = progressPercentage + "%";
       const currentTimeElement = document.getElementById("current-time");
       const totalTimeElement = document.getElementById("total-time");
-      if (currentTimeElement) currentTimeElement.textContent = formatTimeInMinutesAndSeconds(boundedProgress);
-      if (totalTimeElement) totalTimeElement.textContent = formatTimeInMinutesAndSeconds(boundedDuration);
+      if (currentTimeElement) currentTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedProgress);
+      if (totalTimeElement) totalTimeElement.textContent = this.formatTimeInMinutesAndSeconds(boundedDuration);
     }
-    let lastProgressSeconds = 0;
-    let lastDurationSeconds = 0;
-    function updateData(progressData) {
-      if (!progressData || typeof progressData !== "object") return;
-      lastProgressSeconds = Number(progressData.currentDurationInTrack || 0);
-      lastDurationSeconds = Number(progressData.totalDurationInTrack || 0);
-      renderFromValues(lastProgressSeconds, lastDurationSeconds);
+    updateData(progressData) {
+      this._private.lastProgressSeconds = Number(progressData.currentDurationInTrack || 0);
+      this._private.lastDurationSeconds = Number(progressData.totalDurationInTrack || 0);
+      this.renderFromValues(this._private.lastProgressSeconds, this._private.lastDurationSeconds);
     }
-    window.ProgressWidget = {
-      show,
-      hide,
-      updateData
-    };
-  })();
+  };
+  var ProgressWidget = new ProgressWidget_t();
 })();
