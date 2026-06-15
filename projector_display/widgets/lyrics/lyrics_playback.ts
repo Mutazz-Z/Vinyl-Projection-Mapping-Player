@@ -1,47 +1,52 @@
 import { DataSource } from "../../js/datasource";
 import { LyricData_t, WidgetState, Global_LyricsWidgetData, Global_LyricsWidgetState } from "../../types/state";
+import { LyricsWidget } from "./lyrics_app";
 
-(function () {
-    let unsubscribePlaybackClock: (() => void) | null = null;
+export class LyricsWidgetPlayback_t {
+    private unsubscribePlaybackClock: (() => void) | null = null;
 
-    function applyData(data: unknown): void {
-        const lyricsData = LyricData_t.fromJson(data);
-        window.LyricsWidget?.updateData?.({ lyricsData: lyricsData.trackLyrics || null });
+    private applyData(lyricData: LyricData_t): void {
+        LyricsWidget.updateData(lyricData);
     }
 
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
-        if (numericState === WidgetState.Show) {
-            window.LyricsWidget?.show?.();
-        } else if (numericState === WidgetState.Hide) {
-            window.LyricsWidget?.hide?.();
+    private applyState(state: number): void {
+
+        switch (state) {
+            case WidgetState.Show:
+                LyricsWidget.show();
+                break;
+
+            case WidgetState.Hide:
+                LyricsWidget.hide();
+                break;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
+    public async init(dataSource: DataSource): Promise<void> {
         await window.PlaybackClock.init(dataSource);
-        if (unsubscribePlaybackClock) unsubscribePlaybackClock();
-        unsubscribePlaybackClock = window.PlaybackClock.subscribe(function (clockSnapshot) {
-            window.LyricsWidget?.updateData?.({ progressSeconds: clockSnapshot.progressSeconds });
+        if (this.unsubscribePlaybackClock) this.unsubscribePlaybackClock();
+        this.unsubscribePlaybackClock = window.PlaybackClock.subscribe((clockSnapshot) => {
+            LyricsWidget.updateProgress(clockSnapshot.progressSeconds);
         });
 
-        dataSource.onStateChanged(function (variable, data) {
+        dataSource.onStateChanged((variable, data) => {
             switch (variable) {
                 case Global_LyricsWidgetData.key:
-                    applyData(data);
+                    this.applyData(LyricData_t.fromJson(data));
                     break;
+
                 case Global_LyricsWidgetState:
-                    applyState(data);
+                    this.applyState(data as number);
                     break;
             }
         });
 
-        const currentData = await dataSource.read(Global_LyricsWidgetData.key);
-        applyData(currentData);
+        const currentData = await dataSource.read<LyricData_t>(Global_LyricsWidgetData.key);
+        this.applyData(LyricData_t.fromJson(currentData));
 
-        const currentState = await dataSource.read(Global_LyricsWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_LyricsWidgetState);
+        this.applyState(currentState);
     }
+}
 
-    window.LyricsWidgetPlayback = { init };
-})();
+export const LyricsWidgetPlayback = new LyricsWidgetPlayback_t();

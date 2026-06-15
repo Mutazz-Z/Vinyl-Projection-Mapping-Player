@@ -2,8 +2,6 @@ import {
   AlbumTrackList_t,
   TrackLyrics_t,
   QrCodeData_t,
-  TrackListWidgetData_t,
-  RecordDesignData_t,
   TitleAndArtist_t
 } from './state';
 
@@ -61,29 +59,7 @@ declare global {
     PI_IP: string;
     ProjectorMapping: ProjectorMappingApi;
     PlaybackClock: PlaybackClockApi;
-    LyricsWidget?: {
-      hide?: (onHiddenCallback?: () => void) => void;
-      updateData?: (options: {
-        lyricsData?: TrackLyrics_t | null;
-        progressSeconds?: number;
-        previousTrackLine?: string;
-        upcomingTrackLine?: string;
-        enterInterTrackBridge?: boolean;
-      }) => void;
-      show?: (options?: {
-        lyricsData?: TrackLyrics_t | null;
-        progressSeconds?: number;
-        isPlaybackVisualActive?: boolean;
-        isPlaying?: boolean;
-        previousTrackLine?: string;
-        upcomingTrackLine?: string;
-        enterInterTrackBridge?: boolean;
-        awaitingMusicStart?: boolean;
-      }) => void;
-      hasLyrics?: () => boolean;
-    };
     VisualizerWidget?: PlaybackControlWidget;
-    LyricsWidgetPlayback: WidgetPlaybackController;
     VisualizerWidgetPlayback: WidgetPlaybackController;
     TrackResolver: TrackResolverApi;
   }
