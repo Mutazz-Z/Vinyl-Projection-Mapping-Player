@@ -10,77 +10,61 @@ type TrackResolverApi = {
     clearTrackPositionOnly: () => void;
 };
 
-declare global {
-    var TrackResolver: TrackResolverApi;
+export class TrackResolver_t implements TrackResolverApi {
+    private trackNames: string[] = [];
+    private activeTrackIndex = 0;
+    private lyricsByNormalizedTrackName: Record<string, TrackLyrics_t> = {};
 
-    interface Window {
-        TrackResolver: TrackResolverApi;
-    }
-}
-
-(function () {
-    let currentTrackNames: string[] = [];
-    let currentActiveTrackIndex = 0;
-    let lyricsByNormalisedTrackName: Record<string, TrackLyrics_t> = {};
-
-    function normaliseTrackName(name: string): string {
-        return name.trim().toLowerCase();
+    private normalizeTrackName(trackName: string): string {
+        return trackName.trim().toLowerCase();
     }
 
-    function clampToValidTrackIndex(index: number): number {
-        if (!currentTrackNames || currentTrackNames.length === 0) return 0;
-        const numeric = Number(index);
-        if (isNaN(numeric)) return currentActiveTrackIndex;
-        if (numeric < 0) return 0;
-        if (numeric >= currentTrackNames.length) return currentTrackNames.length - 1;
-        return Math.floor(numeric);
+    private clampTrackIndex(trackIndex: number): number {
+        if (this.trackNames.length === 0) return 0;
+
+        const numericTrackIndex = Number(trackIndex);
+        if (Number.isNaN(numericTrackIndex)) return this.activeTrackIndex;
+        if (numericTrackIndex < 0) return 0;
+        if (numericTrackIndex >= this.trackNames.length) return this.trackNames.length - 1;
+        return Math.floor(numericTrackIndex);
     }
 
-    function buildLyricsLookupFromTrackList(trackList: AlbumTrackList_t[]): void {
-        lyricsByNormalisedTrackName = {};
+    public buildLyricsLookupFromTrackList(trackList: AlbumTrackList_t[]): void {
+        this.lyricsByNormalizedTrackName = {};
 
-        trackList.forEach(function (entry) {
-            lyricsByNormalisedTrackName[normaliseTrackName(entry.track)] = entry.lyrics;
+        trackList.forEach((trackListEntry) => {
+            this.lyricsByNormalizedTrackName[this.normalizeTrackName(trackListEntry.track)] = trackListEntry.lyrics;
         });
     }
 
-    function getLyricsByTrackIndex(trackIndex: number): TrackLyrics_t | null {
-        if (!currentTrackNames || currentTrackNames.length === 0) return null;
-        const trackName = currentTrackNames[clampToValidTrackIndex(trackIndex)];
-        return lyricsByNormalisedTrackName[normaliseTrackName(trackName)] || null;
+    public getLyricsByTrackIndex(trackIndex: number): TrackLyrics_t | null {
+        if (this.trackNames.length === 0) return null;
+
+        const resolvedTrackName = this.trackNames[this.clampTrackIndex(trackIndex)];
+        return this.lyricsByNormalizedTrackName[this.normalizeTrackName(resolvedTrackName)] || null;
     }
 
-    function setTrackNames(names: string[]): void {
-        currentTrackNames = names;
+    public setTrackNames(trackNames: string[]): void {
+        this.trackNames = trackNames;
     }
 
-    function setActiveTrackIndex(index: number): void {
-        currentActiveTrackIndex = clampToValidTrackIndex(index);
+    public setActiveTrackIndex(trackIndex: number): void {
+        this.activeTrackIndex = this.clampTrackIndex(trackIndex);
     }
 
-    function getTrackNames(): string[] {
-        return currentTrackNames;
+    public getTrackNames(): string[] {
+        return this.trackNames;
     }
 
-    function clear(): void {
-        currentTrackNames = [];
-        currentActiveTrackIndex = 0;
-        lyricsByNormalisedTrackName = {};
+    public clear(): void {
+        this.trackNames = [];
+        this.activeTrackIndex = 0;
+        this.lyricsByNormalizedTrackName = {};
     }
 
-    function clearTrackPositionOnly(): void {
-        currentActiveTrackIndex = 0;
+    public clearTrackPositionOnly(): void {
+        this.activeTrackIndex = 0;
     }
+}
 
-    const appWindow = window as Window;
-
-    appWindow.TrackResolver = {
-        buildLyricsLookupFromTrackList,
-        getLyricsByTrackIndex,
-        setTrackNames,
-        setActiveTrackIndex,
-        getTrackNames,
-        clear,
-        clearTrackPositionOnly,
-    };
-})();
+export const TrackResolver = new TrackResolver_t();

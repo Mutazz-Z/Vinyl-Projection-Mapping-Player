@@ -316,134 +316,130 @@
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
 
   // js/playback_clock.ts
-  (function() {
-    let sourceDataSource = null;
-    let listeners = [];
-    let baseProgressSeconds = 0;
-    let durationSeconds = 0;
-    let playbackState = 2 /* Idle */;
-    let sampledAtMilliseconds = 0;
-    let animationFrameHandle = null;
-    function nowMilliseconds() {
+  var PlaybackClock_t = class {
+    constructor() {
+      this.sourceDataSource = null;
+      this.listeners = [];
+      this.baseProgressSeconds = 0;
+      this.durationSeconds = 0;
+      this.playbackState = 2 /* Idle */;
+      this.sampledAtMilliseconds = 0;
+      this.animationFrameHandle = null;
+    }
+    nowMilliseconds() {
       if (typeof performance !== "undefined" && performance.now) {
         return performance.now();
       }
       return Date.now();
     }
-    function clamp(value, min, max) {
+    clamp(value, min, max) {
       return Math.min(Math.max(value, min), max);
     }
-    function isPlayingState(state) {
+    isPlayingState(state) {
       return Number(state) === 0 /* Playing */;
     }
-    function projectProgressSeconds(atMilliseconds) {
-      const timestamp = atMilliseconds || nowMilliseconds();
-      let projected = Number(baseProgressSeconds || 0);
-      if (isPlayingState(playbackState) && sampledAtMilliseconds > 0) {
-        projected += Math.max(0, (timestamp - sampledAtMilliseconds) / 1e3);
+    projectProgressSeconds(atMilliseconds) {
+      const timestamp = atMilliseconds || this.nowMilliseconds();
+      let projected = Number(this.baseProgressSeconds || 0);
+      if (this.isPlayingState(this.playbackState) && this.sampledAtMilliseconds > 0) {
+        projected += Math.max(0, (timestamp - this.sampledAtMilliseconds) / 1e3);
       }
-      if (durationSeconds > 0) {
-        return clamp(projected, 0, durationSeconds);
+      if (this.durationSeconds > 0) {
+        return this.clamp(projected, 0, this.durationSeconds);
       }
       return Math.max(projected, 0);
     }
-    function snapshot() {
-      const progress = projectProgressSeconds();
-      return {
-        progressSeconds: progress,
-        durationSeconds: Number(durationSeconds || 0),
-        playbackState: Number(playbackState),
-        isPlaying: isPlayingState(playbackState)
-      };
-    }
-    function emit() {
-      const current = snapshot();
-      listeners.forEach(function(listener) {
+    emit() {
+      const current = this.snapshot();
+      this.listeners.forEach((listener) => {
         listener(current);
       });
     }
-    function stopAnimationLoop() {
-      if (animationFrameHandle !== null) {
-        cancelAnimationFrame(animationFrameHandle);
-        animationFrameHandle = null;
+    stopAnimationLoop() {
+      if (this.animationFrameHandle !== null) {
+        cancelAnimationFrame(this.animationFrameHandle);
+        this.animationFrameHandle = null;
       }
     }
-    function ensureAnimationLoop() {
-      if (!isPlayingState(playbackState)) {
-        stopAnimationLoop();
+    ensureAnimationLoop() {
+      if (!this.isPlayingState(this.playbackState)) {
+        this.stopAnimationLoop();
         return;
       }
-      if (animationFrameHandle !== null) return;
-      animationFrameHandle = requestAnimationFrame(function tick() {
-        animationFrameHandle = null;
-        if (!isPlayingState(playbackState)) {
+      if (this.animationFrameHandle !== null) return;
+      this.animationFrameHandle = requestAnimationFrame(() => {
+        this.animationFrameHandle = null;
+        if (!this.isPlayingState(this.playbackState)) {
           return;
         }
-        emit();
-        ensureAnimationLoop();
+        this.emit();
+        this.ensureAnimationLoop();
       });
     }
-    function updateAnchor(nextProgressSeconds) {
-      baseProgressSeconds = Math.max(0, Number(nextProgressSeconds || 0));
-      sampledAtMilliseconds = nowMilliseconds();
+    updateAnchor(nextProgressSeconds) {
+      this.baseProgressSeconds = Math.max(0, Number(nextProgressSeconds || 0));
+      this.sampledAtMilliseconds = this.nowMilliseconds();
     }
-    function applyPlaybackState(nextPlaybackState) {
-      const projectedNow = projectProgressSeconds();
-      playbackState = Number(nextPlaybackState);
-      updateAnchor(projectedNow);
-      emit();
-      ensureAnimationLoop();
+    applyPlaybackState(nextPlaybackState) {
+      const projectedNow = this.projectProgressSeconds();
+      this.playbackState = Number(nextPlaybackState);
+      this.updateAnchor(projectedNow);
+      this.emit();
+      this.ensureAnimationLoop();
     }
-    function applyProgressSample(nextProgressSeconds) {
-      updateAnchor(nextProgressSeconds);
-      emit();
+    applyProgressSample(nextProgressSeconds) {
+      this.updateAnchor(nextProgressSeconds);
+      this.emit();
     }
-    function applyDuration(nextDurationSeconds) {
-      durationSeconds = Math.max(0, Number(nextDurationSeconds || 0));
-      emit();
+    applyDuration(nextDurationSeconds) {
+      this.durationSeconds = Math.max(0, Number(nextDurationSeconds || 0));
+      this.emit();
     }
-    function subscribe(listener) {
-      listeners.push(listener);
-      listener(snapshot());
-      return function unsubscribe() {
-        listeners = listeners.filter(function(candidate) {
-          return candidate !== listener;
-        });
+    snapshot() {
+      const progress = this.projectProgressSeconds();
+      return {
+        progressSeconds: progress,
+        durationSeconds: Number(this.durationSeconds || 0),
+        playbackState: Number(this.playbackState),
+        isPlaying: this.isPlayingState(this.playbackState)
       };
     }
-    async function init(dataSource) {
-      if (sourceDataSource === dataSource) {
+    subscribe(listener) {
+      this.listeners.push(listener);
+      listener(this.snapshot());
+      return () => {
+        this.listeners = this.listeners.filter((candidate) => candidate !== listener);
+      };
+    }
+    async init(dataSource) {
+      if (this.sourceDataSource === dataSource) {
         return;
       }
-      sourceDataSource = dataSource;
-      sourceDataSource.onStateChanged(function(variable, data) {
+      this.sourceDataSource = dataSource;
+      this.sourceDataSource.onStateChanged((variable, data) => {
         switch (variable) {
           case Global_MediaPlaybackState:
-            applyPlaybackState(Number(data));
+            this.applyPlaybackState(Number(data));
             break;
           case Global_ActiveTrackProgressInSeconds:
-            applyProgressSample(Number(data));
+            this.applyProgressSample(Number(data));
             break;
           case Global_ActiveTrackTotalDurationInSeconds:
-            applyDuration(Number(data));
+            this.applyDuration(Number(data));
             break;
         }
       });
       const [initialState, initialProgress, initialDuration] = await Promise.all([
-        sourceDataSource.read(Global_MediaPlaybackState),
-        sourceDataSource.read(Global_ActiveTrackProgressInSeconds),
-        sourceDataSource.read(Global_ActiveTrackTotalDurationInSeconds)
+        this.sourceDataSource.read(Global_MediaPlaybackState),
+        this.sourceDataSource.read(Global_ActiveTrackProgressInSeconds),
+        this.sourceDataSource.read(Global_ActiveTrackTotalDurationInSeconds)
       ]);
-      playbackState = Number(initialState || 2 /* Idle */);
-      durationSeconds = Math.max(0, Number(initialDuration || 0));
-      updateAnchor(Number(initialProgress || 0));
-      emit();
-      ensureAnimationLoop();
+      this.playbackState = Number(initialState || 2 /* Idle */);
+      this.durationSeconds = Math.max(0, Number(initialDuration || 0));
+      this.updateAnchor(Number(initialProgress || 0));
+      this.emit();
+      this.ensureAnimationLoop();
     }
-    window.PlaybackClock = {
-      init,
-      subscribe,
-      snapshot
-    };
-  })();
+  };
+  var PlaybackClock = new PlaybackClock_t();
 })();

@@ -1,4 +1,5 @@
 import { TrackListWidgetData_t, TrackListItem_t } from "../../types/state";
+import { TrackResolver } from "../../js/track_resolver";
 
 export class TracklistWidget_t {
     private transitionToken = 0;

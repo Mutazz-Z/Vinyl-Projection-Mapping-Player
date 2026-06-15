@@ -1,4 +1,6 @@
 import { Global_ActiveTrack, ActiveTrack_t, Global_ProjectorHeartbeatSignal, Global_ProjectorHeartbeat } from "../types/state";
+import "./mapping";
+import { TrackResolver } from "./track_resolver";
 import { ContextMessageWidgetPlayback } from "../widgets/context_message/context_message_playback";
 import { InfoWidgetPlayback } from "../widgets/info/info_playback";
 import { LoadingWidgetPlayback } from "../widgets/loading/loading_playback";

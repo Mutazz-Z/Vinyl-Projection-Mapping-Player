@@ -311,7 +311,138 @@
   var Global_ProgressWidgetState = "Global_ProgressWidgetState";
   var Global_LyricsWidgetData = { key: "Global_LyricsWidgetData", fromJson: LyricData_t.fromJson };
   var Global_QrCodeWidgetData = { key: "Global_QrCodeWidgetData", fromJson: QrCodeData_t.fromJson };
+  var Global_ActiveTrackProgressInSeconds = "Global_ActiveTrackProgressInSeconds";
+  var Global_ActiveTrackTotalDurationInSeconds = "Global_ActiveTrackTotalDurationInSeconds";
+  var Global_MediaPlaybackState = "Global_MediaPlaybackState";
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
+
+  // js/playback_clock.ts
+  var PlaybackClock_t = class {
+    constructor() {
+      this.sourceDataSource = null;
+      this.listeners = [];
+      this.baseProgressSeconds = 0;
+      this.durationSeconds = 0;
+      this.playbackState = 2 /* Idle */;
+      this.sampledAtMilliseconds = 0;
+      this.animationFrameHandle = null;
+    }
+    nowMilliseconds() {
+      if (typeof performance !== "undefined" && performance.now) {
+        return performance.now();
+      }
+      return Date.now();
+    }
+    clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+    isPlayingState(state) {
+      return Number(state) === 0 /* Playing */;
+    }
+    projectProgressSeconds(atMilliseconds) {
+      const timestamp = atMilliseconds || this.nowMilliseconds();
+      let projected = Number(this.baseProgressSeconds || 0);
+      if (this.isPlayingState(this.playbackState) && this.sampledAtMilliseconds > 0) {
+        projected += Math.max(0, (timestamp - this.sampledAtMilliseconds) / 1e3);
+      }
+      if (this.durationSeconds > 0) {
+        return this.clamp(projected, 0, this.durationSeconds);
+      }
+      return Math.max(projected, 0);
+    }
+    emit() {
+      const current = this.snapshot();
+      this.listeners.forEach((listener) => {
+        listener(current);
+      });
+    }
+    stopAnimationLoop() {
+      if (this.animationFrameHandle !== null) {
+        cancelAnimationFrame(this.animationFrameHandle);
+        this.animationFrameHandle = null;
+      }
+    }
+    ensureAnimationLoop() {
+      if (!this.isPlayingState(this.playbackState)) {
+        this.stopAnimationLoop();
+        return;
+      }
+      if (this.animationFrameHandle !== null) return;
+      this.animationFrameHandle = requestAnimationFrame(() => {
+        this.animationFrameHandle = null;
+        if (!this.isPlayingState(this.playbackState)) {
+          return;
+        }
+        this.emit();
+        this.ensureAnimationLoop();
+      });
+    }
+    updateAnchor(nextProgressSeconds) {
+      this.baseProgressSeconds = Math.max(0, Number(nextProgressSeconds || 0));
+      this.sampledAtMilliseconds = this.nowMilliseconds();
+    }
+    applyPlaybackState(nextPlaybackState) {
+      const projectedNow = this.projectProgressSeconds();
+      this.playbackState = Number(nextPlaybackState);
+      this.updateAnchor(projectedNow);
+      this.emit();
+      this.ensureAnimationLoop();
+    }
+    applyProgressSample(nextProgressSeconds) {
+      this.updateAnchor(nextProgressSeconds);
+      this.emit();
+    }
+    applyDuration(nextDurationSeconds) {
+      this.durationSeconds = Math.max(0, Number(nextDurationSeconds || 0));
+      this.emit();
+    }
+    snapshot() {
+      const progress = this.projectProgressSeconds();
+      return {
+        progressSeconds: progress,
+        durationSeconds: Number(this.durationSeconds || 0),
+        playbackState: Number(this.playbackState),
+        isPlaying: this.isPlayingState(this.playbackState)
+      };
+    }
+    subscribe(listener) {
+      this.listeners.push(listener);
+      listener(this.snapshot());
+      return () => {
+        this.listeners = this.listeners.filter((candidate) => candidate !== listener);
+      };
+    }
+    async init(dataSource) {
+      if (this.sourceDataSource === dataSource) {
+        return;
+      }
+      this.sourceDataSource = dataSource;
+      this.sourceDataSource.onStateChanged((variable, data) => {
+        switch (variable) {
+          case Global_MediaPlaybackState:
+            this.applyPlaybackState(Number(data));
+            break;
+          case Global_ActiveTrackProgressInSeconds:
+            this.applyProgressSample(Number(data));
+            break;
+          case Global_ActiveTrackTotalDurationInSeconds:
+            this.applyDuration(Number(data));
+            break;
+        }
+      });
+      const [initialState, initialProgress, initialDuration] = await Promise.all([
+        this.sourceDataSource.read(Global_MediaPlaybackState),
+        this.sourceDataSource.read(Global_ActiveTrackProgressInSeconds),
+        this.sourceDataSource.read(Global_ActiveTrackTotalDurationInSeconds)
+      ]);
+      this.playbackState = Number(initialState || 2 /* Idle */);
+      this.durationSeconds = Math.max(0, Number(initialDuration || 0));
+      this.updateAnchor(Number(initialProgress || 0));
+      this.emit();
+      this.ensureAnimationLoop();
+    }
+  };
+  var PlaybackClock = new PlaybackClock_t();
 
   // widgets/progress/progress_app.ts
   var ProgressWidget_t = class {
@@ -396,9 +527,9 @@
             break;
         }
       });
-      await window.PlaybackClock.init(dataSource);
+      await PlaybackClock.init(dataSource);
       if (this.unsubscribePlaybackClock) this.unsubscribePlaybackClock();
-      this.unsubscribePlaybackClock = window.PlaybackClock.subscribe((clockSnapshot) => {
+      this.unsubscribePlaybackClock = PlaybackClock.subscribe((clockSnapshot) => {
         this.applyClockSnapshot(clockSnapshot);
       });
       const state = await dataSource.read(Global_ProgressWidgetState);

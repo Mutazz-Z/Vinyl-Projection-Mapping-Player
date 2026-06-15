@@ -1,183 +1,171 @@
 import { MediaPlaybackState, Global_MediaPlaybackState, Global_ActiveTrackProgressInSeconds, Global_ActiveTrackTotalDurationInSeconds } from "../types/state";
 import { DataSource } from "./datasource";
 
-type PlaybackClockSnapshot = {
+export type PlaybackClockSnapshot = {
     progressSeconds: number;
     durationSeconds: number;
     playbackState: number;
     isPlaying: boolean;
 };
 
-type PlaybackClockApi = {
+export type PlaybackClockApi = {
     init: (dataSource: DataSource) => Promise<void>;
     subscribe: (listener: (snapshot: PlaybackClockSnapshot) => void) => () => void;
     snapshot: () => PlaybackClockSnapshot;
 };
 
-declare global {
-    interface Window {
-        PlaybackClock: PlaybackClockApi;
-    }
-}
+type PlaybackClockListener = (snapshot: PlaybackClockSnapshot) => void;
 
-(function () {
-    type PlaybackClockListener = (snapshot: PlaybackClockSnapshot) => void;
+export class PlaybackClock_t implements PlaybackClockApi {
+    private sourceDataSource: DataSource | null = null;
+    private listeners: PlaybackClockListener[] = [];
 
-    let sourceDataSource: DataSource | null = null;
-    let listeners: PlaybackClockListener[] = [];
+    private baseProgressSeconds = 0;
+    private durationSeconds = 0;
+    private playbackState = MediaPlaybackState.Idle;
+    private sampledAtMilliseconds = 0;
 
-    let baseProgressSeconds = 0;
-    let durationSeconds = 0;
-    let playbackState = MediaPlaybackState.Idle;
-    let sampledAtMilliseconds = 0;
+    private animationFrameHandle: number | null = null;
 
-    let animationFrameHandle: number | null = null;
-
-    function nowMilliseconds(): number {
-        if (typeof performance !== 'undefined' && performance.now) {
+    private nowMilliseconds(): number {
+        if (typeof performance !== "undefined" && performance.now) {
             return performance.now();
         }
         return Date.now();
     }
 
-    function clamp(value: number, min: number, max: number): number {
+    private clamp(value: number, min: number, max: number): number {
         return Math.min(Math.max(value, min), max);
     }
 
-    function isPlayingState(state: number): boolean {
+    private isPlayingState(state: number): boolean {
         return Number(state) === MediaPlaybackState.Playing;
     }
 
-    function projectProgressSeconds(atMilliseconds?: number): number {
-        const timestamp = atMilliseconds || nowMilliseconds();
-        let projected = Number(baseProgressSeconds || 0);
+    private projectProgressSeconds(atMilliseconds?: number): number {
+        const timestamp = atMilliseconds || this.nowMilliseconds();
+        let projected = Number(this.baseProgressSeconds || 0);
 
-        if (isPlayingState(playbackState) && sampledAtMilliseconds > 0) {
-            projected += Math.max(0, (timestamp - sampledAtMilliseconds) / 1000);
+        if (this.isPlayingState(this.playbackState) && this.sampledAtMilliseconds > 0) {
+            projected += Math.max(0, (timestamp - this.sampledAtMilliseconds) / 1000);
         }
 
-        if (durationSeconds > 0) {
-            return clamp(projected, 0, durationSeconds);
+        if (this.durationSeconds > 0) {
+            return this.clamp(projected, 0, this.durationSeconds);
         }
 
         return Math.max(projected, 0);
     }
 
-    function snapshot(): PlaybackClockSnapshot {
-        const progress = projectProgressSeconds();
-        return {
-            progressSeconds: progress,
-            durationSeconds: Number(durationSeconds || 0),
-            playbackState: Number(playbackState),
-            isPlaying: isPlayingState(playbackState),
-        };
-    }
-
-    function emit(): void {
-        const current = snapshot();
-        listeners.forEach(function (listener) {
+    private emit(): void {
+        const current = this.snapshot();
+        this.listeners.forEach((listener) => {
             listener(current);
         });
     }
 
-    function stopAnimationLoop(): void {
-        if (animationFrameHandle !== null) {
-            cancelAnimationFrame(animationFrameHandle);
-            animationFrameHandle = null;
+    private stopAnimationLoop(): void {
+        if (this.animationFrameHandle !== null) {
+            cancelAnimationFrame(this.animationFrameHandle);
+            this.animationFrameHandle = null;
         }
     }
 
-    function ensureAnimationLoop(): void {
-        if (!isPlayingState(playbackState)) {
-            stopAnimationLoop();
+    private ensureAnimationLoop(): void {
+        if (!this.isPlayingState(this.playbackState)) {
+            this.stopAnimationLoop();
             return;
         }
 
-        if (animationFrameHandle !== null) return;
+        if (this.animationFrameHandle !== null) return;
 
-        animationFrameHandle = requestAnimationFrame(function tick() {
-            animationFrameHandle = null;
+        this.animationFrameHandle = requestAnimationFrame(() => {
+            this.animationFrameHandle = null;
 
-            if (!isPlayingState(playbackState)) {
+            if (!this.isPlayingState(this.playbackState)) {
                 return;
             }
 
-            emit();
-            ensureAnimationLoop();
+            this.emit();
+            this.ensureAnimationLoop();
         });
     }
 
-    function updateAnchor(nextProgressSeconds: number): void {
-        baseProgressSeconds = Math.max(0, Number(nextProgressSeconds || 0));
-        sampledAtMilliseconds = nowMilliseconds();
+    private updateAnchor(nextProgressSeconds: number): void {
+        this.baseProgressSeconds = Math.max(0, Number(nextProgressSeconds || 0));
+        this.sampledAtMilliseconds = this.nowMilliseconds();
     }
 
-    function applyPlaybackState(nextPlaybackState: number): void {
-        const projectedNow = projectProgressSeconds();
-        playbackState = Number(nextPlaybackState);
-        updateAnchor(projectedNow);
-        emit();
-        ensureAnimationLoop();
+    private applyPlaybackState(nextPlaybackState: number): void {
+        const projectedNow = this.projectProgressSeconds();
+        this.playbackState = Number(nextPlaybackState);
+        this.updateAnchor(projectedNow);
+        this.emit();
+        this.ensureAnimationLoop();
     }
 
-    function applyProgressSample(nextProgressSeconds: number): void {
-        updateAnchor(nextProgressSeconds);
-        emit();
+    private applyProgressSample(nextProgressSeconds: number): void {
+        this.updateAnchor(nextProgressSeconds);
+        this.emit();
     }
 
-    function applyDuration(nextDurationSeconds: number): void {
-        durationSeconds = Math.max(0, Number(nextDurationSeconds || 0));
-        emit();
+    private applyDuration(nextDurationSeconds: number): void {
+        this.durationSeconds = Math.max(0, Number(nextDurationSeconds || 0));
+        this.emit();
     }
 
-    function subscribe(listener: PlaybackClockListener): () => void {
-        listeners.push(listener);
-        listener(snapshot());
-
-        return function unsubscribe() {
-            listeners = listeners.filter(function (candidate) {
-                return candidate !== listener;
-            });
+    public snapshot(): PlaybackClockSnapshot {
+        const progress = this.projectProgressSeconds();
+        return {
+            progressSeconds: progress,
+            durationSeconds: Number(this.durationSeconds || 0),
+            playbackState: Number(this.playbackState),
+            isPlaying: this.isPlayingState(this.playbackState),
         };
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        if (sourceDataSource === dataSource) {
+    public subscribe(listener: PlaybackClockListener): () => void {
+        this.listeners.push(listener);
+        listener(this.snapshot());
+
+        return () => {
+            this.listeners = this.listeners.filter((candidate) => candidate !== listener);
+        };
+    }
+
+    public async init(dataSource: DataSource): Promise<void> {
+        if (this.sourceDataSource === dataSource) {
             return;
         }
-        sourceDataSource = dataSource;
+        this.sourceDataSource = dataSource;
 
-        sourceDataSource.onStateChanged(function (variable, data) {
+        this.sourceDataSource.onStateChanged((variable, data) => {
             switch (variable) {
                 case Global_MediaPlaybackState:
-                    applyPlaybackState(Number(data));
+                    this.applyPlaybackState(Number(data));
                     break;
                 case Global_ActiveTrackProgressInSeconds:
-                    applyProgressSample(Number(data));
+                    this.applyProgressSample(Number(data));
                     break;
                 case Global_ActiveTrackTotalDurationInSeconds:
-                    applyDuration(Number(data));
+                    this.applyDuration(Number(data));
                     break;
             }
         });
 
         const [initialState, initialProgress, initialDuration] = await Promise.all([
-            sourceDataSource.read(Global_MediaPlaybackState),
-            sourceDataSource.read(Global_ActiveTrackProgressInSeconds),
-            sourceDataSource.read(Global_ActiveTrackTotalDurationInSeconds),
+            this.sourceDataSource.read(Global_MediaPlaybackState),
+            this.sourceDataSource.read(Global_ActiveTrackProgressInSeconds),
+            this.sourceDataSource.read(Global_ActiveTrackTotalDurationInSeconds),
         ]);
 
-        playbackState = Number(initialState || MediaPlaybackState.Idle);
-        durationSeconds = Math.max(0, Number(initialDuration || 0));
-        updateAnchor(Number(initialProgress || 0));
+        this.playbackState = Number(initialState || MediaPlaybackState.Idle);
+        this.durationSeconds = Math.max(0, Number(initialDuration || 0));
+        this.updateAnchor(Number(initialProgress || 0));
 
-        emit();
-        ensureAnimationLoop();
+        this.emit();
+        this.ensureAnimationLoop();
     }
+}
 
-    window.PlaybackClock = {
-        init: init,
-        subscribe: subscribe,
-        snapshot: snapshot,
-    };
-})();
+export const PlaybackClock = new PlaybackClock_t();

@@ -1,58 +1,51 @@
 "use strict";
 (() => {
   // js/track_resolver.ts
-  (function() {
-    let currentTrackNames = [];
-    let currentActiveTrackIndex = 0;
-    let lyricsByNormalisedTrackName = {};
-    function normaliseTrackName(name) {
-      return name.trim().toLowerCase();
+  var TrackResolver_t = class {
+    constructor() {
+      this.trackNames = [];
+      this.activeTrackIndex = 0;
+      this.lyricsByNormalizedTrackName = {};
     }
-    function clampToValidTrackIndex(index) {
-      if (!currentTrackNames || currentTrackNames.length === 0) return 0;
-      const numeric = Number(index);
-      if (isNaN(numeric)) return currentActiveTrackIndex;
-      if (numeric < 0) return 0;
-      if (numeric >= currentTrackNames.length) return currentTrackNames.length - 1;
-      return Math.floor(numeric);
+    normalizeTrackName(trackName) {
+      return trackName.trim().toLowerCase();
     }
-    function buildLyricsLookupFromTrackList(trackList) {
-      lyricsByNormalisedTrackName = {};
-      trackList.forEach(function(entry) {
-        lyricsByNormalisedTrackName[normaliseTrackName(entry.track)] = entry.lyrics;
+    clampTrackIndex(trackIndex) {
+      if (this.trackNames.length === 0) return 0;
+      const numericTrackIndex = Number(trackIndex);
+      if (Number.isNaN(numericTrackIndex)) return this.activeTrackIndex;
+      if (numericTrackIndex < 0) return 0;
+      if (numericTrackIndex >= this.trackNames.length) return this.trackNames.length - 1;
+      return Math.floor(numericTrackIndex);
+    }
+    buildLyricsLookupFromTrackList(trackList) {
+      this.lyricsByNormalizedTrackName = {};
+      trackList.forEach((trackListEntry) => {
+        this.lyricsByNormalizedTrackName[this.normalizeTrackName(trackListEntry.track)] = trackListEntry.lyrics;
       });
     }
-    function getLyricsByTrackIndex(trackIndex) {
-      if (!currentTrackNames || currentTrackNames.length === 0) return null;
-      const trackName = currentTrackNames[clampToValidTrackIndex(trackIndex)];
-      return lyricsByNormalisedTrackName[normaliseTrackName(trackName)] || null;
+    getLyricsByTrackIndex(trackIndex) {
+      if (this.trackNames.length === 0) return null;
+      const resolvedTrackName = this.trackNames[this.clampTrackIndex(trackIndex)];
+      return this.lyricsByNormalizedTrackName[this.normalizeTrackName(resolvedTrackName)] || null;
     }
-    function setTrackNames(names) {
-      currentTrackNames = names;
+    setTrackNames(trackNames) {
+      this.trackNames = trackNames;
     }
-    function setActiveTrackIndex(index) {
-      currentActiveTrackIndex = clampToValidTrackIndex(index);
+    setActiveTrackIndex(trackIndex) {
+      this.activeTrackIndex = this.clampTrackIndex(trackIndex);
     }
-    function getTrackNames() {
-      return currentTrackNames;
+    getTrackNames() {
+      return this.trackNames;
     }
-    function clear() {
-      currentTrackNames = [];
-      currentActiveTrackIndex = 0;
-      lyricsByNormalisedTrackName = {};
+    clear() {
+      this.trackNames = [];
+      this.activeTrackIndex = 0;
+      this.lyricsByNormalizedTrackName = {};
     }
-    function clearTrackPositionOnly() {
-      currentActiveTrackIndex = 0;
+    clearTrackPositionOnly() {
+      this.activeTrackIndex = 0;
     }
-    const appWindow = window;
-    appWindow.TrackResolver = {
-      buildLyricsLookupFromTrackList,
-      getLyricsByTrackIndex,
-      setTrackNames,
-      setActiveTrackIndex,
-      getTrackNames,
-      clear,
-      clearTrackPositionOnly
-    };
-  })();
+  };
+  var TrackResolver = new TrackResolver_t();
 })();

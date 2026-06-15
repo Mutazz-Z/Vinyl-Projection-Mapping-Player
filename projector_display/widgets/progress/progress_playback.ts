@@ -1,4 +1,5 @@
 import { DataSource } from "../../js/datasource";
+import { PlaybackClock } from "../../js/playback_clock";
 import { WidgetState, ProgressData_t, Global_ProgressWidgetState } from "../../types/state";
 import { ProgressWidget } from "./progress_app";
 
@@ -42,9 +43,9 @@ export class ProgressWidgetPlayback_t {
             }
         });
 
-        await window.PlaybackClock.init(dataSource);
+        await PlaybackClock.init(dataSource);
         if (this.unsubscribePlaybackClock) this.unsubscribePlaybackClock();
-        this.unsubscribePlaybackClock = window.PlaybackClock.subscribe((clockSnapshot) => {
+        this.unsubscribePlaybackClock = PlaybackClock.subscribe((clockSnapshot) => {
             this.applyClockSnapshot(clockSnapshot);
         });
 
