@@ -1,50 +1,42 @@
 import { DataSource } from "../../js/datasource";
 import { MediaPlaybackState, WidgetState, Global_VisualizerWidgetState, Global_MediaPlaybackState } from "../../types/state";
+import { VisualizerWidget } from "./visualizer_app";
 
-(function () {
-    let currentPlaybackState: number = MediaPlaybackState.Idle;
+export class VisualizerWidgetPlayback_t {
+    private currentPlaybackState: number = MediaPlaybackState.Idle;
 
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
+    private applyState(state: number): void {
+        switch (state) {
+            case WidgetState.Show:
+                VisualizerWidget.show();
+                return;
 
-        if (numericState === WidgetState.Show || numericState === WidgetState.Resume) {
-            const isPlaying = currentPlaybackState === MediaPlaybackState.Playing;
-            if (isPlaying) {
-                window.VisualizerWidget?.play?.();
-            } else {
-                window.VisualizerWidget?.pause?.();
-            }
-            return;
-        }
+            case WidgetState.Hide:
+                VisualizerWidget.hide();
+                return;
 
-        if (numericState === WidgetState.Pause) {
-            window.VisualizerWidget?.pause?.();
-            return;
-        }
+            case WidgetState.Resume:
+                VisualizerWidget.play();
+                return;
 
-        if (numericState === WidgetState.Hide) {
-            window.VisualizerWidget?.hide?.();
+            case WidgetState.Pause:
+                VisualizerWidget.pause();
+                return;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable, data) => {
             switch (variable) {
                 case Global_VisualizerWidgetState:
-                    applyState(data);
-                    break;
-                case Global_MediaPlaybackState:
-                    currentPlaybackState = Number(data);
+                    this.applyState(data as number);
                     break;
             }
         });
 
-        const playbackState = await dataSource.read(Global_MediaPlaybackState);
-        currentPlaybackState = Number(playbackState);
-
-        const currentState = await dataSource.read(Global_VisualizerWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_VisualizerWidgetState);
+        this.applyState(currentState);
     }
+}
 
-    window.VisualizerWidgetPlayback = { init };
-})();
+export const VisualizerWidgetPlayback = new VisualizerWidgetPlayback_t();

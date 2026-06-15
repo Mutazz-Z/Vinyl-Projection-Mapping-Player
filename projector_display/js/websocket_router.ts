@@ -8,6 +8,7 @@ import { QrCodeWidgetPlayback } from "../widgets/qrcode/qrcode_playback";
 import { RecordWidgetPlayback } from "../widgets/record/record_playback";
 import { TracklistWidgetPlayback } from "../widgets/tracklist/tracklist_playback";
 import { LyricsWidgetPlayback } from "../widgets/lyrics/lyrics_playback";
+import { VisualizerWidgetPlayback } from "../widgets/visualizer/visualizer_playback";
 import { DataSource } from "./datasource";
 
 (function () {
@@ -61,7 +62,7 @@ import { DataSource } from "./datasource";
                 TracklistWidgetPlayback.init(dataSource),
                 ProgressWidgetPlayback.init(dataSource),
                 LyricsWidgetPlayback.init(dataSource),
-                window.VisualizerWidgetPlayback.init(dataSource),
+                VisualizerWidgetPlayback.init(dataSource),
                 InfoWidgetPlayback.init(dataSource),
                 QrCodeWidgetPlayback.init(dataSource),
                 ContextMessageWidgetPlayback.init(dataSource),

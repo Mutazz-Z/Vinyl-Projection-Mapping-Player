@@ -1,8 +1,6 @@
 import {
   AlbumTrackList_t,
   TrackLyrics_t,
-  QrCodeData_t,
-  TitleAndArtist_t
 } from './state';
 
 type TrackResolverApi = {
@@ -59,8 +57,6 @@ declare global {
     PI_IP: string;
     ProjectorMapping: ProjectorMappingApi;
     PlaybackClock: PlaybackClockApi;
-    VisualizerWidget?: PlaybackControlWidget;
-    VisualizerWidgetPlayback: WidgetPlaybackController;
     TrackResolver: TrackResolverApi;
   }
 }

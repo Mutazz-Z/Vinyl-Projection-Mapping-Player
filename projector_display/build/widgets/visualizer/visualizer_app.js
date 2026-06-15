@@ -1,67 +1,53 @@
 "use strict";
 (() => {
   // widgets/visualizer/visualizer_app.ts
-  (function() {
-    let visualizerInterval = null;
-    function getVisualizerElement() {
+  var VisualizerWidget_t = class {
+    constructor() {
+      this.visualizerInterval = null;
+    }
+    getElement() {
       return document.getElementById("visualizer");
     }
-    function play() {
-      const visualizerElement = getVisualizerElement();
-      if (!visualizerElement) return;
-      visualizerElement.classList.remove("paused", "hidden");
-      if (visualizerInterval) {
-        clearInterval(visualizerInterval);
+    show() {
+      this.play();
+    }
+    hide() {
+      const el = this.getElement();
+      if (!el) return;
+      el.classList.remove("paused");
+      el.classList.add("hidden");
+      el.querySelectorAll(".bar").forEach((bar) => {
+        bar.style.height = "0%";
+      });
+      if (this.visualizerInterval) {
+        clearInterval(this.visualizerInterval);
+        this.visualizerInterval = null;
       }
-      const barElements = visualizerElement.querySelectorAll(".bar");
-      visualizerInterval = setInterval(function() {
-        barElements.forEach(function(barElement) {
-          barElement.style.height = Math.random() * 80 + 20 + "%";
+    }
+    play() {
+      const el = this.getElement();
+      if (!el) return;
+      el.classList.remove("paused", "hidden");
+      if (this.visualizerInterval) clearInterval(this.visualizerInterval);
+      const bars = el.querySelectorAll(".bar");
+      this.visualizerInterval = setInterval(() => {
+        bars.forEach((bar) => {
+          bar.style.height = Math.random() * 80 + 20 + "%";
         });
       }, 140);
     }
-    function pause() {
-      const visualizerElement = getVisualizerElement();
-      if (visualizerElement) {
-        if (!visualizerElement.classList.contains("hidden")) {
-          visualizerElement.classList.add("paused");
-          const barElements = visualizerElement.querySelectorAll(".bar");
-          barElements.forEach(function(barElement) {
-            barElement.style.height = "2%";
-          });
-        }
+    pause() {
+      const el = this.getElement();
+      if (!el || el.classList.contains("hidden")) return;
+      el.classList.add("paused");
+      el.querySelectorAll(".bar").forEach((bar) => {
+        bar.style.height = "2%";
+      });
+      if (this.visualizerInterval) {
+        clearInterval(this.visualizerInterval);
+        this.visualizerInterval = null;
       }
-      if (visualizerInterval) {
-        clearInterval(visualizerInterval);
-      }
-      visualizerInterval = null;
     }
-    function stop() {
-      const visualizerElement = getVisualizerElement();
-      if (visualizerElement) {
-        visualizerElement.classList.remove("paused");
-        visualizerElement.classList.add("hidden");
-        const barElements = visualizerElement.querySelectorAll(".bar");
-        barElements.forEach(function(barElement) {
-          barElement.style.height = "0%";
-        });
-      }
-      if (visualizerInterval) {
-        clearInterval(visualizerInterval);
-      }
-      visualizerInterval = null;
-    }
-    function show() {
-      play();
-    }
-    function hide() {
-      stop();
-    }
-    window.VisualizerWidget = {
-      show,
-      hide,
-      play,
-      pause
-    };
-  })();
+  };
+  var VisualizerWidget = new VisualizerWidget_t();
 })();

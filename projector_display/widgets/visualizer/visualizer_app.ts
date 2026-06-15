@@ -1,76 +1,61 @@
-(function () {
-    let visualizerInterval: ReturnType<typeof setInterval> | null = null;
+export class VisualizerWidget_t {
+    private visualizerInterval: ReturnType<typeof setInterval> | null = null;
 
-    function getVisualizerElement(): HTMLElement | null {
+    private getElement(): HTMLElement | null {
         return document.getElementById('visualizer');
     }
 
-    function play(): void {
-        const visualizerElement = getVisualizerElement();
-        if (!visualizerElement) return;
-        visualizerElement.classList.remove('paused', 'hidden');
+    public show(): void {
+        this.play();
+    }
 
-        if (visualizerInterval) {
-            clearInterval(visualizerInterval);
+    public hide(): void {
+        const el = this.getElement();
+        if (!el) return;
+
+        el.classList.remove('paused');
+        el.classList.add('hidden');
+
+        el.querySelectorAll<HTMLElement>('.bar').forEach((bar) => {
+            bar.style.height = '0%';
+        });
+
+        if (this.visualizerInterval) {
+            clearInterval(this.visualizerInterval);
+            this.visualizerInterval = null;
         }
+    }
 
-        const barElements = visualizerElement.querySelectorAll<HTMLElement>('.bar');
-        visualizerInterval = setInterval(function () {
-            barElements.forEach(function (barElement) {
-                barElement.style.height = (Math.random() * 80 + 20) + '%';
+    public play(): void {
+        const el = this.getElement();
+        if (!el) return;
+
+        el.classList.remove('paused', 'hidden');
+
+        if (this.visualizerInterval) clearInterval(this.visualizerInterval);
+
+        const bars = el.querySelectorAll<HTMLElement>('.bar');
+        this.visualizerInterval = setInterval(() => {
+            bars.forEach((bar) => {
+                bar.style.height = (Math.random() * 80 + 20) + '%';
             });
         }, 140);
     }
 
-    function pause(): void {
-        const visualizerElement = getVisualizerElement();
-        if (visualizerElement) {
-            if (!visualizerElement.classList.contains('hidden')) {
-                visualizerElement.classList.add('paused');
+    public pause(): void {
+        const el = this.getElement();
+        if (!el || el.classList.contains('hidden')) return;
 
-                const barElements = visualizerElement.querySelectorAll<HTMLElement>('.bar');
-                barElements.forEach(function (barElement) {
-                    barElement.style.height = '2%';
-                });
-            }
+        el.classList.add('paused');
+        el.querySelectorAll<HTMLElement>('.bar').forEach((bar) => {
+            bar.style.height = '2%';
+        });
+
+        if (this.visualizerInterval) {
+            clearInterval(this.visualizerInterval);
+            this.visualizerInterval = null;
         }
-
-        if (visualizerInterval) {
-            clearInterval(visualizerInterval);
-        }
-        visualizerInterval = null;
     }
+}
 
-    function stop(): void {
-        const visualizerElement = getVisualizerElement();
-        if (visualizerElement) {
-            visualizerElement.classList.remove('paused');
-            visualizerElement.classList.add('hidden');
-
-            const barElements = visualizerElement.querySelectorAll<HTMLElement>('.bar');
-            barElements.forEach(function (barElement) {
-                barElement.style.height = '0%';
-            });
-        }
-
-        if (visualizerInterval) {
-            clearInterval(visualizerInterval);
-        }
-        visualizerInterval = null;
-    }
-
-    function show(): void {
-        play();
-    }
-
-    function hide(): void {
-        stop();
-    }
-
-    window.VisualizerWidget = {
-        show: show,
-        hide: hide,
-        play: play,
-        pause: pause,
-    };
-})();
+export const VisualizerWidget = new VisualizerWidget_t();

@@ -311,47 +311,91 @@
   var Global_LyricsWidgetData = { key: "Global_LyricsWidgetData", fromJson: LyricData_t.fromJson };
   var Global_VisualizerWidgetState = "Global_VisualizerWidgetState";
   var Global_QrCodeWidgetData = { key: "Global_QrCodeWidgetData", fromJson: QrCodeData_t.fromJson };
-  var Global_MediaPlaybackState = "Global_MediaPlaybackState";
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
 
-  // widgets/visualizer/visualizer_playback.ts
-  (function() {
-    let currentPlaybackState = 2 /* Idle */;
-    function applyState(state) {
-      const numericState = Number(state);
-      if (numericState === 1 /* Show */ || numericState === 3 /* Resume */) {
-        const isPlaying = currentPlaybackState === 0 /* Playing */;
-        if (isPlaying) {
-          window.VisualizerWidget?.play?.();
-        } else {
-          window.VisualizerWidget?.pause?.();
-        }
-        return;
-      }
-      if (numericState === 2 /* Pause */) {
-        window.VisualizerWidget?.pause?.();
-        return;
-      }
-      if (numericState === 0 /* Hide */) {
-        window.VisualizerWidget?.hide?.();
+  // widgets/visualizer/visualizer_app.ts
+  var VisualizerWidget_t = class {
+    constructor() {
+      this.visualizerInterval = null;
+    }
+    getElement() {
+      return document.getElementById("visualizer");
+    }
+    show() {
+      this.play();
+    }
+    hide() {
+      const el = this.getElement();
+      if (!el) return;
+      el.classList.remove("paused");
+      el.classList.add("hidden");
+      el.querySelectorAll(".bar").forEach((bar) => {
+        bar.style.height = "0%";
+      });
+      if (this.visualizerInterval) {
+        clearInterval(this.visualizerInterval);
+        this.visualizerInterval = null;
       }
     }
-    async function init(dataSource) {
-      dataSource.onStateChanged(function(variable, data) {
+    play() {
+      const el = this.getElement();
+      if (!el) return;
+      el.classList.remove("paused", "hidden");
+      if (this.visualizerInterval) clearInterval(this.visualizerInterval);
+      const bars = el.querySelectorAll(".bar");
+      this.visualizerInterval = setInterval(() => {
+        bars.forEach((bar) => {
+          bar.style.height = Math.random() * 80 + 20 + "%";
+        });
+      }, 140);
+    }
+    pause() {
+      const el = this.getElement();
+      if (!el || el.classList.contains("hidden")) return;
+      el.classList.add("paused");
+      el.querySelectorAll(".bar").forEach((bar) => {
+        bar.style.height = "2%";
+      });
+      if (this.visualizerInterval) {
+        clearInterval(this.visualizerInterval);
+        this.visualizerInterval = null;
+      }
+    }
+  };
+  var VisualizerWidget = new VisualizerWidget_t();
+
+  // widgets/visualizer/visualizer_playback.ts
+  var VisualizerWidgetPlayback_t = class {
+    constructor() {
+      this.currentPlaybackState = 2 /* Idle */;
+    }
+    applyState(state) {
+      switch (state) {
+        case 1 /* Show */:
+          VisualizerWidget.show();
+          return;
+        case 0 /* Hide */:
+          VisualizerWidget.hide();
+          return;
+        case 3 /* Resume */:
+          VisualizerWidget.play();
+          return;
+        case 2 /* Pause */:
+          VisualizerWidget.pause();
+          return;
+      }
+    }
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
         switch (variable) {
           case Global_VisualizerWidgetState:
-            applyState(data);
-            break;
-          case Global_MediaPlaybackState:
-            currentPlaybackState = Number(data);
+            this.applyState(data);
             break;
         }
       });
-      const playbackState = await dataSource.read(Global_MediaPlaybackState);
-      currentPlaybackState = Number(playbackState);
       const currentState = await dataSource.read(Global_VisualizerWidgetState);
-      applyState(currentState);
+      this.applyState(currentState);
     }
-    window.VisualizerWidgetPlayback = { init };
-  })();
+  };
+  var VisualizerWidgetPlayback = new VisualizerWidgetPlayback_t();
 })();

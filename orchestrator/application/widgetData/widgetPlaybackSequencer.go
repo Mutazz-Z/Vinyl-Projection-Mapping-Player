@@ -170,7 +170,7 @@ func (instance *WidgetPlaybackSequencer_t) pauseVisualPlayback() {
 	var visualizerWidgetState typedefs.WidgetState_t
 	utils.Read(instance._private.systemDataSource, core.Global_VisualizerWidgetState, &visualizerWidgetState)
 
-	if visualizerWidgetState == typedefs.WidgetState_Show {
+	if visualizerWidgetState == typedefs.WidgetState_Show || visualizerWidgetState == typedefs.WidgetState_Resume {
 		utils.Write(instance._private.systemDataSource, core.Global_VisualizerWidgetState, typedefs.WidgetState_Pause)
 	}
 	utils.Write(instance._private.systemDataSource, core.Global_OverlayWidgetState, typedefs.WidgetState_Pause)
