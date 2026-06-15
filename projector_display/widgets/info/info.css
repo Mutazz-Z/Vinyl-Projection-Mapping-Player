@@ -1,0 +1,91 @@
+.info-container {
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    padding: 0 4px 16px 4px;
+    box-sizing: border-box;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(80px) scale(0.85);
+    transform-origin: bottom center;
+    transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.7s ease;
+
+    overflow-x: hidden;
+    overflow-y: visible;
+
+    --scale: 1;
+    --title-size: 4.45rem;
+    --artist-size: 2.25rem;
+}
+
+.info-container.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.info-container.hiding {
+    opacity: 0;
+    transform: translateY(80px) scale(0.85);
+}
+
+.text-wrapper {
+    display: block;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+#title-wrap {
+    overflow: hidden;
+    text-align: left;
+}
+
+#artist-wrap {
+    white-space: nowrap;
+    text-align: right;
+}
+
+#album-title {
+    font-size: calc(var(--title-size) * var(--scale));
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+    transform: translateZ(0);
+    line-height: 1.3;
+}
+
+#artist-name {
+    font-size: calc(var(--artist-size) * var(--scale));
+    font-weight: 400;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+    transform: translateZ(0);
+    line-height: 1.3;
+    margin-bottom: 0.15em;
+}
+
+.marquee {
+    display: inline-flex;
+    animation: scrollTitle 20s linear infinite;
+}
+
+.marquee .spacer {
+    width: 50px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+@keyframes scrollTitle {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(calc(-50% - 25px));
+    }
+}

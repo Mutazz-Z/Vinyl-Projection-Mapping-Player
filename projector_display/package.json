@@ -1,0 +1,13 @@
+{
+  "name": "projector-display",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build:ts": "node build.js",
+    "watch:ts": "node build.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "typescript": "^5.9.3"
+  }
+}

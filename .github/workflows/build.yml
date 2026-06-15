@@ -24,7 +24,7 @@ jobs:
           - target: macos-arm64
             goos: darwin
             goarch: arm64
-            goarm: ''
+            goarm: ""
 
     steps:
       - name: Checkout repository
@@ -52,3 +52,29 @@ jobs:
         with:
           name: vinyl-orchestrator-${{ matrix.target }}
           path: builds/vinyl-orchestrator-${{ matrix.target }}
+
+  build-frontend:
+    name: Flutter Web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install Flutter dependencies
+        working-directory: web_app
+        run: flutter pub get
+
+      - name: Build Flutter Web
+        working-directory: web_app
+        run: flutter build web --release
+
+      - name: Upload Web Assets Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-assets
+          path: web_app/build/web

@@ -1,0 +1,84 @@
+substitutions:
+  name: vinylreader
+  friendly_name: VinylReader
+  mqtt_broker: 192.168.50.143
+
+esphome:
+  name: ${name}
+  name_add_mac_suffix: true
+  project:
+    name: adonno.tag_reader
+    version: mqtt-standalone
+
+api:
+  reboot_timeout: 0s
+
+esp8266:
+  board: d1_mini
+
+mqtt:
+  broker: ${mqtt_broker}
+  topic_prefix: vinyl/shelf
+  discovery: false
+
+  birth_message:
+    topic: vinyl/shelf/status
+    payload: "true"
+  will_message:
+    topic: vinyl/shelf/status
+    payload: "false"
+
+  on_connect:
+    then:
+      - logger.log: "Successfully connected to MQTT!"
+  on_message:
+    - topic: vinyl/shelf/command/restart
+      then:
+        - button.press: restart_button
+
+wifi:
+  networks:
+    # - ssid: !secret wifi_ssid
+    #   password: !secret wifi_password
+
+  power_save_mode: none
+
+ota:
+  - platform: esphome
+
+logger:
+  level: DEBUG
+
+i2c:
+  scan: False
+  frequency: 100kHz
+
+button:
+  - platform: restart
+    id: restart_button
+    name: "${friendly_name} Restart"
+
+pn532_i2c:
+  id: pn532_board
+  update_interval: 500ms
+  on_tag:
+    then:
+      - logger.log:
+          format: "ESP Event: Tag placed with UID %s"
+          args: ["x.c_str()"]
+      - mqtt.publish_json:
+          topic: "vinyl/shelf/state"
+          payload: |-
+            std::string uid = x;
+            for (auto & c: uid) c = toupper(c);
+            uid.erase(std::remove(uid.begin(), uid.end(), ' '), uid.end());
+            root["uid"] = uid;
+            root["shelfStatus"] = true;
+  on_tag_removed:
+    then:
+      - logger.log: "ESP Event: Tag removed"
+      - mqtt.publish_json:
+          topic: "vinyl/shelf/state"
+          payload: |-
+            root["uid"] = "";
+            root["shelfStatus"] = false;

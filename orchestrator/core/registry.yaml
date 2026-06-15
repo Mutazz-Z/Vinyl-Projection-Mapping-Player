@@ -1,0 +1,208 @@
+variables:
+  # ── Music Assistant ──────────────────────────────────────────────────────
+  - name: MusicAssistantUrl
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  - name: MusicAssistantToken
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  - name: MusicAssistantTargetPlayerId
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  # ── Web / Network ────────────────────────────────────────────────────────
+  - name: FlutterWebUrl
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  - name: FlutterWebPort
+    storage: NonVolatile
+    type: string
+    default: '""'
+
+  # ── MQTT ─────────────────────────────────────────────────────────────────
+  - name: MqttBrokerHostAddress
+    storage: NonVolatile
+    type: string
+    default: '"127.0.0.1"'
+
+  - name: MqttWebSocketPort
+    storage: NonVolatile
+    type: int
+    default: 9001
+
+  - name: MqttTcpPort
+    storage: NonVolatile
+    type: int
+    default: 1883
+
+  # ── NFC Reader ───────────────────────────────────────────────────────────
+  - name: LastKnownUidScanned
+    storage: Volatile
+    type: typedefs.UidScanned_t
+    default: "typedefs.UidScanned_t{}"
+
+  - name: LastUnknownUidScanned
+    storage: Volatile
+    type: typedefs.UidScanned_t
+    default: "typedefs.UidScanned_t{}"
+
+  - name: CurrentShelfStatus
+    storage: Volatile
+    type: typedefs.ShelfStatus_t
+    default: "typedefs.ShelfStatus_Empty"
+
+  - name: ReaderConnectionStatus
+    storage: Volatile
+    type: typedefs.ReaderStatus_t
+    default: "typedefs.ReaderStatus_Offline"
+
+  # ── Projector ────────────────────────────────────────────────────────────
+  - name: ProjectorHeartbeatSignal
+    storage: Volatile
+    type: typedefs.ProjectorHeartbeatSignal_t
+    default: "typedefs.ProjectorHeartbeatSignal_t{}"
+
+  - name: DefinedProjectorErrorMessage
+    storage: Volatile
+    type: string
+    default: '""'
+
+  - name: ProjectorHeartbeat
+    storage: Volatile
+    type: typedefs.ProjectorHeartbeat_t
+    default: "typedefs.ProjectorHeartbeat_t{}"
+
+  - name: TargetDisplayWidthInPixels
+    storage: NonVolatile
+    type: int
+    default: 1920
+
+  - name: TargetDisplayHeightInPixels
+    storage: NonVolatile
+    type: int
+    default: 1080
+
+  - name: CurrentMaptasticProjectorPositions
+    storage: NonVolatile
+    type: typedefs.MaptasticProjectorPositions_t
+    default: "typedefs.MaptasticProjectorPositions_t{}"
+
+  - name: SavedMaptasticProjectorPositions
+    storage: NonVolatile
+    type: typedefs.MaptasticProjectorPositions_t
+    default: "typedefs.MaptasticProjectorPositions_t{}"
+
+  - name: LoadingWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Idle"
+
+  - name: InfoWidgetData
+    storage: Volatile
+    type: typedefs.TitleAndArtist_t
+    default: "typedefs.TitleAndArtist_t{}"
+
+  - name: InfoWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: OverlayWidgetData
+    storage: Volatile
+    type: typedefs.OverlayData_t
+    default: "typedefs.OverlayData_t{}"
+
+  - name: OverlayWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: RecordWidgetData
+    storage: Volatile
+    type: typedefs.RecordDesignData_t
+    default: "typedefs.RecordDesignData_t{}"
+
+  - name: RecordWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: TrackListWidgetData
+    storage: Volatile
+    type: typedefs.TrackListWidgetData_t
+    default: "typedefs.TrackListWidgetData_t{Tracks: []typedefs.TrackListItem_t{}, CurrentPlayingIndex: 0, ReadyForDisplay: false}"
+
+  - name: TrackListWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: ProgressWidgetData
+    storage: Volatile
+    type: typedefs.ProgressData_t
+    default: "typedefs.ProgressData_t{}"
+
+  - name: ProgressWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: LyricsWidgetData
+    storage: Volatile
+    type: typedefs.LyricData_t
+    default: "typedefs.LyricData_t{}"
+
+  - name: LyricsWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: VisualizerWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: QrCodeWidgetData
+    storage: Volatile
+    type: typedefs.QrCodeData_t
+    default: "typedefs.QrCodeData_t{}"
+
+  - name: QrCodeWidgetState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  - name: PlaybackErrorMessageState
+    storage: Volatile
+    type: typedefs.WidgetState_t
+    default: "typedefs.WidgetState_Hide"
+
+  
+
+  # ── Active Record Shelf ──────────────────────────────────────────────────
+  - name: ActiveTrackProgressInSeconds
+    storage: Volatile
+    type: float64
+    default: 0
+
+  - name: ActiveTrackTotalDurationInSeconds
+    storage: Volatile
+    type: float64
+    default: 0
+
+  - name: MediaPlaybackState
+    storage: Volatile
+    type: typedefs.MediaPlaybackState_t
+    default: "typedefs.PlayerState_Idle"
+
+  - name: ActiveTrack
+    storage: Volatile
+    type: typedefs.ActiveTrack_t
+    default: "typedefs.ActiveTrack_t{}"

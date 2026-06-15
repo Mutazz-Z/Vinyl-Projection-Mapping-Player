@@ -1,0 +1,151 @@
+.overlay-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+}
+
+#fx-video-container {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+    background-color: #111;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-image:
+        linear-gradient(45deg, #1e1e1e 25%, transparent 25%),
+        linear-gradient(-45deg, #1e1e1e 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1e1e1e 75%),
+        linear-gradient(-45deg, transparent 75%, #1e1e1e 75%);
+    background-size: 32px 32px;
+    background-position: 0 0, 0 16px, 16px -16px, -16px 0;
+}
+
+#fx-video-container.active {
+    opacity: 0.65;
+}
+
+#fx-video-container.video-ready {
+    background-image: none;
+    background-color: transparent;
+}
+
+#fx-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#fx-video-container.video-ready #fx-video {
+    opacity: 1;
+}
+
+#unknown-tag-indicator {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.78);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    z-index: 5;
+}
+
+#unknown-tag-indicator.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.unknown-tag-card {
+    width: 300px;
+    padding: 20px 18px;
+    border-radius: 14px;
+    background: rgba(12, 12, 12, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    text-align: center;
+}
+
+.unknown-tag-card h3 {
+    margin: 0 0 4px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.unknown-tag-card p {
+    margin: 0 0 14px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+#unknown-tag-qr {
+    width: 200px;
+    height: 200px;
+    display: block;
+    margin: 0 auto 10px;
+    border-radius: 8px;
+    border: 5px solid #fff;
+    background: #fff;
+}
+
+#unknown-tag-uid {
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.45);
+    word-break: break-all;
+}
+
+#status-icon-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    background-size: 120px;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#status-icon-overlay.visible {
+    opacity: 1;
+}
+
+#fx-video-container.active.paused {
+    opacity: 0.0;
+}
+
+/* Mapping mode: always show container outline */
+body.mapping-mode #fx-video-container {
+    opacity: 0.5 !important;
+}
+
+body.mapping-mode #overlay-widget::after {
+    content: "Album Boundary";
+    position: absolute;
+    inset: 0;
+    z-index: 9999;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+
+    background-color: rgba(0, 0, 0, 0.6);
+    background-image: conic-gradient(rgba(255, 200, 0, 0.2) 90deg,
+            transparent 90deg 180deg,
+            rgba(255, 200, 0, 0.2) 180deg 270deg,
+            transparent 270deg);
+    background-size: 40px 40px;
+}

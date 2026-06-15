@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinyl Projection</title>
+
+    <script src="https://rawcdn.githack.com/glowbox/maptasticjs/master/build/maptastic.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="widgets/overlay/overlay.css">
+    <link rel="stylesheet" href="widgets/loading/loading.css">
+    <link rel="stylesheet" href="widgets/info/info.css">
+    <link rel="stylesheet" href="widgets/lyrics/lyrics.css">
+    <link rel="stylesheet" href="widgets/record/record.css">
+    <link rel="stylesheet" href="widgets/tracklist/tracklist.css">
+    <link rel="stylesheet" href="widgets/progress/progress.css">
+    <link rel="stylesheet" href="widgets/context_message/context_message.css">
+    <link rel="stylesheet" href="widgets/visualizer/visualizer.css">
+    <link rel="stylesheet" href="widgets/qrcode/qrcode.css">
+</head>
+
+<body>
+    <div id="boot-status">BOOTING PROJECTION UI...</div>
+
+    <div id="projection-group">
+        <div id="overlay-widget" class="widget-slot" data-widget="widgets/overlay/overlay.html"></div>
+        <div id="loading-widget" class="widget-slot" data-widget="widgets/loading/loading.html"></div>
+        <div id="info-widget" class="widget-slot" data-widget="widgets/info/info.html"></div>
+        <div id="record-widget" class="widget-slot" data-widget="widgets/record/record.html"></div>
+        <div id="tracklist-widget" class="widget-slot" data-widget="widgets/tracklist/tracklist.html"></div>
+        <div id="progress-widget" class="widget-slot" data-widget="widgets/progress/progress.html"></div>
+        <div id="visualizer-widget" class="widget-slot" data-widget="widgets/visualizer/visualizer.html"></div>
+        <div id="lyrics-widget" class="widget-slot" data-widget="widgets/lyrics/lyrics.html"></div>
+        <div id="context-message-widget" class="widget-slot" data-widget="widgets/context_message/context_message.html">
+        </div>
+        <div id="qrcode-widget" class="widget-slot" data-widget="widgets/qrcode/qrcode.html"></div>
+    </div>
+
+    <script>
+        const bootStatus = document.getElementById('boot-status');
+
+        function setBootStatus(text, isError = false) {
+            if (!bootStatus) return;
+            bootStatus.textContent = text;
+            bootStatus.style.background = isError ? '#ff3b30' : '#ffd400';
+            bootStatus.style.color = isError ? '#fff' : '#111';
+        }
+
+        async function buildDashboard() {
+            try {
+                setBootStatus('BOOT: Loading widgets...');
+
+                const slots = document.querySelectorAll('.widget-slot[data-widget]');
+                await Promise.all(Array.from(slots).map(async (slot) => {
+                    const url = slot.getAttribute('data-widget');
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`Widget not found: ${url} (${res.status})`);
+                    slot.innerHTML = await res.text();
+                }));
+
+                setBootStatus('BOOT: Loading scripts...');
+
+                await loadScript('js/state.js');
+                await loadScript('js/qrcode.min.js');
+                await loadScript('build/js/websocket_router.js');
+
+                setBootStatus('BOOT: Ready');
+                setTimeout(() => { if (bootStatus) bootStatus.style.display = 'none'; }, 3000);
+
+            } catch (err) {
+                setBootStatus(`BOOT FAILED: ${err.message}`, true);
+                document.body.innerHTML = `
+                    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#111">
+                        <h1 style="color:#ff5252;font-family:monospace;text-align:center;max-width:80%">
+                            BOOT FAILED<br><br>
+                            <span style="color:#fff;font-size:1.6rem">${err.message}</span>
+                        </h1>
+                    </div>`;
+            }
+        }
+
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = `${src}?v=${Date.now()}`;
+                s.onload = resolve;
+                s.onerror = () => reject(new Error(`Failed to load: ${src}`));
+                document.body.appendChild(s);
+            });
+        }
+
+        setTimeout(() => {
+            const group = document.getElementById('projection-group');
+            if (!group || !group.textContent.trim()) {
+                setBootStatus('BOOT STALLED — press 0 to reset layout, then refresh', true);
+            }
+        }, 7000);
+
+        window.onload = buildDashboard;
+    </script>
+</body>
+
+</html>
