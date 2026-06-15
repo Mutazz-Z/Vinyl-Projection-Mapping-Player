@@ -1,14 +1,26 @@
 import { MediaPlaybackState, Global_MediaPlaybackState, Global_ActiveTrackProgressInSeconds, Global_ActiveTrackTotalDurationInSeconds } from "../types/state";
 import { DataSource } from "./datasource";
 
-(function () {
-    type PlaybackClockSnapshot = {
-        progressSeconds: number;
-        durationSeconds: number;
-        playbackState: number;
-        isPlaying: boolean;
-    };
+type PlaybackClockSnapshot = {
+    progressSeconds: number;
+    durationSeconds: number;
+    playbackState: number;
+    isPlaying: boolean;
+};
 
+type PlaybackClockApi = {
+    init: (dataSource: DataSource) => Promise<void>;
+    subscribe: (listener: (snapshot: PlaybackClockSnapshot) => void) => () => void;
+    snapshot: () => PlaybackClockSnapshot;
+};
+
+declare global {
+    interface Window {
+        PlaybackClock: PlaybackClockApi;
+    }
+}
+
+(function () {
     type PlaybackClockListener = (snapshot: PlaybackClockSnapshot) => void;
 
     let sourceDataSource: DataSource | null = null;

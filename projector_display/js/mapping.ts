@@ -1,5 +1,23 @@
 import { Global_CurrentMaptasticProjectorPositions } from "../types/state";
 
+type MaptasticController = {
+    getLayout: () => any;
+    setLayout: (layout: any) => void;
+};
+
+type ProjectorMappingApi = {
+    updateLayout: (layoutData: unknown) => void;
+    toggleMode: () => void;
+};
+
+declare const Maptastic: (targetSelector: string) => MaptasticController;
+
+declare global {
+    interface Window {
+        ProjectorMapping: ProjectorMappingApi;
+    }
+}
+
 const LAYOUT_LOCALSTORAGE_KEY = 'vinylProjectionLayout';
 const LAYOUT_LOCALSTORAGE_BACKUP_KEY = 'vinylProjectionLayoutBackup';
 

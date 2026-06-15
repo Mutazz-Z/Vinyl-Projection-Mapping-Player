@@ -11,6 +11,13 @@ import { LyricsWidgetPlayback } from "../widgets/lyrics/lyrics_playback";
 import { VisualizerWidgetPlayback } from "../widgets/visualizer/visualizer_playback";
 import { DataSource } from "./datasource";
 
+declare global {
+    interface Window {
+        AppDataSource: DataSource | null;
+        PI_IP: string;
+    }
+}
+
 (function () {
     const urlParams = new URLSearchParams(window.location.search);
     const hostIp = window.location.hostname || '127.0.0.1';

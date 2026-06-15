@@ -1,5 +1,23 @@
 import { TrackLyrics_t, AlbumTrackList_t } from "../types/state";
 
+type TrackResolverApi = {
+    buildLyricsLookupFromTrackList: (trackList: AlbumTrackList_t[]) => void;
+    getTrackNames: () => string[];
+    setActiveTrackIndex: (index: number) => void;
+    getLyricsByTrackIndex: (trackIndex: number) => TrackLyrics_t | null;
+    setTrackNames: (names: string[]) => void;
+    clear: () => void;
+    clearTrackPositionOnly: () => void;
+};
+
+declare global {
+    var TrackResolver: TrackResolverApi;
+
+    interface Window {
+        TrackResolver: TrackResolverApi;
+    }
+}
+
 (function () {
     let currentTrackNames: string[] = [];
     let currentActiveTrackIndex = 0;
@@ -54,17 +72,7 @@ import { TrackLyrics_t, AlbumTrackList_t } from "../types/state";
         currentActiveTrackIndex = 0;
     }
 
-    const appWindow = window as Window & typeof globalThis & {
-        TrackResolver: {
-            buildLyricsLookupFromTrackList: typeof buildLyricsLookupFromTrackList;
-            getLyricsByTrackIndex: typeof getLyricsByTrackIndex;
-            setTrackNames: typeof setTrackNames;
-            setActiveTrackIndex: typeof setActiveTrackIndex;
-            getTrackNames: typeof getTrackNames;
-            clear: typeof clear;
-            clearTrackPositionOnly: typeof clearTrackPositionOnly;
-        };
-    };
+    const appWindow = window as Window;
 
     appWindow.TrackResolver = {
         buildLyricsLookupFromTrackList,
