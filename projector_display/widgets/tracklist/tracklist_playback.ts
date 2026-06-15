@@ -1,57 +1,44 @@
 import { DataSource } from "../../js/datasource";
 import { TrackListWidgetData_t, WidgetState, Global_TrackListWidgetData, Global_TrackListWidgetState } from "../../types/state";
+import { TracklistWidget } from "./tracklist_app";
 
-(function () {
-    let transitionToken = 0;
+export class TracklistWidgetPlayback_t {
 
-    function applyData(data: unknown): void {
-        const trackListWidgetData = TrackListWidgetData_t.fromJson(data);
-        window.TracklistWidget?.updateData?.(trackListWidgetData);
-
-        const trackNames = (trackListWidgetData.tracks || []).map(function (entry) {
-            return entry.track;
-        });
-        TrackResolver.setTrackNames(trackNames);
+    private applyData(data: TrackListWidgetData_t): void {
+        TracklistWidget.updateData(data);
     }
 
-    function applyState(state: unknown): void {
-        const numericState = Number(state);
+    private applyState(state: number): void {
+        switch (Number(state)) {
+            case WidgetState.Show:
+                TracklistWidget.show();
+                return;
 
-        if (numericState === WidgetState.Show) {
-            window.TracklistWidget?.show?.();
-            return;
-        }
-
-        if (numericState === WidgetState.Hide) {
-            const token = ++transitionToken;
-            window.TracklistWidget?.hide?.({
-                visible: false,
-                beginStopSequence: {
-                    token,
-                    getPlaybackToken: function () { return transitionToken; },
-                },
-            });
+            case WidgetState.Hide:
+                TracklistWidget.hide();
+                return;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
-            switch (variable) {
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable: unknown, data: unknown) => {
+            switch (variable as string) {
                 case Global_TrackListWidgetData.key:
-                    applyData(data);
+                    this.applyData(data as TrackListWidgetData_t);
                     break;
+
                 case Global_TrackListWidgetState:
-                    applyState(data);
+                    this.applyState(data as number);
                     break;
             }
         });
 
-        const currentData = await dataSource.read(Global_TrackListWidgetData.key);
-        applyData(currentData);
+        const currentData = await dataSource.read<TrackListWidgetData_t>(Global_TrackListWidgetData.key);
+        this.applyData(currentData);
 
-        const currentState = await dataSource.read(Global_TrackListWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_TrackListWidgetState);
+        this.applyState(currentState);
     }
+}
 
-    window.TracklistWidgetPlayback = { init };
-})();
+export const TracklistWidgetPlayback = new TracklistWidgetPlayback_t();

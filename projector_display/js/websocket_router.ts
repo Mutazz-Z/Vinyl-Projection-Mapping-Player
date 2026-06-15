@@ -6,6 +6,7 @@ import { OverlayWidgetPlayback } from "../widgets/overlay/overlay_playback";
 import { ProgressWidgetPlayback } from "../widgets/progress/progress_playback";
 import { QrCodeWidgetPlayback } from "../widgets/qrcode/qrcode_playback";
 import { RecordWidgetPlayback } from "../widgets/record/record_playback";
+import { TracklistWidgetPlayback } from "../widgets/tracklist/tracklist_playback";
 import { DataSource } from "./datasource";
 
 (function () {
@@ -56,7 +57,7 @@ import { DataSource } from "./datasource";
                 LoadingWidgetPlayback.init(dataSource),
                 OverlayWidgetPlayback.init(dataSource),
                 RecordWidgetPlayback.init(dataSource),
-                window.TracklistWidgetPlayback.init(dataSource),
+                TracklistWidgetPlayback.init(dataSource),
                 ProgressWidgetPlayback.init(dataSource),
                 window.LyricsWidgetPlayback.init(dataSource),
                 window.VisualizerWidgetPlayback.init(dataSource),
