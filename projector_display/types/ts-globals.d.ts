@@ -35,15 +35,6 @@ interface TracklistWidgetApi {
   updateData?: (trackListWidgetData: TrackListWidgetData_t) => void;
 }
 
-interface RecordWidgetApi {
-  show?: (options?: unknown) => void;
-  hide?: (options?: unknown) => void;
-  updateData?: (recordDesignData: RecordDesignData_t) => void;
-  play?: () => void;
-  pause?: () => void;
-  ejectRecord?: () => void;
-}
-
 interface ProjectorMappingApi {
   updateLayout: (layoutData: unknown) => void;
   toggleMode: () => void;
@@ -98,9 +89,7 @@ declare global {
       hasLyrics?: () => boolean;
     };
     VisualizerWidget?: PlaybackControlWidget;
-    RecordWidget?: RecordWidgetApi;
     TracklistWidget?: TracklistWidgetApi;
-    RecordWidgetPlayback: WidgetPlaybackController;
     TracklistWidgetPlayback: WidgetPlaybackController;
     LyricsWidgetPlayback: WidgetPlaybackController;
     VisualizerWidgetPlayback: WidgetPlaybackController;

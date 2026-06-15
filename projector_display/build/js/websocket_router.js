@@ -312,6 +312,7 @@
   var Global_OverlayWidgetData = { key: "Global_OverlayWidgetData", fromJson: OverlayData_t.fromJson };
   var Global_OverlayWidgetState = "Global_OverlayWidgetState";
   var Global_RecordWidgetData = { key: "Global_RecordWidgetData", fromJson: RecordDesignData_t.fromJson };
+  var Global_RecordWidgetState = "Global_RecordWidgetState";
   var Global_TrackListWidgetData = { key: "Global_TrackListWidgetData", fromJson: TrackListWidgetData_t.fromJson };
   var Global_ProgressWidgetData = { key: "Global_ProgressWidgetData", fromJson: ProgressData_t.fromJson };
   var Global_ProgressWidgetState = "Global_ProgressWidgetState";
@@ -319,6 +320,7 @@
   var Global_QrCodeWidgetData = { key: "Global_QrCodeWidgetData", fromJson: QrCodeData_t.fromJson };
   var Global_QrCodeWidgetState = "Global_QrCodeWidgetState";
   var Global_PlaybackErrorMessageState = "Global_PlaybackErrorMessageState";
+  var Global_MediaPlaybackState = "Global_MediaPlaybackState";
   var Global_ActiveTrack = { key: "Global_ActiveTrack", fromJson: ActiveTrack_t.fromJson };
 
   // widgets/context_message/context_message_app.ts
@@ -1038,6 +1040,168 @@
   };
   var QrCodeWidgetPlayback = new QrCodeWidgetPlayback_t();
 
+  // widgets/record/record_app.ts
+  var RecordWidget_t = class {
+    constructor() {
+      this.RECORD_SLIDE_MS = 700;
+      this.currentDesignData = RecordDesignData_t.fromJson({});
+      this.hideCleanupTimer = null;
+    }
+    getRecord() {
+      return document.getElementById("record");
+    }
+    getRecordContainer() {
+      const record = this.getRecord();
+      return record.closest(".record-container");
+    }
+    setSpinState(state) {
+      const record = this.getRecord();
+      if (record) record.style.animationPlayState = state;
+    }
+    applyLayerStyle(targetElement, value, isImage, fallbackColor) {
+      if (isImage) {
+        const safeUrl = String(value).replace(/"/g, '\\"');
+        targetElement.style.backgroundImage = 'url("' + safeUrl + '")';
+        targetElement.style.removeProperty("background-color");
+      } else {
+        targetElement.style.backgroundImage = "none";
+        if (value) {
+          targetElement.style.backgroundColor = value;
+        } else if (fallbackColor) {
+          targetElement.style.backgroundColor = fallbackColor;
+        } else {
+          targetElement.style.removeProperty("background-color");
+        }
+      }
+    }
+    applyDesignData(designData) {
+      const labelDesign = designData.labelDesign;
+      const ringDesign = designData.ringDesign;
+      const label = labelDesign.usesImage ? labelDesign.labelImage : labelDesign.labelColor;
+      const ring = ringDesign.usesImage ? ringDesign.ringImage : ringDesign.ringColor;
+      const record = this.getRecord();
+      this.applyLayerStyle(record, ring, ringDesign.usesImage, "#ffffff");
+      const recordLabel = document.querySelector(".record-label");
+      this.applyLayerStyle(recordLabel, label, labelDesign.usesImage, "#2a2a2a");
+    }
+    applyDesignToWidgets(designData) {
+      if (!designData.readyForDisplay) return;
+      this.currentDesignData = designData;
+      this.applyDesignData(designData);
+    }
+    updateData(recordDesignData) {
+      this.applyDesignToWidgets(recordDesignData);
+    }
+    show() {
+      const recordContainer = this.getRecordContainer();
+      if (!recordContainer) return;
+      if (this.hideCleanupTimer) {
+        clearTimeout(this.hideCleanupTimer);
+        this.hideCleanupTimer = null;
+      }
+      recordContainer.style.display = "";
+      void recordContainer.offsetWidth;
+      recordContainer.classList.add("visible");
+    }
+    hide() {
+      const recordContainer = this.getRecordContainer();
+      if (this.hideCleanupTimer) {
+        clearTimeout(this.hideCleanupTimer);
+        this.hideCleanupTimer = null;
+      }
+      const widgetSlot = recordContainer.parentElement;
+      if (widgetSlot) {
+        widgetSlot.style.removeProperty("overflow");
+        widgetSlot.style.removeProperty("clip-path");
+      }
+      recordContainer.classList.remove("error-eject");
+      recordContainer.classList.remove("visible");
+      this.hideCleanupTimer = setTimeout(() => {
+        if (!recordContainer.classList.contains("visible") && !recordContainer.classList.contains("error-eject")) {
+          recordContainer.style.display = "none";
+        }
+        this.hideCleanupTimer = null;
+      }, this.RECORD_SLIDE_MS);
+    }
+    play() {
+      this.setSpinState("running");
+    }
+    pause() {
+      this.setSpinState("paused");
+    }
+    ejectRecord() {
+      const recordContainer = this.getRecordContainer();
+      if (!recordContainer) return;
+      this.applyDesignData(this.currentDesignData);
+      const widgetSlot = recordContainer.parentElement;
+      if (widgetSlot) {
+        widgetSlot.style.overflow = "visible";
+        widgetSlot.style.clipPath = "inset(-100px -1000px -100px 0)";
+      }
+      recordContainer.style.display = "block";
+      void recordContainer.offsetWidth;
+      recordContainer.classList.add("error-eject");
+    }
+  };
+  var RecordWidget = new RecordWidget_t();
+
+  // widgets/record/record_playback.ts
+  var RecordWidgetPlayback_t = class {
+    applyData(data) {
+      RecordWidget.updateData(RecordDesignData_t.fromJson(data));
+    }
+    applyState(state) {
+      const numericState = Number(state);
+      switch (numericState) {
+        case 1 /* Show */:
+          RecordWidget.show();
+          return;
+        case 0 /* Hide */:
+          RecordWidget.hide();
+          return;
+        case 2 /* Pause */:
+          RecordWidget.pause();
+          return;
+        case 3 /* Resume */:
+          RecordWidget.play();
+          return;
+        case 6 /* EjectRecord */:
+          RecordWidget.ejectRecord();
+          return;
+      }
+    }
+    applyPlaybackState(state) {
+      if (Number(state) === 0 /* Playing */) {
+        RecordWidget.play();
+        return;
+      }
+      RecordWidget.pause();
+    }
+    async init(dataSource) {
+      dataSource.onStateChanged((variable, data) => {
+        const globalVariable = variable;
+        switch (globalVariable) {
+          case Global_RecordWidgetData.key:
+            this.applyData(data);
+            break;
+          case Global_RecordWidgetState:
+            this.applyState(data);
+            break;
+          case Global_MediaPlaybackState:
+            this.applyPlaybackState(data);
+            break;
+        }
+      });
+      const currentData = await dataSource.read(Global_RecordWidgetData.key);
+      this.applyData(currentData);
+      const currentState = await dataSource.read(Global_RecordWidgetState);
+      this.applyState(currentState);
+      const currentPlaybackState = await dataSource.read(Global_MediaPlaybackState);
+      this.applyPlaybackState(currentPlaybackState);
+    }
+  };
+  var RecordWidgetPlayback = new RecordWidgetPlayback_t();
+
   // js/datasource.ts
   var DataSource = class {
     constructor(webSocketConnection) {
@@ -1169,7 +1333,7 @@
         await Promise.all([
           LoadingWidgetPlayback.init(dataSource),
           OverlayWidgetPlayback.init(dataSource),
-          window.RecordWidgetPlayback.init(dataSource),
+          RecordWidgetPlayback.init(dataSource),
           window.TracklistWidgetPlayback.init(dataSource),
           ProgressWidgetPlayback.init(dataSource),
           window.LyricsWidgetPlayback.init(dataSource),

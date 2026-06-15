@@ -1,88 +1,82 @@
 import { DataSource } from "../../js/datasource";
-import { RecordDesignData_t, WidgetState, Global_RecordWidgetData, Global_RecordWidgetState, Global_MediaPlaybackState } from "../../types/state";
+import {
+    RecordDesignData_t,
+    WidgetState,
+    MediaPlaybackState,
+    Global_RecordWidgetData,
+    Global_RecordWidgetState,
+    Global_MediaPlaybackState,
+} from "../../types/state";
+import { RecordWidget } from "./record_app";
 
-(function () {
-    const RECORD_SLIDE_MS = 700;
-    let transitionToken = 0;
-    let lastRecordData: unknown = null;
-
-    function applyData(data: unknown): void {
-        lastRecordData = data;
-        window.RecordWidget?.updateData?.(RecordDesignData_t.fromJson(data));
+export class RecordWidgetPlayback_t {
+    private applyData(data: RecordDesignData_t): void {
+        RecordWidget.updateData(RecordDesignData_t.fromJson(data));
     }
 
-    function applyState(state: unknown): void {
+    private applyState(state: number): void {
         const numericState = Number(state);
 
-        if (numericState === WidgetState.Show) {
-            const token = ++transitionToken;
-            window.RecordWidget?.show?.({
-                visible: false,
-                revealForPlayback: {
-                    token,
-                    getPlaybackToken: function () { return transitionToken; },
-                },
-            });
-            return;
-        }
+        switch (numericState) {
+            case WidgetState.Show:
+                RecordWidget.show();
+                return;
 
-        if (numericState === WidgetState.Hide) {
-            const token = ++transitionToken;
-            window.RecordWidget?.hide?.({
-                visible: false,
-                beginStop: {
-                    token,
-                    getPlaybackToken: function () { return transitionToken; },
-                    isError: false,
-                    delayMs: RECORD_SLIDE_MS,
-                },
-            });
-            return;
-        }
+            case WidgetState.Hide:
+                RecordWidget.hide();
+                return;
 
-        if (numericState === WidgetState.Pause) {
-            window.RecordWidget?.pause?.();
-            return;
-        }
+            case WidgetState.Pause:
+                RecordWidget.pause();
+                return;
 
-        if (numericState === WidgetState.Resume) {
-            window.RecordWidget?.play?.();
-            return;
-        }
+            case WidgetState.Resume:
+                RecordWidget.play();
+                return;
 
-        if (numericState === WidgetState.EjectRecord) {
-            applyData(lastRecordData);
-            window.RecordWidget?.ejectRecord?.();
-            return;
+            case WidgetState.EjectRecord:
+                RecordWidget.ejectRecord();
+                return;
         }
     }
 
-    function applyPlaybackState(state: unknown): void {
-        const playbackState = Number(state);
-        window.RecordWidget?.show?.({ visible: false, playbackState });
+    private applyPlaybackState(state: number): void {
+        if (Number(state) === MediaPlaybackState.Playing) {
+            RecordWidget.play();
+            return;
+        }
+
+        RecordWidget.pause();
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
-            switch (variable) {
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable: unknown, data: unknown) => {
+            const globalVariable = variable as string;
+
+            switch (globalVariable) {
                 case Global_RecordWidgetData.key:
-                    applyData(data);
+                    this.applyData(data as RecordDesignData_t);
                     break;
+
                 case Global_RecordWidgetState:
-                    applyState(data);
+                    this.applyState(data as number);
                     break;
+
                 case Global_MediaPlaybackState:
-                    applyPlaybackState(data);
+                    this.applyPlaybackState(data as number);
                     break;
             }
         });
 
-        const currentData = await dataSource.read(Global_RecordWidgetData.key);
-        applyData(currentData);
+        const currentData = await dataSource.read<RecordDesignData_t>(Global_RecordWidgetData.key);
+        this.applyData(currentData);
 
-        const currentState = await dataSource.read(Global_RecordWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_RecordWidgetState);
+        this.applyState(currentState);
+
+        const currentPlaybackState = await dataSource.read<number>(Global_MediaPlaybackState);
+        this.applyPlaybackState(currentPlaybackState);
     }
+}
 
-    window.RecordWidgetPlayback = { init };
-})();
+export const RecordWidgetPlayback = new RecordWidgetPlayback_t();

@@ -5,6 +5,7 @@ import { LoadingWidgetPlayback } from "../widgets/loading/loading_playback";
 import { OverlayWidgetPlayback } from "../widgets/overlay/overlay_playback";
 import { ProgressWidgetPlayback } from "../widgets/progress/progress_playback";
 import { QrCodeWidgetPlayback } from "../widgets/qrcode/qrcode_playback";
+import { RecordWidgetPlayback } from "../widgets/record/record_playback";
 import { DataSource } from "./datasource";
 
 (function () {
@@ -54,7 +55,7 @@ import { DataSource } from "./datasource";
             await Promise.all([
                 LoadingWidgetPlayback.init(dataSource),
                 OverlayWidgetPlayback.init(dataSource),
-                window.RecordWidgetPlayback.init(dataSource),
+                RecordWidgetPlayback.init(dataSource),
                 window.TracklistWidgetPlayback.init(dataSource),
                 ProgressWidgetPlayback.init(dataSource),
                 window.LyricsWidgetPlayback.init(dataSource),
