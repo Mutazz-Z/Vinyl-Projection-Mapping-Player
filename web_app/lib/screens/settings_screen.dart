@@ -60,13 +60,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadAllData();
 
     _eventSub = systemDataSource.onDataSourceChanged.listen((args) {
-      if (args.variable == globalProjectorHeartbeat.keyName && args.data != null) {
-        final data = args.data;
-        if (mounted && data['id'] != null) {
+      if (args.variable == globalProjectorHeartbeat.keyName &&
+          args.data != null) {
+        final heartbeat = ProjectorHeartbeat_t.fromJson(
+          Map<String, dynamic>.from(args.data as Map),
+        );
+        if (mounted && heartbeat.id.isNotEmpty) {
           setState(() {
-            _discoveredProjectors[data['id']] = {
-              'width': (data['width'] as num).toDouble(),
-              'height': (data['height'] as num).toDouble(),
+            _discoveredProjectors[heartbeat.id] = {
+              'width': heartbeat.width,
+              'height': heartbeat.height,
             };
           });
         }
@@ -137,11 +140,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final w = await systemDataSource.read(globalTargetDisplayWidthInPixels);
-      final h = await systemDataSource.read(
-        globalMusicAssistantTargetPlayerId,
-      );
-      _projectorWidth = double.tryParse(w?.toString() ?? '') ?? 1920;
-      _projectorHeight = double.tryParse(h?.toString() ?? '') ?? 1080;
+      final h = await systemDataSource.read(globalMusicAssistantTargetPlayerId);
+      _projectorWidth = double.tryParse(w.toString()) ?? 1920;
+      _projectorHeight = double.tryParse(h.toString()) ?? 1080;
 
       _widthController.text = _projectorWidth.round().toString();
       _heightController.text = _projectorHeight.round().toString();
@@ -149,10 +150,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final stored = await systemDataSource.read(
         globalCurrentMaptasticProjectorPositions,
       );
-      if (stored != null && stored.toString().isNotEmpty) {
-        List<dynamic> layoutData = (stored is String)
-            ? jsonDecode(stored)
-            : stored;
+      if (stored.layoutJson.isNotEmpty) {
+        final List<dynamic> layoutData = jsonDecode(stored.layoutJson);
         if (layoutData.isNotEmpty && layoutData[0]['targetPoints'] != null) {
           final pts = layoutData[0]['targetPoints'];
           setState(() {
@@ -193,18 +192,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _discoveredProjectors.clear();
       _targetProjectorId = 'all';
     });
-    systemDataSource.write(globalProjectorHeartbeatSignal, {
-      'action': 'ping',
-      'ts': DateTime.now().millisecondsSinceEpoch,
-    });
+    systemDataSource.write(
+      globalProjectorHeartbeatSignal,
+      ProjectorHeartbeatSignal_t(
+        action: 'ping',
+        targetId: 'all',
+        data: '',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
   }
 
   void _toggleProjectorUI() {
-    systemDataSource.write(globalProjectorHeartbeatSignal, {
-      'action': 'toggle',
-      'targetId': _targetProjectorId,
-      'ts': DateTime.now().millisecondsSinceEpoch,
-    });
+    systemDataSource.write(
+      globalProjectorHeartbeatSignal,
+      ProjectorHeartbeatSignal_t(
+        action: 'toggle',
+        targetId: _targetProjectorId,
+        data: '',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
   }
 
   void _scheduleAutomaticSave() {
@@ -398,9 +406,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ];
       systemDataSource.write(
         globalCurrentMaptasticProjectorPositions,
-        jsonEncode(layout),
+        MaptasticProjectorPositions_t(layoutJson: jsonEncode(layout)),
       );
     });
+  }
+
+  List<dynamic> _decodeLayoutJson(dynamic layoutJson) {
+    if (layoutJson is String) {
+      if (layoutJson.isEmpty) return [];
+      final decodedLayout = jsonDecode(layoutJson);
+      return decodedLayout is List<dynamic> ? decodedLayout : [decodedLayout];
+    }
+
+    if (layoutJson is List<dynamic>) {
+      return layoutJson;
+    }
+
+    if (layoutJson is Map<String, dynamic>) {
+      return [layoutJson];
+    }
+
+    return [];
   }
 
   void _centerMapping() {
@@ -454,7 +480,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     systemDataSource.write(
       globalSavedMaptasticProjectorPositions,
-      jsonEncode(layout),
+      MaptasticProjectorPositions_t(layoutJson: jsonEncode(layout)),
     );
 
     if (mounted) {
@@ -471,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final stored = await systemDataSource.read(
         globalSavedMaptasticProjectorPositions,
       );
-      if (stored == null || stored.toString().isEmpty) {
+      if (stored.layoutJson.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No global preset saved yet.')),
@@ -480,9 +506,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      List<dynamic> layoutData = (stored is String)
-          ? jsonDecode(stored)
-          : stored;
+      final List<dynamic> layoutData = _decodeLayoutJson(stored.layoutJson);
       if (layoutData.isNotEmpty && layoutData[0]['targetPoints'] != null) {
         final pts = layoutData[0]['targetPoints'];
         setState(() {

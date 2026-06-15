@@ -1,6 +1,6 @@
-import { Global_ActiveTrack, ActiveTrack_t, Global_ProjectorHeartbeatSignal, Global_ProjectorHeartbeat } from "../types/state";
-import "./mapping";
+import { Global_ActiveTrack, ActiveTrack_t, Global_ProjectorHeartbeatSignal, Global_ProjectorHeartbeat, ProjectorHeartbeat_t, ProjectorHeartbeatSignal_t, Global_CurrentMaptasticProjectorPositions, MaptasticProjectorPositions_t } from "../types/state";
 import { TrackResolver } from "./track_resolver";
+import { ProjectorMapping } from "./mapping";
 import { ContextMessageWidgetPlayback } from "../widgets/context_message/context_message_playback";
 import { InfoWidgetPlayback } from "../widgets/info/info_playback";
 import { LoadingWidgetPlayback } from "../widgets/loading/loading_playback";
@@ -31,11 +31,6 @@ declare global {
     let webSocket: WebSocket;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
-    type MappingCommand = {
-        action?: string;
-        data?: object | Array<object> | null;
-    };
-
     function connect(): void {
         const wsUrl = `ws://${wsHost}:${wsPort}/ws`;
         console.log('Projector WS connecting to:', wsUrl);
@@ -58,9 +53,21 @@ declare global {
                         TrackResolver.setActiveTrackIndex(Number(activeTrack.trackIndex || 0));
                         break;
                     }
-                    case Global_ProjectorHeartbeatSignal:
-                        handleMappingCommand((data || {}) as MappingCommand, dataSource);
+                    case Global_ProjectorHeartbeatSignal.key:
+                        handleMappingCommand(ProjectorHeartbeatSignal_t.fromJson(data), dataSource);
                         break;
+                    case Global_CurrentMaptasticProjectorPositions.key: {
+                        const positions = MaptasticProjectorPositions_t.fromJson(data);
+                        if (positions.layoutJson) {
+                            try {
+                                const layout = JSON.parse(positions.layoutJson);
+                                ProjectorMapping.updateLayout(layout);
+                            } catch (error) {
+                                console.error('Failed to parse layout from updated positions:', error);
+                            }
+                        }
+                        break;
+                    }
                 }
             });
 
@@ -93,13 +100,13 @@ declare global {
         };
     }
 
-    function handleMappingCommand(command: MappingCommand, dataSource: DataSource): void {
+    function handleMappingCommand(command: ProjectorHeartbeatSignal_t, dataSource: DataSource): void {
         switch (command.action) {
             case 'layout':
-                window.ProjectorMapping.updateLayout(command.data);
+                ProjectorMapping.updateLayout(command.data ? JSON.parse(command.data) : null);
                 break;
             case 'toggle':
-                window.ProjectorMapping.toggleMode();
+                ProjectorMapping.toggleMode();
                 break;
             case 'ping':
                 announcePresence(dataSource);
@@ -108,12 +115,12 @@ declare global {
     }
 
     function announcePresence(dataSource: DataSource): void {
-        dataSource.write(Global_ProjectorHeartbeat, {
+        dataSource.write(Global_ProjectorHeartbeat, new ProjectorHeartbeat_t({
             id: CLIENT_ID,
             width: window.innerWidth,
             height: window.innerHeight,
-            ts: Date.now(),
-        });
+            timestamp: Date.now(),
+        }));
     }
 
     connect();

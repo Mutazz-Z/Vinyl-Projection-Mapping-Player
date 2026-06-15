@@ -1,22 +1,25 @@
 "use strict";
 (() => {
   // types/state.ts
-  var LyricLine_t = class _LyricLine_t {
+  var QrCodeData_t = class _QrCodeData_t {
     constructor(parameters) {
-      this.timeStart = parameters.timeStart ?? 0;
-      this.text = parameters.text ?? "";
+      this.registrationUrl = parameters.registrationUrl ?? "";
+      this.uid = parameters.uid ?? "";
+      this.readyForDisplay = parameters.readyForDisplay ?? false;
     }
     static fromJson(json) {
-      if (!json || typeof json !== "object") return new _LyricLine_t({});
-      return new _LyricLine_t({
-        timeStart: Number(json["time_start"] ?? 0),
-        text: typeof json["text"] === "string" ? json["text"] : ""
+      if (!json || typeof json !== "object") return new _QrCodeData_t({});
+      return new _QrCodeData_t({
+        registrationUrl: typeof json["registration_url"] === "string" ? json["registration_url"] : "",
+        uid: typeof json["uid"] === "string" ? json["uid"] : "",
+        readyForDisplay: json["readyForDisplay"] === true
       });
     }
     toJson() {
       return {
-        "time_start": this.timeStart,
-        "text": this.text
+        "registration_url": this.registrationUrl,
+        "uid": this.uid,
+        "readyForDisplay": this.readyForDisplay
       };
     }
   };
@@ -36,6 +39,65 @@
       return {
         "uid": this.uid,
         "signal": this.signal
+      };
+    }
+  };
+  var TitleAndArtist_t = class _TitleAndArtist_t {
+    constructor(parameters) {
+      this.title = parameters.title ?? "";
+      this.artist = parameters.artist ?? "";
+      this.readyForDisplay = parameters.readyForDisplay ?? false;
+    }
+    static fromJson(json) {
+      if (!json || typeof json !== "object") return new _TitleAndArtist_t({});
+      return new _TitleAndArtist_t({
+        title: typeof json["title"] === "string" ? json["title"] : "",
+        artist: typeof json["artist"] === "string" ? json["artist"] : "",
+        readyForDisplay: json["readyForDisplay"] === true
+      });
+    }
+    toJson() {
+      return {
+        "title": this.title,
+        "artist": this.artist,
+        "readyForDisplay": this.readyForDisplay
+      };
+    }
+  };
+  var TrackLyrics_t = class _TrackLyrics_t {
+    constructor(parameters) {
+      this.trackSupportsLyrics = parameters.trackSupportsLyrics ?? false;
+      this.lines = parameters.lines ?? [];
+    }
+    static fromJson(json) {
+      if (!json || typeof json !== "object") return new _TrackLyrics_t({});
+      return new _TrackLyrics_t({
+        trackSupportsLyrics: json["track_supports_lyrics"] === true,
+        lines: Array.isArray(json["lines"]) ? json["lines"].map((element) => LyricLine_t.fromJson(element)) : []
+      });
+    }
+    toJson() {
+      return {
+        "track_supports_lyrics": this.trackSupportsLyrics,
+        "lines": this.lines.map(function(element) {
+          return element.toJson();
+        })
+      };
+    }
+  };
+  var MaptasticProjectorPositions_t = class _MaptasticProjectorPositions_t {
+    constructor(parameters) {
+      this.layoutJson = parameters.layoutJson ?? "";
+    }
+    static fromJson(json) {
+      if (!json || typeof json !== "object") return new _MaptasticProjectorPositions_t({});
+      return new _MaptasticProjectorPositions_t({
+        layoutJson: typeof json["layoutJson"] === "string" ? json["layoutJson"] : ""
+      });
+    }
+    toJson() {
+      return {
+        "layoutJson": this.layoutJson
       };
     }
   };
@@ -61,68 +123,21 @@
       };
     }
   };
-  var QrCodeData_t = class _QrCodeData_t {
+  var OverlayData_t = class _OverlayData_t {
     constructor(parameters) {
-      this.registrationUrl = parameters.registrationUrl ?? "";
-      this.uid = parameters.uid ?? "";
+      this.overlayImage = parameters.overlayImage ?? "";
       this.readyForDisplay = parameters.readyForDisplay ?? false;
     }
     static fromJson(json) {
-      if (!json || typeof json !== "object") return new _QrCodeData_t({});
-      return new _QrCodeData_t({
-        registrationUrl: typeof json["registration_url"] === "string" ? json["registration_url"] : "",
-        uid: typeof json["uid"] === "string" ? json["uid"] : "",
+      if (!json || typeof json !== "object") return new _OverlayData_t({});
+      return new _OverlayData_t({
+        overlayImage: typeof json["overlayImage"] === "string" ? json["overlayImage"] : "",
         readyForDisplay: json["readyForDisplay"] === true
       });
     }
     toJson() {
       return {
-        "registration_url": this.registrationUrl,
-        "uid": this.uid,
-        "readyForDisplay": this.readyForDisplay
-      };
-    }
-  };
-  var RingDesignData_t = class _RingDesignData_t {
-    constructor(parameters) {
-      this.usesImage = parameters.usesImage ?? false;
-      this.ringColor = parameters.ringColor ?? "";
-      this.ringImage = parameters.ringImage ?? "";
-    }
-    static fromJson(json) {
-      if (!json || typeof json !== "object") return new _RingDesignData_t({});
-      return new _RingDesignData_t({
-        usesImage: json["usesImage"] === true,
-        ringColor: typeof json["ringColor"] === "string" ? json["ringColor"] : "",
-        ringImage: typeof json["ringImage"] === "string" ? json["ringImage"] : ""
-      });
-    }
-    toJson() {
-      return {
-        "usesImage": this.usesImage,
-        "ringColor": this.ringColor,
-        "ringImage": this.ringImage
-      };
-    }
-  };
-  var TitleAndArtist_t = class _TitleAndArtist_t {
-    constructor(parameters) {
-      this.title = parameters.title ?? "";
-      this.artist = parameters.artist ?? "";
-      this.readyForDisplay = parameters.readyForDisplay ?? false;
-    }
-    static fromJson(json) {
-      if (!json || typeof json !== "object") return new _TitleAndArtist_t({});
-      return new _TitleAndArtist_t({
-        title: typeof json["title"] === "string" ? json["title"] : "",
-        artist: typeof json["artist"] === "string" ? json["artist"] : "",
-        readyForDisplay: json["readyForDisplay"] === true
-      });
-    }
-    toJson() {
-      return {
-        "title": this.title,
-        "artist": this.artist,
+        "overlayImage": this.overlayImage,
         "readyForDisplay": this.readyForDisplay
       };
     }
@@ -174,25 +189,28 @@
       };
     }
   };
-  var ProgressData_t = class _ProgressData_t {
+  var ProjectorHeartbeatSignal_t = class _ProjectorHeartbeatSignal_t {
     constructor(parameters) {
-      this.currentDurationInTrack = parameters.currentDurationInTrack ?? 0;
-      this.totalDurationInTrack = parameters.totalDurationInTrack ?? 0;
-      this.readyForDisplay = parameters.readyForDisplay ?? false;
+      this.action = parameters.action ?? "";
+      this.targetId = parameters.targetId ?? "";
+      this.data = parameters.data ?? "";
+      this.timestamp = parameters.timestamp ?? 0;
     }
     static fromJson(json) {
-      if (!json || typeof json !== "object") return new _ProgressData_t({});
-      return new _ProgressData_t({
-        currentDurationInTrack: Number(json["currentDurationInTrack"] ?? 0),
-        totalDurationInTrack: Number(json["totalDurationInTrack"] ?? 0),
-        readyForDisplay: json["readyForDisplay"] === true
+      if (!json || typeof json !== "object") return new _ProjectorHeartbeatSignal_t({});
+      return new _ProjectorHeartbeatSignal_t({
+        action: typeof json["action"] === "string" ? json["action"] : "",
+        targetId: typeof json["targetId"] === "string" ? json["targetId"] : "",
+        data: typeof json["data"] === "string" ? json["data"] : "",
+        timestamp: Number(json["timestamp"] ?? 0)
       });
     }
     toJson() {
       return {
-        "currentDurationInTrack": this.currentDurationInTrack,
-        "totalDurationInTrack": this.totalDurationInTrack,
-        "readyForDisplay": this.readyForDisplay
+        "action": this.action,
+        "targetId": this.targetId,
+        "data": this.data,
+        "timestamp": this.timestamp
       };
     }
   };
@@ -218,24 +236,44 @@
       };
     }
   };
-  var TrackLyrics_t = class _TrackLyrics_t {
+  var RingDesignData_t = class _RingDesignData_t {
     constructor(parameters) {
-      this.trackSupportsLyrics = parameters.trackSupportsLyrics ?? false;
-      this.lines = parameters.lines ?? [];
+      this.usesImage = parameters.usesImage ?? false;
+      this.ringColor = parameters.ringColor ?? "";
+      this.ringImage = parameters.ringImage ?? "";
     }
     static fromJson(json) {
-      if (!json || typeof json !== "object") return new _TrackLyrics_t({});
-      return new _TrackLyrics_t({
-        trackSupportsLyrics: json["track_supports_lyrics"] === true,
-        lines: Array.isArray(json["lines"]) ? json["lines"].map((element) => LyricLine_t.fromJson(element)) : []
+      if (!json || typeof json !== "object") return new _RingDesignData_t({});
+      return new _RingDesignData_t({
+        usesImage: json["usesImage"] === true,
+        ringColor: typeof json["ringColor"] === "string" ? json["ringColor"] : "",
+        ringImage: typeof json["ringImage"] === "string" ? json["ringImage"] : ""
       });
     }
     toJson() {
       return {
-        "track_supports_lyrics": this.trackSupportsLyrics,
-        "lines": this.lines.map(function(element) {
-          return element.toJson();
-        })
+        "usesImage": this.usesImage,
+        "ringColor": this.ringColor,
+        "ringImage": this.ringImage
+      };
+    }
+  };
+  var LyricLine_t = class _LyricLine_t {
+    constructor(parameters) {
+      this.timeStart = parameters.timeStart ?? 0;
+      this.text = parameters.text ?? "";
+    }
+    static fromJson(json) {
+      if (!json || typeof json !== "object") return new _LyricLine_t({});
+      return new _LyricLine_t({
+        timeStart: Number(json["time_start"] ?? 0),
+        text: typeof json["text"] === "string" ? json["text"] : ""
+      });
+    }
+    toJson() {
+      return {
+        "time_start": this.timeStart,
+        "text": this.text
       };
     }
   };
@@ -282,27 +320,59 @@
       };
     }
   };
-  var OverlayData_t = class _OverlayData_t {
+  var ProjectorHeartbeat_t = class _ProjectorHeartbeat_t {
     constructor(parameters) {
-      this.overlayImage = parameters.overlayImage ?? "";
+      this.id = parameters.id ?? "";
+      this.width = parameters.width ?? 0;
+      this.height = parameters.height ?? 0;
+      this.timestamp = parameters.timestamp ?? 0;
+    }
+    static fromJson(json) {
+      if (!json || typeof json !== "object") return new _ProjectorHeartbeat_t({});
+      return new _ProjectorHeartbeat_t({
+        id: typeof json["id"] === "string" ? json["id"] : "",
+        width: Number(json["width"] ?? 0),
+        height: Number(json["height"] ?? 0),
+        timestamp: Number(json["timestamp"] ?? 0)
+      });
+    }
+    toJson() {
+      return {
+        "id": this.id,
+        "width": this.width,
+        "height": this.height,
+        "timestamp": this.timestamp
+      };
+    }
+  };
+  var ProgressData_t = class _ProgressData_t {
+    constructor(parameters) {
+      this.currentDurationInTrack = parameters.currentDurationInTrack ?? 0;
+      this.totalDurationInTrack = parameters.totalDurationInTrack ?? 0;
       this.readyForDisplay = parameters.readyForDisplay ?? false;
     }
     static fromJson(json) {
-      if (!json || typeof json !== "object") return new _OverlayData_t({});
-      return new _OverlayData_t({
-        overlayImage: typeof json["overlayImage"] === "string" ? json["overlayImage"] : "",
+      if (!json || typeof json !== "object") return new _ProgressData_t({});
+      return new _ProgressData_t({
+        currentDurationInTrack: Number(json["currentDurationInTrack"] ?? 0),
+        totalDurationInTrack: Number(json["totalDurationInTrack"] ?? 0),
         readyForDisplay: json["readyForDisplay"] === true
       });
     }
     toJson() {
       return {
-        "overlayImage": this.overlayImage,
+        "currentDurationInTrack": this.currentDurationInTrack,
+        "totalDurationInTrack": this.totalDurationInTrack,
         "readyForDisplay": this.readyForDisplay
       };
     }
   };
   var Global_LastKnownUidScanned = { key: "Global_LastKnownUidScanned", fromJson: UidScanned_t.fromJson };
   var Global_LastUnknownUidScanned = { key: "Global_LastUnknownUidScanned", fromJson: UidScanned_t.fromJson };
+  var Global_ProjectorHeartbeatSignal = { key: "Global_ProjectorHeartbeatSignal", fromJson: ProjectorHeartbeatSignal_t.fromJson };
+  var Global_ProjectorHeartbeat = { key: "Global_ProjectorHeartbeat", fromJson: ProjectorHeartbeat_t.fromJson };
+  var Global_CurrentMaptasticProjectorPositions = { key: "Global_CurrentMaptasticProjectorPositions", fromJson: MaptasticProjectorPositions_t.fromJson };
+  var Global_SavedMaptasticProjectorPositions = { key: "Global_SavedMaptasticProjectorPositions", fromJson: MaptasticProjectorPositions_t.fromJson };
   var Global_InfoWidgetData = { key: "Global_InfoWidgetData", fromJson: TitleAndArtist_t.fromJson };
   var Global_OverlayWidgetData = { key: "Global_OverlayWidgetData", fromJson: OverlayData_t.fromJson };
   var Global_OverlayWidgetState = "Global_OverlayWidgetState";

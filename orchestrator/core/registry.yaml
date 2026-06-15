@@ -66,8 +66,8 @@ variables:
   # ── Projector ────────────────────────────────────────────────────────────
   - name: ProjectorHeartbeatSignal
     storage: Volatile
-    type: interface{}
-    default: nil
+    type: typedefs.ProjectorHeartbeatSignal_t
+    default: "typedefs.ProjectorHeartbeatSignal_t{}"
 
   - name: DefinedProjectorErrorMessage
     storage: Volatile
@@ -76,8 +76,8 @@ variables:
 
   - name: ProjectorHeartbeat
     storage: Volatile
-    type: interface{}
-    default: nil
+    type: typedefs.ProjectorHeartbeat_t
+    default: "typedefs.ProjectorHeartbeat_t{}"
 
   - name: TargetDisplayWidthInPixels
     storage: NonVolatile
@@ -91,13 +91,13 @@ variables:
 
   - name: CurrentMaptasticProjectorPositions
     storage: NonVolatile
-    type: string
-    default: '""'
+    type: typedefs.MaptasticProjectorPositions_t
+    default: "typedefs.MaptasticProjectorPositions_t{}"
 
   - name: SavedMaptasticProjectorPositions
     storage: NonVolatile
-    type: string
-    default: '""'
+    type: typedefs.MaptasticProjectorPositions_t
+    default: "typedefs.MaptasticProjectorPositions_t{}"
 
   - name: LoadingWidgetState
     storage: Volatile

@@ -165,12 +165,12 @@ func init() {
 
 // ── ProjectorHeartbeatSignal ──────────────────────────────────
 
-var Global_ProjectorHeartbeatSignal = TypedKey[interface{}]{Key: "Global_ProjectorHeartbeatSignal"}
+var Global_ProjectorHeartbeatSignal = TypedKey[typedefs.ProjectorHeartbeatSignal_t]{Key: "Global_ProjectorHeartbeatSignal"}
 
 func init() {
 	StateRegistry[Global_ProjectorHeartbeatSignal.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: interface{}(nil),
+		DefaultData: typedefs.ProjectorHeartbeatSignal_t(typedefs.ProjectorHeartbeatSignal_t{}),
 	}
 }
 
@@ -187,12 +187,12 @@ func init() {
 
 // ── ProjectorHeartbeat ──────────────────────────────────
 
-var Global_ProjectorHeartbeat = TypedKey[interface{}]{Key: "Global_ProjectorHeartbeat"}
+var Global_ProjectorHeartbeat = TypedKey[typedefs.ProjectorHeartbeat_t]{Key: "Global_ProjectorHeartbeat"}
 
 func init() {
 	StateRegistry[Global_ProjectorHeartbeat.Key] = StateMetadata{
 		StorageType: Volatile,
-		DefaultData: interface{}(nil),
+		DefaultData: typedefs.ProjectorHeartbeat_t(typedefs.ProjectorHeartbeat_t{}),
 	}
 }
 
@@ -220,23 +220,23 @@ func init() {
 
 // ── CurrentMaptasticProjectorPositions ──────────────────────────────────
 
-var Global_CurrentMaptasticProjectorPositions = TypedKey[string]{Key: "Global_CurrentMaptasticProjectorPositions"}
+var Global_CurrentMaptasticProjectorPositions = TypedKey[typedefs.MaptasticProjectorPositions_t]{Key: "Global_CurrentMaptasticProjectorPositions"}
 
 func init() {
 	StateRegistry[Global_CurrentMaptasticProjectorPositions.Key] = StateMetadata{
 		StorageType: NonVolatile,
-		DefaultData: string(""),
+		DefaultData: typedefs.MaptasticProjectorPositions_t(typedefs.MaptasticProjectorPositions_t{}),
 	}
 }
 
 // ── SavedMaptasticProjectorPositions ──────────────────────────────────
 
-var Global_SavedMaptasticProjectorPositions = TypedKey[string]{Key: "Global_SavedMaptasticProjectorPositions"}
+var Global_SavedMaptasticProjectorPositions = TypedKey[typedefs.MaptasticProjectorPositions_t]{Key: "Global_SavedMaptasticProjectorPositions"}
 
 func init() {
 	StateRegistry[Global_SavedMaptasticProjectorPositions.Key] = StateMetadata{
 		StorageType: NonVolatile,
-		DefaultData: string(""),
+		DefaultData: typedefs.MaptasticProjectorPositions_t(typedefs.MaptasticProjectorPositions_t{}),
 	}
 }
 

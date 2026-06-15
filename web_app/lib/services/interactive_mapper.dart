@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:web_app/factories/state.dart';
@@ -55,7 +56,7 @@ class InteractiveMapperState extends State<InteractiveMapper> {
   void _publishLayout() {
     if (_throttleTimer?.isActive ?? false) return;
 
-    _throttleTimer = Timer(const Duration(milliseconds: 100), () {
+    _throttleTimer = Timer(const Duration(milliseconds: 50), () {
       final layout = [
         {
           "id": "projection-group",
@@ -76,12 +77,15 @@ class InteractiveMapperState extends State<InteractiveMapper> {
         },
       ];
 
-      widget.systemDataSource.write(globalProjectorHeartbeatSignal, {
-        'action': 'layout',
-        'targetId': widget.targetId,
-        'data': layout,
-        'ts': DateTime.now().millisecondsSinceEpoch,
-      });
+      widget.systemDataSource.write(
+        globalProjectorHeartbeatSignal,
+        ProjectorHeartbeatSignal_t(
+          action: 'layout',
+          targetId: widget.targetId,
+          data: jsonEncode(layout),
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
     });
   }
 
