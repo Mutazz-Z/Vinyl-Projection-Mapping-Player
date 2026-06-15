@@ -1,85 +1,57 @@
 import { QrCodeData_t } from "../../types/state";
 
-(function () {
-    type QrHideOptions = {
-        visible?: boolean;
-        clearUnknownTagIndicator?: boolean;
-    };
+export class QrCodeWidget_t {
 
-    function getContainer(): HTMLElement | null {
-        return document.getElementById('qrcode-container');
+    private getContainer(): HTMLElement {
+        return document.getElementById('qrcode-container') as HTMLElement;
     }
 
-    function getUnknownTagIndicator(): HTMLElement | null {
-        return document.getElementById('unknown-tag-indicator');
+    private getUnknownTagIndicator(): HTMLElement {
+        return document.getElementById('unknown-tag-indicator') as HTMLElement;
     }
 
-    function buildRegistrationUrl(qrCodeData?: QrCodeData_t): string {
-        if (qrCodeData && qrCodeData.registrationUrl) {
-            return String(qrCodeData.registrationUrl).replace(':8000', '');
+    private getQrRenderTargetElement(): HTMLElement {
+        return document.getElementById('unknown-tag-qr') as HTMLElement;
+    }
+
+    private getUidLabelElement(): HTMLElement {
+        return document.getElementById('unknown-tag-uid') as HTMLElement;
+    }
+
+    private renderQrCodeImage(registrationUrl: string): void {
+        const qrRenderTargetElement = this.getQrRenderTargetElement();
+
+        qrRenderTargetElement.innerHTML = '';
+
+        new (window as any).QRCode(qrRenderTargetElement, {
+            text: registrationUrl,
+            width: 240,
+            height: 240,
+            correctLevel: (window as any).QRCode.CorrectLevel.M,
+        });
+    }
+
+    public updateData(qrCodeData: QrCodeData_t): void {
+        if (qrCodeData.readyForDisplay) {
+            this.renderQrCodeImage(qrCodeData.registrationUrl);
+
+            const uidLabelElement = this.getUidLabelElement();
+            uidLabelElement.textContent = `Register Tag: ${qrCodeData.uid}`;
         }
-
-        return '';
     }
 
-    function show(qrCodeData?: QrCodeData_t): void {
-        const currentQrCodeData = qrCodeData;
-
-        const container = getContainer();
-        const qrImageElement = document.getElementById('unknown-tag-qr') as HTMLImageElement | null;
-        const uidLabelElement = document.getElementById('unknown-tag-uid');
-        if (!container || !qrImageElement || !uidLabelElement) return;
-
-        const registrationUrl = buildRegistrationUrl(currentQrCodeData);
-
-        if (typeof QRCode !== 'undefined') {
-            const hiddenQRCodeContainer = document.createElement('div');
-            hiddenQRCodeContainer.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
-            document.body.appendChild(hiddenQRCodeContainer);
-
-            new QRCode(hiddenQRCodeContainer, {
-                text: registrationUrl,
-                width: 240,
-                height: 240,
-                correctLevel: QRCode.CorrectLevel.M,
-            });
-
-            const qrCanvasElement = hiddenQRCodeContainer.querySelector('canvas') as HTMLCanvasElement | null;
-            if (qrCanvasElement) {
-                qrImageElement.src = qrCanvasElement.toDataURL('image/png');
-            } else {
-                const qrImageFallbackElement = hiddenQRCodeContainer.querySelector('img') as HTMLImageElement | null;
-                if (qrImageFallbackElement && qrImageFallbackElement.src) {
-                    qrImageElement.src = qrImageFallbackElement.src;
-                }
-            }
-            document.body.removeChild(hiddenQRCodeContainer);
-        }
-
-        uidLabelElement.textContent = currentQrCodeData?.readyForDisplay ? 'Registration QR' : '';
-
-        void container.offsetWidth;
+    public show(): void {
+        const container = this.getContainer();
         container.classList.add('visible');
     }
 
-    function hide(options?: unknown): void {
-        const config: QrHideOptions = (options && typeof options === 'object') ? (options as QrHideOptions) : {};
-        const container = getContainer();
+    public hide(): void {
+        const container = this.getContainer();
+        container.classList.remove('visible');
 
-        if (config.visible !== false && container) {
-            container.classList.remove('visible');
-        }
-
-        if (config.clearUnknownTagIndicator !== false) {
-            const indicator = getUnknownTagIndicator();
-            if (indicator) {
-                indicator.classList.remove('visible');
-            }
-        }
+        const indicator = this.getUnknownTagIndicator();
+        indicator.classList.remove('visible');
     }
+}
 
-    window.QrCodeWidget = {
-        show: show,
-        hide: hide,
-    };
-})();
+export const QrCodeWidget = new QrCodeWidget_t();

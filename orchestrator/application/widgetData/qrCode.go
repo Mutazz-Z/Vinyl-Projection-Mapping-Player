@@ -29,6 +29,7 @@ func (instance *QrCode_t) updateQrCodeWidgetData(uid string) {
 	formattedUrl := fmt.Sprintf("http://%s/?uid=%s", flutterUrl, url.QueryEscape(uid))
 	unKnownTagQRCodeData := typedefs.QrCodeData_t{
 		RegistrationUrl: formattedUrl,
+		Uid:             uid,
 		ReadyForDisplay: true,
 	}
 
@@ -45,8 +46,8 @@ func (instance *QrCode_t) onDataSourceChanged(dataSourceChanged <-chan database.
 			}
 
 		case core.Global_LastUnknownUidScanned.Key:
-			lastUnknownUidScanned, _ := args.Data.(string)
-			instance.updateQrCodeWidgetData(lastUnknownUidScanned)
+			lastUnknownUidScanned, _ := args.Data.(typedefs.UidScanned_t)
+			instance.updateQrCodeWidgetData(lastUnknownUidScanned.Uid)
 		}
 	})
 }

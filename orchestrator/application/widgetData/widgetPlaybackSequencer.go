@@ -161,6 +161,7 @@ func (instance *WidgetPlaybackSequencer_t) showRegistrationQrCodeWidget() {
 	utils.Read(instance._private.systemDataSource, core.Global_QrCodeWidgetData, &qrCodeData)
 
 	if qrCodeData.ReadyForDisplay {
+		utils.StopTimer(&instance._private.timer)
 		utils.Write(instance._private.systemDataSource, core.Global_QrCodeWidgetState, typedefs.WidgetState_Show)
 	}
 }
@@ -202,8 +203,7 @@ func (instance *WidgetPlaybackSequencer_t) onDataSourceChanged(dataSourceChanged
 			utils.StartPeriodicTimer(&instance._private.timer, 250, instance.checkIfReadyForProjectorPlayback)
 
 		case core.Global_LastUnknownUidScanned.Key:
-			fmt.Println("Unknown UID scanned. Showing registration QR code widget.")
-			instance.showRegistrationQrCodeWidget()
+			utils.StartPeriodicTimer(&instance._private.timer, 250, instance.showRegistrationQrCodeWidget)
 
 		case core.Global_LyricsWidgetData.Key:
 			lyricsData, _ := args.Data.(typedefs.LyricData_t)

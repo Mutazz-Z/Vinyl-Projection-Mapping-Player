@@ -1,51 +1,42 @@
 import { DataSource } from "../../js/datasource";
 import { QrCodeData_t, WidgetState, Global_QrCodeWidgetData, Global_QrCodeWidgetState } from "../../types/state";
+import { QrCodeWidget } from "./qrcode_app";
 
-(function () {
-    let currentQrCodeData: QrCodeData_t | null = null;
-    let currentWidgetState: number = WidgetState.Hide;
+export class QrCodeWidgetPlayback_t {
 
-    function showQrCodeWidget(): void {
-        if (!currentQrCodeData || !currentQrCodeData.readyForDisplay) return;
+    private applyState(state: number): void {
+        switch (state) {
+            case WidgetState.Show:
+                QrCodeWidget.show();
+                break;
 
-        window.QrCodeWidget?.show?.(currentQrCodeData);
-    }
-
-    function applyData(data: unknown): void {
-        currentQrCodeData = QrCodeData_t.fromJson(data);
-    }
-
-    function applyState(state: unknown): void {
-        currentWidgetState = Number(state);
-
-        if (currentWidgetState === WidgetState.Show) {
-            showQrCodeWidget();
-            return;
-        }
-
-        if (currentWidgetState === WidgetState.Hide) {
-            window.QrCodeWidget?.hide?.();
+            case WidgetState.Hide:
+                QrCodeWidget.hide();
+                break;
         }
     }
 
-    async function init(dataSource: DataSource): Promise<void> {
-        dataSource.onStateChanged(function (variable, data) {
-            switch (variable) {
+    public async init(dataSource: DataSource): Promise<void> {
+        dataSource.onStateChanged((variable: unknown, data: unknown) => {
+            const globalVariable = variable as string;
+
+            switch (globalVariable) {
                 case Global_QrCodeWidgetData.key:
-                    applyData(data);
+                    QrCodeWidget.updateData(QrCodeData_t.fromJson(data));
                     break;
+
                 case Global_QrCodeWidgetState:
-                    applyState(data);
+                    this.applyState(data as number);
                     break;
             }
         });
 
-        const currentData = await dataSource.read(Global_QrCodeWidgetData.key);
-        applyData(currentData);
+        const currentData = await dataSource.read<QrCodeData_t>(Global_QrCodeWidgetData);
+        QrCodeWidget.updateData(currentData);
 
-        const currentState = await dataSource.read(Global_QrCodeWidgetState);
-        applyState(currentState);
+        const currentState = await dataSource.read<number>(Global_QrCodeWidgetState);
+        this.applyState(currentState);
     }
+}
 
-    window.QrCodeWidgetPlayback = { init };
-})();
+export const QrCodeWidgetPlayback = new QrCodeWidgetPlayback_t();

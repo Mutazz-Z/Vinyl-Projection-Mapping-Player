@@ -29,11 +29,6 @@ interface PlaybackControlWidget {
   show?: (options?: unknown) => void;
 }
 
-interface QrCodeWidgetApi {
-  show?: (qrCodeData?: QrCodeData_t) => void;
-  hide?: () => void;
-}
-
 interface TracklistWidgetApi {
   show?: (options?: unknown) => void;
   hide?: (options?: unknown) => void;
@@ -58,8 +53,6 @@ interface WidgetPlaybackController {
   init: (dataSource: DataSource) => Promise<void>;
 }
 
-interface QrCodeWidgetPlaybackController extends WidgetPlaybackController { }
-
 interface PlaybackClockSnapshot {
   progressSeconds: number;
   durationSeconds: number;
@@ -76,17 +69,6 @@ interface PlaybackClockApi {
 declare global {
   const TrackResolver: TrackResolverApi;
   function Maptastic(targetSelector: string): MaptasticController;
-  const QRCode: {
-    new(element: HTMLElement, options: {
-      text: string;
-      width: number;
-      height: number;
-      correctLevel: number;
-    }): unknown;
-    CorrectLevel: {
-      M: number;
-    };
-  };
 
   interface Window {
     resizeTimer?: ReturnType<typeof setTimeout>;
@@ -118,12 +100,10 @@ declare global {
     VisualizerWidget?: PlaybackControlWidget;
     RecordWidget?: RecordWidgetApi;
     TracklistWidget?: TracklistWidgetApi;
-    QrCodeWidget?: QrCodeWidgetApi;
     RecordWidgetPlayback: WidgetPlaybackController;
     TracklistWidgetPlayback: WidgetPlaybackController;
     LyricsWidgetPlayback: WidgetPlaybackController;
     VisualizerWidgetPlayback: WidgetPlaybackController;
-    QrCodeWidgetPlayback: QrCodeWidgetPlaybackController;
     TrackResolver: TrackResolverApi;
   }
 }

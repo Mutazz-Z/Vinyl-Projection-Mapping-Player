@@ -55,6 +55,13 @@
     display: block;
 }
 
+#unknown-tag-qr canvas,
+#unknown-tag-qr img {
+    width: 200px;
+    height: 200px;
+    display: block;
+}
+
 #unknown-tag-uid {
     font-family: monospace;
     font-size: 0.72rem;

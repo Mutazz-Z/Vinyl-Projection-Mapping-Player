@@ -4,6 +4,7 @@ import { InfoWidgetPlayback } from "../widgets/info/info_playback";
 import { LoadingWidgetPlayback } from "../widgets/loading/loading_playback";
 import { OverlayWidgetPlayback } from "../widgets/overlay/overlay_playback";
 import { ProgressWidgetPlayback } from "../widgets/progress/progress_playback";
+import { QrCodeWidgetPlayback } from "../widgets/qrcode/qrcode_playback";
 import { DataSource } from "./datasource";
 
 (function () {
@@ -59,7 +60,7 @@ import { DataSource } from "./datasource";
                 window.LyricsWidgetPlayback.init(dataSource),
                 window.VisualizerWidgetPlayback.init(dataSource),
                 InfoWidgetPlayback.init(dataSource),
-                window.QrCodeWidgetPlayback.init(dataSource),
+                QrCodeWidgetPlayback.init(dataSource),
                 ContextMessageWidgetPlayback.init(dataSource),
             ]);
 
